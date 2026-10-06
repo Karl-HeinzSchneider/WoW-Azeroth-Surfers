@@ -40,7 +40,7 @@ function game.New(random)
         distance = 0,
         forward = false,
         coins = 0,
-        speed = 12,
+        speed = 20,
         accumulator = 0,
         nextRow = 22,
         objects = {},
@@ -74,7 +74,7 @@ function game.Pause(s)
     s.accumulator = 0
 end
 local function tick(s)
-    s.speed = math.min(24, 12 + s.distance / 180)
+    s.speed = math.min(32, 20 + s.distance / 180)
     if s.forward then
         s.distance = s.distance + s.speed * STEP
     end

@@ -89,7 +89,7 @@ test("spawn stream remains bounded on long runs", function()
     local s = fresh()
     advance(s, 120, 60)
     assert(s.status == "running")
-    assert(#s.objects < 20 and s.speed <= 24)
+    assert(#s.objects < 20 and s.speed <= 32)
     for _, o in ipairs(s.objects) do
         assert(o.lane >= -1 and o.lane <= 1)
         if o.kind == "obstacle" then
