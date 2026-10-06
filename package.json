@@ -18,7 +18,7 @@
     "dev:link": "tsx src/link-addons.ts",
     "package:addons": "tsx src/package-addons.ts",
     "package:local": "tsx src/package-local.ts",
-    "test:game": "lua tests/simulation.lua && lua tests/model-bounds.lua && lua tests/controls.lua && lua tests/render-lanes.lua"
+    "test:game": "lua tests/simulation.lua && lua tests/model-bounds.lua && lua tests/controls.lua && lua tests/render-lanes.lua && lua tests/overlay.lua"
   },
   "devDependencies": {
     "@johnnymorganz/stylua-bin": "^2.5.2",

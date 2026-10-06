@@ -17,6 +17,8 @@ src\core\options.lua
 src\core\minimapbutton.lua
 
 src\game\simulation.lua
+src\game\shapes.lua
 src\game\window.lua
+src\game\overlay.lua
 
 Surfer.lua

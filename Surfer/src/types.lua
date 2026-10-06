@@ -7,7 +7,9 @@
 
 ---@class Surfer
 ---@field simulation table
----@field runner table
+---@field runner table  # the window view
+---@field overlay table  # the full-screen view around the real character
+---@field ToggleGame fun()  # opens the view chosen in the options, closes the other
 ---@field logger Surfer.Logger
 ---@field addon Surfer.Addon
 ---@field dbDefaults Surfer.DBDefaults

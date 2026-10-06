@@ -61,4 +61,29 @@ be listed**. The order follows these rules:
 
 ## Runner prototype
 
-src/game/simulation.lua is the pure fixed-step simulation; src/game/window.lua owns the window, ModelScene, projected curved road and controls. Both load after the core. /surfer and the minimap button toggle the game; /surfer options opens settings. global.bestScore stores the account high score. tests/simulation.lua runs without the client through npm run test:game. See the root README for controls and rendering limitations.
+src/game/simulation.lua is the pure fixed-step simulation on a lane/layer grid: every object is a
+box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
+collide or are collected. src/game/shapes.lua turns boxes into the faces both views draw (split at
+the runner for the overlay's mask) and pools their textures. Two views render it, chosen by `profile.view`;
+`app.ToggleGame()` (/surfer, minimap button) opens the chosen one and closes the other.
+
+- src/game/window.lua: `app.runner`, a window with a ModelScene copy of the character, a projected
+  curved road and buttons. It also owns the shared input, movement sampling and scoring methods.
+- src/game/overlay.lua: `app.overlay`, the full-screen view. The real character is the runner; the
+  road, obstacles and coins are UI textures at BACKGROUND strata, projected with a model of the
+  follow camera (focus point at screen center; pitch, focus height, FOV and, without
+  `GetCameraZoom`, distance from `profile.overlay`). Everything behind the character gets the
+  `assets/game/cutout.tga` mask (opaque, transparent capsule, CLAMP-wrapped) three times: head,
+  torso and legs, sized from the model's bounds and moved with a generic run cycle and jump tuck.
+  With `profile.overlay.character = "twin"` (default) a copy of the character covers the real one
+  instead (no masks): a square ModelScene around the projected body, sized by the road's
+  projection, with its camera at the road's camera (a square frame makes the scene's field-of-view
+  axis irrelevant). The real character's animation cannot be read, so the twin mirrors its
+  movement (`runner.motion` from position sampling, `GetUnitSpeed`, `IsFalling`). `hideReal` zooms
+  into first person
+  (`CameraZoomIn`) while the view is open, where the game does not draw the character.
+  Coins are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene each at the
+  projected position; models cannot be masked, so a coin hides while behind the body.
+
+global.bestScore stores the account high score. tests/\*.lua run without the client through
+npm run test:game. See the root README for controls and rendering limitations.

@@ -1,6 +1,7 @@
 ---@type string, Surfer
 local _, app = ...
 local sim = app.simulation
+local shapes = app.shapes
 local runner = {}
 app.runner = runner
 local W, H = 900, 500
@@ -10,11 +11,8 @@ local CAMERA_PITCH = 0.18
 local C, S = math.cos(CAMERA_PITCH), math.sin(CAMERA_PITCH)
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- The current yaw/pitch actor view renders positive simulation lanes on the left.
--- Keep collision lanes unchanged; convert to screen-right coordinates only for UI art.
-local function screenSide(lane)
-    return -lane * LANE
-end
+-- The current yaw/pitch actor view renders positive simulation lanes on the left; app.shapes
+-- hands out screen-right coordinates (-lane * LANE) for the art.
 -- Positive logical lanes must always move to the screen's right.
 local function laneY(side)
     return side * (runner.laneSign or 1)
@@ -29,9 +27,7 @@ function runner:CalibrateLanes()
         end
     end
 end
-local function ground(d)
-    return -0.0005 * math.max(d, 0) ^ 2
-end
+local ground = shapes.Ground
 -- Native actors and the projected track share this camera basis.
 local function project(d, side, z)
     local scene = runner.scene
@@ -39,8 +35,8 @@ local function project(d, side, z)
         local px, py = scene:Transform3DPointTo2D(d, laneY(side), z)
         local right = scene:Transform3DPointTo2D(d, laneY(side + 1), z)
         if px and py and right and right > px + 0.0001 then
-            local uiScale = scene:GetEffectiveScale()
-            return px / uiScale, py / uiScale, math.abs(right - px) / uiScale
+            -- Already in the scene's UI units, as Blizzard's own model scenes use them.
+            return px, py, math.abs(right - px)
         end
     end
     local x, height = d + 10, z - 5
@@ -119,11 +115,39 @@ function runner:Action(key)
         end
     end
 end
+-- The money loot clink (sound/interface/lootcoinsmall.ogg). Its sound kit plays one instance at
+-- a time; the file plays every time, so each coin of a trail clinks.
+local COIN_SOUND_FILE = 567428
+-- One frame of the game, shared by both views: movement, simulation, best score, coin sound.
+function runner:Step(elapsed)
+    local s = self.state
+    s.forward = self:IsMovingForward(elapsed)
+    if s.forward and s.status == "ready" then
+        sim.Start(s)
+    end
+    local status, coins = s.status, s.coins
+    sim.Update(s, elapsed)
+    if status == "running" and s.status == "over" then
+        self:SaveBest()
+    end
+    if s.coins > coins and app.db.profile.coinSound then
+        -- The SFX channel follows the game's sound effects volume.
+        if PlaySoundFile then
+            PlaySoundFile(COIN_SOUND_FILE, "SFX")
+        else
+            PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120, "SFX")
+        end
+    end
+end
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
+-- Also keeps `motion`: the character's velocity relative to its facing (yards per second
+-- forward and to its left) and its speed, for the twin's animations.
 function runner:IsMovingForward(elapsed)
     local x, y, _, map = UnitPosition("player")
     local facing = GetPlayerFacing()
     local previous = self.previousPosition
+    self.motion = self.motion or {}
+    self.motion.forward, self.motion.left, self.motion.speed = 0, 0, 0
     if type(x) ~= "number" or type(y) ~= "number" or type(facing) ~= "number" then
         self.previousPosition = nil
         return false
@@ -143,6 +167,8 @@ function runner:IsMovingForward(elapsed)
         return false
     end
     local forward = dx * math.cos(facing) + dy * math.sin(facing)
+    local left = dy * math.cos(facing) - dx * math.sin(facing)
+    self.motion.forward, self.motion.left, self.motion.speed = forward / elapsed, left / elapsed, speed
     return forward > 0.05 * elapsed
 end
 function runner:OnMovementKey(key)
@@ -249,16 +275,6 @@ function runner:Create()
     scene:SetLightDiffuseColor(0.6, 0.6, 0.6)
     self.player = scene:CreateActor()
     self:LoadPlayer()
-    self.props = {}
-    for i = 1, 12 do
-        local actor = scene:CreateActor()
-        -- Display used by the client's shared wrapped-present model scene.
-        local loaded = actor:SetModelByCreatureDisplayID(71933)
-        actor:SetUseCenterForOrigin(true, true, false)
-        actor:SetScale(0.6)
-        actor:Hide()
-        self.props[i] = { actor = actor, loaded = loaded }
-    end
     self.strips = {}
     -- Short trapezoids approximate a curved surface without external art.
     for i = 90, 1, -1 do
@@ -275,11 +291,7 @@ function runner:Create()
         end
         self.strips[i] = strip
     end
-    self.markers = {}
-    for i = 1, 32 do
-        self.markers[i] =
-            { top = rect(canvas, "OVERLAY", 1, 0.48, 0.25), texture = rect(canvas, "OVERLAY", 1, 0.7, 0.2) }
-    end
+    self.faces = shapes.Pool(canvas, "OVERLAY")
     local overlay = CreateFrame("Frame", nil, canvas)
     overlay:SetAllPoints()
     overlay:SetFrameLevel(scene:GetFrameLevel() + 5)
@@ -348,15 +360,7 @@ function runner:Create()
         end
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
-        self.state.forward = self:IsMovingForward(elapsed)
-        if self.state.forward and self.state.status == "ready" then
-            sim.Start(self.state)
-        end
-        local before = self.state.status
-        sim.Update(self.state, elapsed)
-        if before == "running" and self.state.status == "over" then
-            self:SaveBest()
-        end
+        self:Step(elapsed)
         self:Render()
     end)
     self.roadDirty = true
@@ -379,68 +383,12 @@ function runner:Render()
         local shade = math.floor((i - 4 + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
         strip[1]:SetColorTexture(shade, shade + 0.05, shade + 0.065)
     end
-    local index, propIndex = 0, 0
-
-    for _, o in ipairs(s.objects) do
-        local d = o.at - s.distance
-        if not o.hit and d > -2 and d < 85 then
-            index = index + 1
-            local marker = self.markers[index]
-            local x, y, scale =
-                project(d, screenSide(o.lane), ground(d) + (o.kind == "coin" and bounds.coinBottom or 0))
-            if marker then
-                if o.kind == "coin" then
-                    marker.top:Hide()
-                    box(
-                        marker.texture,
-                        x - scale * bounds.coinHalfWidth,
-                        y,
-                        scale * bounds.coinHalfWidth * 2,
-                        scale * bounds.coinHeight
-                    )
-                    marker.texture:SetColorTexture(1, 0.77, 0.2, 1)
-                else
-                    -- Visible collision silhouette even if this client's display is missing.
-                    local side = screenSide(o.lane)
-                    local front = d - bounds.obstacleHalfDepth
-                    local left, bottom = project(front, side - bounds.obstacleHalfWidth, ground(front))
-                    local right, top =
-                        project(front, side + bounds.obstacleHalfWidth, ground(front) + bounds.obstacleHeight)
-                    box(marker.texture, left, bottom, right - left, top - bottom)
-                    quad(
-                        marker.top,
-                        side - bounds.obstacleHalfWidth,
-                        side + bounds.obstacleHalfWidth,
-                        front,
-                        d + bounds.obstacleHalfDepth,
-                        bounds.obstacleHeight
-                    )
-                    marker.texture:SetColorTexture(0.9, 0.29, 0.17, 0.85)
-                    propIndex = propIndex + 1
-                    local entry = self.props[propIndex]
-                    if entry and entry.loaded then
-                        entry.offset = entry.offset
-                            or normalize(
-                                entry.actor,
-                                bounds.obstacleHeight,
-                                bounds.obstacleHalfWidth,
-                                bounds.obstacleHalfDepth
-                            )
-                        position(entry.actor, d, laneY(o.lane * LANE), ground(d) + (entry.offset or 0))
-                        entry.actor:SetYaw(0)
-                        entry.actor:Show()
-                    end
-                end
-            end
-        end
+    -- The fixed camera looks down the middle lane.
+    local faces, count = shapes.Collect(s, 0)
+    for i = 1, count do
+        shapes.Draw(shapes.Acquire(self.faces, shapes.Sublevel(faces[i])), project, faces[i])
     end
-    for i = index + 1, #self.markers do
-        self.markers[i].texture:Hide()
-        self.markers[i].top:Hide()
-    end
-    for i = propIndex + 1, #self.props do
-        self.props[i].actor:Hide()
-    end
+    shapes.Release(self.faces)
     if not self.playerOffset then
         self.playerOffset = normalize(self.player, bounds.playerHeight)
         if self.playerOffset then
@@ -449,7 +397,8 @@ function runner:Render()
     end
     position(self.player, 0, laneY(s.lateral * LANE), s.height + (self.playerOffset or 0))
     -- Keep the impact pose visible rather than snapping to standing on a crash.
-    local animation = (s.status == "running" or s.status == "over") and (s.height > 0 and 38 or (s.forward and 5 or 0))
+    local animation = (s.status == "running" or s.status == "over")
+            and (s.height > s.floor and 38 or (s.forward and 5 or 0))
         or 0
     if animation ~= self.animation then
         self.player:SetAnimation(animation, 0, 1, 0)
