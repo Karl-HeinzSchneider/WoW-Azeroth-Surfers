@@ -105,7 +105,6 @@ function overlay:UpdateCamera()
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
-    same = unchanged(last, "opacity", settings.opacity) and same
     return not same
 end
 
@@ -171,16 +170,44 @@ function overlay:CreateGround(f)
     self.groundColors = { CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1) }
 end
 
--- The pieces' see-through: the opacity setting, the far fade and the soft edges.
-function overlay:ShadeGround(opacity)
+-- The ground's light: the brightness setting, by night dimmed to a moonlit blue. The world's
+-- own light cannot be read, so it follows the game's clock: dawn from 5 to 7, dusk 19 to 21.
+-- Tells whether it changed since the last call, at most once a game minute.
+local NIGHT = { 0.45, 0.5, 0.7 }
+function overlay:UpdateLight()
+    local settings = app.db.profile.overlay
+    local day = 1
+    if settings.dayNight and GetGameTime then
+        local hour, minute = GetGameTime()
+        local t = hour + minute / 60
+        day = math.min(1, math.max(0, (t - 5) / 2)) - math.min(1, math.max(0, (t - 19) / 2))
+    end
+    local light = self.light or {}
+    self.light = light
+    local same = unchanged(light, "day", day)
+    same = unchanged(light, "brightness", settings.brightness) and same
+    same = unchanged(light, "opacity", settings.opacity) and same
+    if same then
+        return false
+    end
+    light.r = settings.brightness * (NIGHT[1] + (1 - NIGHT[1]) * day)
+    light.g = settings.brightness * (NIGHT[2] + (1 - NIGHT[2]) * day)
+    light.b = settings.brightness * (NIGHT[3] + (1 - NIGHT[3]) * day)
+    return true
+end
+
+-- The pieces' light and see-through: the opacity setting, the far fade and the soft edges.
+function overlay:ShadeGround()
     local left, right = self.groundColors[1], self.groundColors[2]
+    local light = self.light
+    local r, g, b = light.r, light.g, light.b
     for _, t in ipairs(self.ground) do
-        local alpha = opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
+        local alpha = light.opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
         if t.alphaLeft == t.alphaRight then
-            t:SetVertexColor(1, 1, 1, alpha * t.alphaLeft)
+            t:SetVertexColor(r, g, b, alpha * t.alphaLeft)
         else
-            left:SetRGBA(1, 1, 1, alpha * t.alphaLeft)
-            right:SetRGBA(1, 1, 1, alpha * t.alphaRight)
+            left:SetRGBA(r, g, b, alpha * t.alphaLeft)
+            right:SetRGBA(r, g, b, alpha * t.alphaRight)
             t:SetGradient("HORIZONTAL", left, right)
         end
     end
@@ -559,18 +586,15 @@ end
 
 function overlay:Render(lap)
     local s = self.state
-    local opacity = app.db.profile.overlay.opacity
     if self:UpdateCamera() then
         for _, t in ipairs(self.ground) do
             local near, far = t.near, t.far
             face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
-        -- Only the opacity changes their colors.
-        if self.groundOpacity ~= opacity then
-            self:ShadeGround(opacity)
-            self.groundOpacity = opacity
-        end
         self:AimCoinCameras()
+    end
+    if self:UpdateLight() then
+        self:ShadeGround()
     end
     lap = self:Lap("road placement", lap)
     self:PlaceTwin()

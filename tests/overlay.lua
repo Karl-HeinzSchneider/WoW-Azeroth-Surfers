@@ -6,7 +6,16 @@ end
 app.db = {
     global = { bestScore = 0 },
     profile = {
-        overlay = { twinScale = 1, pitch = 20, focus = 0.9, distance = 12, fov = 55, opacity = 0.85 },
+        overlay = {
+            twinScale = 1,
+            pitch = 20,
+            focus = 0.9,
+            distance = 12,
+            fov = 55,
+            opacity = 0.85,
+            brightness = 0.75,
+            dayNight = true,
+        },
     },
 }
 local settings = app.db.profile.overlay
@@ -41,8 +50,8 @@ local function texture()
             self.coords = self.coords or {}
             self.coords[1], self.coords[2], self.coords[3], self.coords[4] = left, right, top, bottom
         end,
-        SetVertexColor = function(self, _, _, _, a)
-            self.alpha = a
+        SetVertexColor = function(self, r, _, b, a)
+            self.red, self.blue, self.alpha = r, b, a
         end,
         SetGradient = function(self, _, min, max)
             self.gradient = { min.a, max.a }
@@ -250,6 +259,26 @@ assert(
 o.state.distance = 0
 print("PASS ground textures scroll toward the runner and fade out at their edges and far ahead")
 
+-- The ground's light follows the game's clock: bright by day, dim and blue at night.
+local hour = 12
+function GetGameTime()
+    return hour, 0
+end
+o:Render()
+assert(math.abs(road.red - 0.75) < 1e-9 and road.red == road.blue, "by day: the brightness setting, white")
+hour = 23
+o:Render()
+assert(road.red < 0.4 and road.blue > road.red, "at night: dimmer and moonlit blue")
+hour = 6
+o:Render()
+assert(road.red > 0.45 and road.red < 0.7, "at dawn: in between")
+settings.dayNight = false
+o:Render()
+assert(math.abs(road.red - 0.75) < 1e-9, "without the clock: always day")
+settings.dayNight, GetGameTime = true, nil
+o:Render()
+print("PASS the ground's light follows the game's clock and the brightness setting")
+
 -- A texture that does not load leaves a plain color.
 local fallback = {}
 o.ground, missing = nil, 187099
@@ -265,7 +294,7 @@ o:CreateGround({
 assert(#fallback > 0 and not fallback[1].tile, "a missing texture is drawn as a plain color")
 missing = 187113
 o:CreateGround({ CreateTexture = texture })
-o.groundOpacity, o.lastRoad = nil, {}
+o.light, o.lastRoad = nil, {}
 print("PASS a missing ground texture falls back to a color")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.

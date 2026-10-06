@@ -25,6 +25,8 @@ local profile = {
         distance = 12, -- camera distance in yards, when the client cannot report its zoom
         fov = 55, -- vertical field of view in degrees
         opacity = 1,
+        brightness = 0.75, -- the ground's light by day
+        dayNight = true, -- the ground darkens at night, by the game's clock
     },
 }
 
