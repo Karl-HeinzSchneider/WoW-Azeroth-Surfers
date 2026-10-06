@@ -332,6 +332,7 @@ function overlay:ApplyBiome()
     if self.worldScene then
         self:LoadCoinModel(1)
         self:ApplyDecorations(biome)
+        self:ResetObstacles()
     end
     self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
 end
@@ -437,7 +438,7 @@ function overlay:Create()
     self:LoadPlayer()
     -- The world scene: 3D decorations and coins, one render pass for all of them.
     self:CreateDecorations(f)
-    self.coinActors = {}
+    self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
@@ -564,6 +565,13 @@ function overlay:PlaceTwin()
     scene:SetCameraPosition(cam.x, 0, cam.z)
     scene:SetCameraOrientationByYawPitchRoll(0, math.atan2(down, ahead), 0)
     scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
+    -- 3D scenes share the depth buffer, each with its own clip planes: the world scene's models
+    -- would hide the twin. Clipping from half its distance on keeps all of it in view and makes
+    -- its depth nearer than anything of the world scene's, so it stays on top.
+    if self.twinNear ~= distance then
+        scene:SetCameraNearClip(distance / 2)
+        self.twinNear = distance
+    end
     actor:SetScale(settings.twinScale)
     actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
     actor:SetAlpha(s.status == "running" and 1 or 0.5)
@@ -657,8 +665,9 @@ function overlay:Render(lap)
     self:ScrollGround()
     if self.worldScene then
         self:UpdateDecorations()
+        self:UpdateObstacles()
     end
-    lap = self:Lap("ground scroll, decorations", lap)
+    lap = self:Lap("ground scroll, decorations, obstacles", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
     local faces, count = shapes.Collect(s, -cam.offset)
@@ -669,7 +678,7 @@ function overlay:Render(lap)
         if f.kind == "coin" and real then
             coins = coins + 1
             self:PlaceCoin(coins, f.object)
-        else
+        elseif not (self.worldScene and self:Modelled(f)) then
             shapes.Draw(shapes.Acquire(self.faces, shapes.Sublevel(f)), project, f)
         end
     end
@@ -729,7 +738,7 @@ local PARTS = {
     "twin animation, models",
     "road placement",
     "twin",
-    "ground scroll, decorations",
+    "ground scroll, decorations, obstacles",
     "boxes, coins",
     "texts",
 }
@@ -834,8 +843,8 @@ function overlay:Report()
         tostring(py)
     )
     -- Each decoration model's bounds as the client measured them: which way a model extends.
-    for model, b in pairs(self.decorBounds) do
-        log:chat("model %d: x %.2f to %.2f, y %.2f to %.2f", model, b[1], b[3], b[2], b[4])
+    for model, b in pairs(self.modelBounds) do
+        log:chat("model %d: x %.2f to %.2f, y %.2f to %.2f, z %.2f to %.2f", model, b[1], b[4], b[2], b[5], b[3], b[6])
     end
     local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
     log:chat(

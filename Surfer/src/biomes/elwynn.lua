@@ -50,6 +50,58 @@ app.biomes.Register("elwynn", {
         },
     },
 
+    -- The track: crates, kegs and hay to jump, a beam of lumber on two fence posts to run under,
+    -- long piles of lumber to run on. Models from world/generic/human/passive doodads/
+    -- (crates, beerkegs, lumberpiles) and world/azeroth/elwynn/passivedoodads/.
+    obstacles = {
+        obstacle = {
+            -- crates/replacecrate01 or 03 (0.63 yards tall), haystacks/haystack01 (0.7).
+            -- Drawn taller than their 0.6-yard box, which looks tiny beside a character: any jump
+            -- clears them by far.
+            {
+                layers = 1,
+                weight = 2,
+                items = { { model = { 198165, 198167 }, height = 0.85, yaw = { -12, 12 } } },
+            },
+            { layers = 1, items = { { model = 189810, height = 0.85, yaw = { -12, 12 } } } },
+            -- crates/stormwindcrate01 (1.24), beerkegs/beerkeg01 (1.3), or two small crates.
+            { layers = 2, weight = 2, items = { { model = 198168, yaw = { -8, 8 } } } },
+            { layers = 2, items = { { model = 198004, yaw = { 0, 360 } } } },
+            {
+                layers = 2,
+                items = {
+                    { model = 198165, height = 0.6, yaw = { -6, 6 } },
+                    { model = { 198165, 198167 }, z = 0.6, height = 0.6, yaw = { -25, 25 } },
+                },
+            },
+            -- The tall wall: two big crates stacked.
+            {
+                layers = 4,
+                items = {
+                    { model = 198168, height = 1.2, yaw = { -5, 5 } },
+                    { model = 198168, z = 1.2, height = 1.2, yaw = { -15, 15 } },
+                },
+            },
+        },
+        -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).
+        barrier = {
+            {
+                items = {
+                    { model = 189796, x = -1, ground = true, scale = 1 },
+                    { model = 189796, x = 1, ground = true, scale = 1 },
+                    { model = 198340, yaw = 90, z = 0.1, scale = 0.65 },
+                },
+            },
+        },
+        -- Rows of lumber piles: deadminelumberpilesmall (0.56 tall) for one layer,
+        -- deadminelumberpilelarge (1.67 tall) scaled for two and three.
+        platform = {
+            { layers = 1, items = { { model = 198340, every = 3.4 } } },
+            { layers = 2, items = { { model = 198339, every = 2.3 } } },
+            { layers = 3, items = { { model = 198339, every = 3.4 } } },
+        },
+    },
+
     -- The roadside: fences in four variants with open stretches between them, bushes, thorn
     -- bushes by the road and pines farther back.
     decorations = {

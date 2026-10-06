@@ -22,16 +22,19 @@ local ground = shapes.Ground
 shapes.colors = nil
 
 local out, count = {}, 0
+-- Whether the faces added now belong to a ramp (`ramp` on a face): models leave ramps flat.
+local ramping = false
 local function add(object, kind, part, depth, ...)
     count = count + 1
     local f = out[count] or {}
     out[count] = f
-    f.object, f.kind, f.part, f.depth = object, kind, part, depth
+    f.object, f.kind, f.part, f.depth, f.ramp = object, kind, part, depth, ramping
     f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], f[12] = ...
 end
 
 -- Box faces between d = a and b: its top and the side the camera sees.
 local function segment(o, s, viewX, x1, x2, a, b)
+    ramping = o.ramp and b <= o.at - s.distance + o.ramp + 1e-6 or false
     local bottom = o.layer * sim.LAYER
     local ta, tb = sim.Top(o, a + s.distance) + ground(a), sim.Top(o, b + s.distance) + ground(b)
     local ba, bb = bottom + ground(a), bottom + ground(b)
@@ -42,6 +45,7 @@ local function segment(o, s, viewX, x1, x2, a, b)
     elseif viewX > x2 then
         add(o, o.kind, "side", a, a, x2, ta, a, x2, ba, b, x2, tb, b, x2, bb)
     end
+    ramping = false
 end
 
 -- A barrier's post at `left`, from the ground up to the bar's bottom `z`.

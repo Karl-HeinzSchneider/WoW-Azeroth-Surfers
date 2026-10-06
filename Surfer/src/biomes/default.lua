@@ -72,6 +72,26 @@ app.biomes.Register("default", {
         diffuse = { 0.6, 0.6, 0.6 },
     },
 
+    -- The track's boxes as 3D models in the same scene, by kind: obstacles to jump over (1, 2 or
+    -- 4 layers of 0.6 yards tall, 1.3 wide), barriers to run under (a bar 1.8 to 2.4 yards up,
+    -- 2.2 wide) and platforms to run on (1 to 3 layers tall, 2.1 wide, 24 to 40 yards long,
+    -- sometimes with a ramp). Each kind is a list of variants; a box picks one whose `layers` is
+    -- its own (any if left out) by `weight`, once. A variant's `items` are its models:
+    --   model   a file id, or a list to pick one from at random
+    --   x       yards to the screen's right of the lane's middle, 0 if left out
+    --   d       yards along the box from its start, its middle if left out
+    --   every   instead of `d`: repeated along the box (past its ramp) about every that many
+    --           yards
+    --   z       yards up from the box's bottom, 0 if left out
+    --   ground  true: `z` counts from the road instead (a barrier's posts)
+    --   height  yards the model's top above its origin is scaled to, the box's height if left
+    --           out (one of two stacked models: half of it)
+    --   scale   its size instead of `height`
+    --   yaw     degrees it turns, 0 if left out
+    -- Any number may instead be a { min, max } range. A kind without variants stays a flat box
+    -- (in `shapes`' colors), as does a platform's ramp. None by default.
+    obstacles = {},
+
     -- The light at midnight; day is white. light.lua blends between them by the game's clock.
     light = {
         night = { 0.45, 0.5, 0.7 },

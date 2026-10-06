@@ -159,6 +159,7 @@ for _, file in ipairs({
     "game/shapes",
     "game/overlay",
     "game/decorations",
+    "game/obstacles",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
