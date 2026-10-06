@@ -25,8 +25,9 @@ local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
 -- and legs, so the character appears in front of the UI.
 local overlay = {}
 app.overlay = overlay
--- Input, movement sampling, scoring and toggling only need `state`, `frame` and `Create`.
-for _, name in ipairs({ "SaveBest", "Restart", "Action", "IsMovingForward", "OnMovementKey", "Toggle" }) do
+-- Input, movement sampling, the per-frame step, scoring and toggling only need `state`, `frame`
+-- and `Create`.
+for _, name in ipairs({ "SaveBest", "Restart", "Action", "IsMovingForward", "OnMovementKey", "Step", "Toggle" }) do
     overlay[name] = app.runner[name]
 end
 
@@ -320,15 +321,7 @@ function overlay:Create()
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
         self.clock = (self.clock or 0) + elapsed
-        self.state.forward = self:IsMovingForward(elapsed)
-        if self.state.forward and self.state.status == "ready" then
-            sim.Start(self.state)
-        end
-        local before = self.state.status
-        sim.Update(self.state, elapsed)
-        if before == "running" and self.state.status == "over" then
-            self:SaveBest()
-        end
+        self:Step(elapsed)
         self:Measure()
         self:UpdateCoinModel(elapsed)
         self:Render()

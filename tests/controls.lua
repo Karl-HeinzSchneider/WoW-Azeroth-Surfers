@@ -90,3 +90,30 @@ speed = 0
 x = 99.9
 assert(not r:IsMovingForward(0.1))
 print("PASS forward/backward/strafe/standing movement, facing, teleports and map changes")
+
+-- Collecting a coin plays the money loot sound file once, unless the option is off.
+local played = {}
+function PlaySoundFile(file, channel)
+    played[#played + 1] = file .. " " .. channel
+end
+local g = app.simulation
+app.db = { global = { bestScore = 0 }, profile = { coinSound = true } }
+r.state = g.New()
+r.state.nextRow = math.huge
+r.state.objects = { g.Box("coin", 0, 0.5, 0.32, 0, 1) }
+g.Start(r.state)
+speed, x, facing = 7, 0, 0
+r:Step(0.01)
+for _ = 1, 30 do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(r.state.coins == 1 and #played == 1 and played[1] == "567428 SFX", "one coin, one clink")
+app.db.profile.coinSound = false
+r.state.objects = { g.Box("coin", 0, r.state.distance + 0.5, 0.32, 0, 1) }
+for _ = 1, 30 do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(r.state.coins == 2 and #played == 1, "the option silences it")
+print("PASS coin pickup plays the loot sound once, unless switched off")

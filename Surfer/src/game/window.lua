@@ -115,6 +115,30 @@ function runner:Action(key)
         end
     end
 end
+-- The money loot clink (sound/interface/lootcoinsmall.ogg). Its sound kit plays one instance at
+-- a time; the file plays every time, so each coin of a trail clinks.
+local COIN_SOUND_FILE = 567428
+-- One frame of the game, shared by both views: movement, simulation, best score, coin sound.
+function runner:Step(elapsed)
+    local s = self.state
+    s.forward = self:IsMovingForward(elapsed)
+    if s.forward and s.status == "ready" then
+        sim.Start(s)
+    end
+    local status, coins = s.status, s.coins
+    sim.Update(s, elapsed)
+    if status == "running" and s.status == "over" then
+        self:SaveBest()
+    end
+    if s.coins > coins and app.db.profile.coinSound then
+        -- The SFX channel follows the game's sound effects volume.
+        if PlaySoundFile then
+            PlaySoundFile(COIN_SOUND_FILE, "SFX")
+        else
+            PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120, "SFX")
+        end
+    end
+end
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
 function runner:IsMovingForward(elapsed)
     local x, y, _, map = UnitPosition("player")
@@ -330,15 +354,7 @@ function runner:Create()
         end
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
-        self.state.forward = self:IsMovingForward(elapsed)
-        if self.state.forward and self.state.status == "ready" then
-            sim.Start(self.state)
-        end
-        local before = self.state.status
-        sim.Update(self.state, elapsed)
-        if before == "running" and self.state.status == "over" then
-            self:SaveBest()
-        end
+        self:Step(elapsed)
         self:Render()
     end)
     self.roadDirty = true

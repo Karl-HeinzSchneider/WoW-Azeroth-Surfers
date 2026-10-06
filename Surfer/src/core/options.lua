@@ -63,6 +63,19 @@ local options = {
                 end
             end,
         },
+        coinSound = {
+            type = "toggle",
+            order = 6,
+            width = "full",
+            name = "Coin sound",
+            desc = "Play the money loot sound when you collect a coin.",
+            get = function()
+                return app.db.profile.coinSound
+            end,
+            set = function(_, value)
+                app.db.profile.coinSound = value
+            end,
+        },
         overlay = {
             type = "group",
             order = 30,

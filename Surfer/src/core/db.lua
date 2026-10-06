@@ -17,6 +17,7 @@ local profile = {
     },
     -- "overlay": your character runs on a full-screen road; "window": a model copy in a window.
     view = "overlay",
+    coinSound = true,
     -- Full-screen calibration: the follow camera that the road's projection imitates.
     overlay = {
         pitch = 20, -- degrees the camera looks down
