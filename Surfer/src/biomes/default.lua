@@ -88,8 +88,11 @@ app.biomes.Register("default", {
     --           out (one of two stacked models: half of it)
     --   scale   its size instead of `height`
     --   yaw     degrees it turns, 0 if left out
-    -- Any number may instead be a { min, max } range. A kind without variants stays a flat box
-    -- (in `shapes`' colors), as does a platform's ramp. None by default.
+    -- Any number may instead be a { min, max } range. A platform variant's `ramp` items cover
+    -- its ramp (4 yards long per layer of height, about 8.5 degrees): each model is scaled to
+    -- the slope's length, turned up to it with its top on it, and laid `across` times side by
+    -- side over the platform's width. A kind without variants stays a flat box (in `shapes`'
+    -- colors), as does a ramp without `ramp` items. None by default.
     obstacles = {},
 
     -- The light at midnight; day is white. light.lua blends between them by the game's clock.

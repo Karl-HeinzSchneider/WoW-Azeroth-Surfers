@@ -4,7 +4,7 @@ local sim = app.simulation
 local shapes = app.shapes
 -- Obstacles as 3D models: for each box of the track (obstacle, barrier, platform) the biome's
 -- models, actors of the world scene like the decorations (biomes/default.lua describes them).
--- A kind without models in the biome stays a flat box; so does a platform's ramp.
+-- A kind without models in the biome stays a flat box; so does a ramp without ramp models.
 local overlay = app.overlay
 local cam = overlay.camera
 local ground = shapes.Ground
@@ -43,8 +43,11 @@ end
 local function attach(self, o, item, along)
     local model = choose(item.model)
     local actor = self:AcquireActor(model)
-    -- Invisible until its model has loaded and been fitted.
+    -- Invisible until its model has loaded and been fitted; by its own origin, upright (a ramp's
+    -- model may have been this actor before).
     actor:SetAlpha(0)
+    actor:SetUseCenterForOrigin(false, false, false)
+    actor:SetPitch(0)
     local yaw = math.rad(value(item.yaw, 0))
     actor:SetYaw(yaw)
     o.surferActors[#o.surferActors + 1] = {
@@ -61,10 +64,39 @@ local function attach(self, o, item, along)
     }
 end
 
+-- A ramp's model, `across` of them side by side over the platform's width: placed by its center
+-- (it is turned up to the slope about it), scaled and turned once loaded (`fit`).
+local function attachRamp(self, o, item)
+    local count = item.across or 1
+    local width = 2 * sim.geometry.halfWidth.platform
+    for k = 1, count do
+        local model = choose(item.model)
+        local actor = self:AcquireActor(model)
+        actor:SetAlpha(0)
+        actor:SetUseCenterForOrigin(true, true, true)
+        actor:SetYaw(0)
+        o.surferActors[#o.surferActors + 1] = {
+            model = model,
+            actor = actor,
+            item = item,
+            ramp = true,
+            yaw = 0,
+            x = (k - (count + 1) / 2) * width / count,
+            alpha = false,
+        }
+    end
+end
+
 -- The box's actors: each item once at its `d` (the box's middle when left out), or, with
--- `every`, repeated along the box's flat part (past a ramp) about every that many yards.
+-- `every`, repeated along the box's flat part (past a ramp) about every that many yards; and
+-- its ramp's models.
 local function attachAll(self, o, look)
     o.surferActors = {}
+    if o.ramp and look.ramp then
+        for _, item in ipairs(look.ramp) do
+            attachRamp(self, o, item)
+        end
+    end
     for _, item in ipairs(look.items) do
         if item.every then
             local from = o.at + (o.ramp or 0)
@@ -101,13 +133,27 @@ function overlay:ResetObstacles()
 end
 
 -- Scales an entry's model once it has loaded: to its item's `scale`, or so its top above its
--- origin is `height` yards (the box's height when left out).
+-- origin is `height` yards (the box's height when left out). A ramp's model spans the slope:
+-- as long as it, turned up to its angle, its top on it (its center half its thickness below).
 local function fit(self, o, entry)
     local bounds = self:ModelBounds(entry.actor, entry.model)
     if not bounds then
         return false
     end
     local item = entry.item
+    if entry.ramp then
+        local rise = o.layers * LAYER
+        local angle = math.atan2(rise, o.ramp)
+        entry.scale = item.scale or math.sqrt(o.ramp ^ 2 + rise ^ 2) / math.max(bounds[4] - bounds[1], 0.01)
+        local thickness = (bounds[6] - bounds[3]) * entry.scale
+        entry.along = o.at + o.ramp / 2 + thickness / 2 * math.sin(angle)
+        entry.z = o.layer * LAYER + rise / 2 - thickness / 2 * math.cos(angle)
+        entry.actor:SetScale(entry.scale)
+        -- Its far end up.
+        entry.actor:SetPitch(-angle)
+        entry.shiftX, entry.shiftY = 0, 0
+        return true
+    end
     entry.scale = item.scale or (item.height or o.layers * LAYER) / math.max(bounds[6], 0.01)
     entry.actor:SetScale(entry.scale)
     entry.shiftX, entry.shiftY = self.TurnShift(bounds, entry.yaw)
@@ -166,7 +212,13 @@ function overlay:UpdateObstacles()
     end
 end
 
--- Whether face `f` is drawn by models instead: every face of a box with a look, but its ramp.
+-- Whether face `f` is drawn by models instead: every face of a box with a look, and its ramp's
+-- when the look has ramp models.
 function overlay:Modelled(f)
-    return self.worldScene and not f.ramp and f.object.kind ~= "coin" and self:ObstacleLook(f.object) and true
+    local o = f.object
+    if not self.worldScene or o.kind == "coin" then
+        return false
+    end
+    local look = self:ObstacleLook(o)
+    return look and (not f.ramp or look.ramp ~= nil) or false
 end

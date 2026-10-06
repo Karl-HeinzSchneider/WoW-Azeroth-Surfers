@@ -64,9 +64,8 @@ app.biomes.Register("elwynn", {
                 items = { { model = { 198165, 198167 }, height = 0.85, yaw = { -12, 12 } } },
             },
             { layers = 1, items = { { model = 189810, height = 0.85, yaw = { -12, 12 } } } },
-            -- crates/stormwindcrate01 (1.24), beerkegs/beerkeg01 (1.3), or two small crates.
+            -- crates/stormwindcrate01 (1.24), or two small crates.
             { layers = 2, weight = 2, items = { { model = 198168, yaw = { -8, 8 } } } },
-            { layers = 2, items = { { model = 198004, yaw = { 0, 360 } } } },
             {
                 layers = 2,
                 items = {
@@ -74,7 +73,7 @@ app.biomes.Register("elwynn", {
                     { model = { 198165, 198167 }, z = 0.6, height = 0.6, yaw = { -25, 25 } },
                 },
             },
-            -- The tall wall: two big crates stacked.
+            -- The tall wall, too high to jump: two big crates stacked.
             {
                 layers = 4,
                 items = {
@@ -82,6 +81,8 @@ app.biomes.Register("elwynn", {
                     { model = 198168, z = 1.2, height = 1.2, yaw = { -15, 15 } },
                 },
             },
+            -- Or one big beerkegs/beerkeg01, scaled to the wall's height.
+            { layers = 4, items = { { model = 198004, yaw = { 0, 360 } } } },
         },
         -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).
         barrier = {
@@ -94,11 +95,26 @@ app.biomes.Register("elwynn", {
             },
         },
         -- Rows of lumber piles: deadminelumberpilesmall (0.56 tall) for one layer,
-        -- deadminelumberpilelarge (1.67 tall) scaled for two and three.
+        -- deadminelumberpilelarge (1.67 tall) scaled for two and three. Ramps of planks
+        -- (world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01, 21.6 yards
+        -- long, scaled to the slope): the shorter the ramp, the narrower its planks, so more
+        -- side by side.
         platform = {
-            { layers = 1, items = { { model = 198340, every = 3.4 } } },
-            { layers = 2, items = { { model = 198339, every = 2.3 } } },
-            { layers = 3, items = { { model = 198339, every = 3.4 } } },
+            {
+                layers = 1,
+                items = { { model = 198340, every = 3.4 } },
+                ramp = { { model = 190091, across = 4 } },
+            },
+            {
+                layers = 2,
+                items = { { model = 198339, every = 2.3 } },
+                ramp = { { model = 190091, across = 2 } },
+            },
+            {
+                layers = 3,
+                items = { { model = 198339, every = 3.4 } },
+                ramp = { { model = 190091, across = 2 } },
+            },
         },
     },
 

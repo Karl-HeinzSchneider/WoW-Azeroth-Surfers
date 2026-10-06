@@ -140,7 +140,7 @@ end
 -- Fits texture `t` to the face's projected corners; hidden when a corner cannot be projected.
 -- Its only anchor is BOTTOMLEFT, which SetPoint replaces, so no ClearAllPoints.
 -- `project(d, x, z)` returns screen x, y in the texture parent's coordinates.
-function shapes.Draw(t, project, f)
+local function place(t, project, f)
     local x1, y1 = project(f[1], f[2], f[3])
     local x2, y2 = project(f[4], f[5], f[6])
     local x3, y3 = project(f[7], f[8], f[9])
@@ -157,6 +157,13 @@ function shapes.Draw(t, project, f)
     t:SetVertexOffset(2, x2 - left, y2 - bottom)
     t:SetVertexOffset(3, x3 - right, y3 - top)
     t:SetVertexOffset(4, x4 - right, y4 - bottom)
+    return true
+end
+
+function shapes.Draw(t, project, f)
+    if not place(t, project, f) then
+        return false
+    end
     local color = shapes.colors[f.kind][f.part]
     if t.surferColor ~= color then
         t:SetColorTexture(color[1], color[2], color[3], 0.95)
