@@ -205,6 +205,7 @@ local patterns = {
         return 4 * COIN_SPACING - 4
     end,
 }
+game.patterns = patterns
 -- How often each pattern comes up: enemies are rare.
 local WEIGHTS = { 3, 3, 3, 3, 3, 1 }
 local TOTAL = 0
@@ -259,7 +260,8 @@ local function tick(s)
             if o.kind == "coin" then
                 o.hit = true
                 s.coins = s.coins + 1
-            else
+            elseif not game.invincible then
+                -- `invincible`: Surfer_Dev's /surfer god.
                 s.status = "over"
                 return
             end

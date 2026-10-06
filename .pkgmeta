@@ -19,6 +19,8 @@ move-folders:
   Surfer/Surfer: Surfer
 
 ignore:
+  # The development addon, never released (## X-Surfer-Dev in its TOC).
+  - Surfer_Dev
   # Root tooling (the root src/ would also collide with Surfer/src/ when the addon is moved).
   - tests
   - docs

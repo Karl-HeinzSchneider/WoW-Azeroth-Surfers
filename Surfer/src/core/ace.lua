@@ -8,6 +8,13 @@ local log = app.logger
 local addon = {}
 LibStub("AceAddon-3.0"):NewAddon(addon, appName, "AceConsole-3.0", "AceEvent-3.0")
 app.addon = addon
+-- `/surfer` subcommands added by the Surfer_Dev addon (never released), by name.
+app.devCommands = {}
+
+-- Surfer_Dev reaches the private table through here.
+function addon:DevApp()
+    return app
+end
 
 -- Called once, after ADDON_LOADED for this addon: SavedVariables are available now.
 function addon:OnInitialize()
@@ -65,14 +72,20 @@ function addon:OnSlashCommand(input)
         else
             log:chat("Log level is %s", log:getLevelName())
         end
-    elseif cmd == "debug" then
-        app.overlay:Report()
-    elseif cmd == "profile" then
-        app.overlay:Profile()
     elseif cmd == "reset" then
         self.db:ResetProfile()
         log:chat("Profile reset")
+    elseif app.devCommands[cmd] then
+        app.devCommands[cmd].run(input:match("^%s*%S+%s*(.-)%s*$"))
     else
-        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer debug, /surfer profile, /surfer reset")
+        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer reset")
+        local names = {}
+        for name in pairs(app.devCommands) do
+            names[#names + 1] = name
+        end
+        table.sort(names)
+        for _, name in ipairs(names) do
+            log:chat("  /surfer %s", app.devCommands[name].usage)
+        end
     end
 end

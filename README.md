@@ -50,8 +50,8 @@ a run starts) covers your character. Zooming or tilting the camera mid-run chang
 the client reports the zoom. **Hide your real character** zooms into first person while the game is
 open, where WoW does not draw your character, and back out after.
 
-`/surfer profile` (twice) reports the addon's milliseconds per frame; `/surfer debug` prints the
-twin's camera.
+The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
+`/surfer help` lists them.
 
 ## Development
 

@@ -174,7 +174,7 @@ local update = o.frame.scripts.OnUpdate
 -- Play 30 seconds at 140 fps: a lane change every 2 s, a jump every 3 s.
 local seconds, fps = 30, 140
 local clock = os.clock()
-o:Profile()
+o.timing = { frames = 0 }
 for i = 1, seconds * fps do
     frames = i
     x = x + 7 / fps
@@ -191,7 +191,18 @@ for i = 1, seconds * fps do
     end
 end
 local lua = (os.clock() - clock) / (seconds * fps) * 1000
-o:Profile()
+-- The parts' milliseconds per frame, as Surfer_Dev's /surfer profile reports them.
+local parts = {}
+for part, ms in pairs(o.timing) do
+    if part ~= "frames" then
+        parts[#parts + 1] = part
+    end
+end
+table.sort(parts)
+for _, part in ipairs(parts) do
+    print(string.format("  %-38s %.3f ms", part, o.timing[part] / o.timing.frames))
+end
+o.timing = nil
 
 local rows, total = {}, 0
 for name, n in pairs(counts) do
