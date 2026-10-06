@@ -10,6 +10,11 @@ local CAMERA_PITCH = 0.18
 local C, S = math.cos(CAMERA_PITCH), math.sin(CAMERA_PITCH)
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
+-- The current yaw/pitch actor view renders positive simulation lanes on the left.
+-- Keep collision lanes unchanged; convert to screen-right coordinates only for UI art.
+local function screenSide(lane)
+    return -lane * LANE
+end
 -- Positive logical lanes must always move to the screen's right.
 local function laneY(side)
     return side * (runner.laneSign or 1)
@@ -349,7 +354,8 @@ function runner:Render()
         if not o.hit and d > -2 and d < 85 then
             index = index + 1
             local marker = self.markers[index]
-            local x, y, scale = project(d, o.lane * LANE, ground(d) + (o.kind == "coin" and bounds.coinBottom or 0))
+            local x, y, scale =
+                project(d, screenSide(o.lane), ground(d) + (o.kind == "coin" and bounds.coinBottom or 0))
             if marker then
                 if o.kind == "coin" then
                     marker.top:Hide()
@@ -363,7 +369,7 @@ function runner:Render()
                     marker.texture:SetColorTexture(1, 0.77, 0.2, 1)
                 else
                     -- Visible collision silhouette even if this client's display is missing.
-                    local side = o.lane * LANE
+                    local side = screenSide(o.lane)
                     local front = d - bounds.obstacleHalfDepth
                     local left, bottom = project(front, side - bounds.obstacleHalfWidth, ground(front))
                     local right, top =
