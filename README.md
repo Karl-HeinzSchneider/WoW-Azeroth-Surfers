@@ -65,7 +65,7 @@ In **/surfer options**, under Mode:
 
 The window frame's minimize button switches from full screen to the side window, its maximize
 button back. The game opens on a start dialog with your best score. **R** starts over: press it
-once after a run, or hold it for a moment during one.
+once after a run, or hold it for a moment during one. **Q** pauses and goes on.
 
 The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
 `/surfer help` lists them.

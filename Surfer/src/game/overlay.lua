@@ -783,7 +783,7 @@ function overlay:ShowHint()
         return
     end
     if status == "paused" then
-        self.hint:SetText("Press Pause to go on. Hold R to start over.")
+        self.hint:SetText("Press Q to go on. Hold R to start over.")
     elseif status == "over" then
         self.hint:SetText("Press R to run again.")
     else
@@ -793,8 +793,8 @@ function overlay:ShowHint()
         return
     end
     local text = self.capture
-            and "Forward or jump key: start\nTurn or strafe keys: change lanes\nJump key: jump\nHold R: start over\nYour character stays where it is."
-        or "Run forward: start\nTurn or strafe keys: change lanes\nJump key: jump\nHold R: start over"
+            and "Forward or jump key: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over\nYour character stays where it is."
+        or "Run forward: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over"
     if not self.side then
         text = text
             .. "\n\nLine the see-through copy up with your character in /surfer options. "

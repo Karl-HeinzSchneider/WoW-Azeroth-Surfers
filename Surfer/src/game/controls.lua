@@ -23,6 +23,8 @@ local RUN_SPEED = 7
 -- The game's own key: pressed once after a run, or held this many seconds during one, it starts
 -- a new run.
 local RESTART_KEY, RESTART_HOLD = "R", 0.75
+-- The game's pause key: pauses a run and goes on with it.
+local PAUSE_KEY = "Q"
 
 function overlay:SaveBest()
     app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))
@@ -206,6 +208,11 @@ function overlay:OnKey(key)
         elseif status ~= "ready" then
             self.holding = self.holding or 0
         end
+        return
+    end
+    if key == PAUSE_KEY and not IsModifierKeyDown() then
+        self.frame:SetPropagateKeyboardInput(false)
+        self:Action("P")
         return
     end
     local chord = (IsAltKeyDown() and "ALT-" or "")

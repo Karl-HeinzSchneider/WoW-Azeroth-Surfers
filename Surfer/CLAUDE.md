@@ -116,7 +116,7 @@ be listed**. The order follows these rules:
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
   runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
   is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds
-  restarts a running or paused one.
+  restarts a running or paused one. Q (without modifiers) pauses and goes on.
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.
