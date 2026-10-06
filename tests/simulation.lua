@@ -1,16 +1,18 @@
 local app = {}
 assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
 local g = app.simulation
+local L = g.LAYER
 local count = 0
 local function test(name, fn)
     fn()
     count = count + 1
     print("PASS " .. name)
 end
-local function fresh()
-    local s = g.New(function()
-        return -1
-    end)
+-- A running game with an empty track: tests place their own boxes.
+local function fresh(...)
+    local s = g.New()
+    s.nextRow = math.huge
+    s.objects = { ... }
     g.Start(s)
     s.forward = true
     return s
@@ -20,6 +22,16 @@ local function advance(s, seconds, fps)
         g.Update(s, 1 / fps)
     end
 end
+local function obstacle(lane, at, layer, layers)
+    return g.Box("obstacle", lane, at, 0.5, layer or 0, layers or 1)
+end
+local function coin(lane, at, layer)
+    return g.Box("coin", lane, at, 0.32, layer or 0, 1)
+end
+local function platform(lane, at, length, layers, ramp)
+    return g.Box("platform", lane, at, length, 0, layers, ramp)
+end
+
 test("lane limits and smooth movement", function()
     local s = fresh()
     g.Move(s, -1)
@@ -28,11 +40,11 @@ test("lane limits and smooth movement", function()
     advance(s, 0.3, 60)
     assert(math.abs(s.lateral + 1) < 0.001)
 end)
-test("jump arc lands and cannot double jump", function()
+test("a jump peaks past layer 2, lands and cannot double jump", function()
     local s = fresh()
     g.Jump(s)
     advance(s, 0.3, 60)
-    assert(s.height > 1.4)
+    assert(s.height > 2 * L)
     local velocity = s.velocity
     g.Jump(s)
     assert(s.velocity == velocity)
@@ -52,26 +64,85 @@ test("pause freezes simulation", function()
     assert(s.distance > distance)
 end)
 test("obstacle collision ends run", function()
-    local s = fresh()
-    s.objects = { { kind = "obstacle", lane = 0, at = 1 } }
+    local s = fresh(obstacle(0, 1))
     advance(s, 0.3, 60)
     assert(s.status == "over")
     local distance = s.distance
     advance(s, 1, 60)
     assert(s.distance == distance)
 end)
-test("jump clears obstacle", function()
-    local s = fresh()
-    s.objects = { { kind = "obstacle", lane = 0, at = 4 } }
-    g.Jump(s)
-    advance(s, 0.6, 60)
-    assert(s.status == "running" and s.distance > 5)
+test("a jump clears one and two layer obstacles", function()
+    for layers = 1, 2 do
+        local s = fresh(obstacle(0, 5, 0, layers))
+        g.Jump(s)
+        advance(s, 0.9, 60)
+        assert(s.status == "running" and s.distance > 6)
+    end
 end)
-test("coins award once", function()
-    local s = fresh()
-    s.objects = { { kind = "coin", lane = 0, at = 1 } }
+test("a three layer wall cannot be jumped", function()
+    local s = fresh(obstacle(0, 5, 0, 3))
+    g.Jump(s)
+    advance(s, 0.9, 60)
+    assert(s.status == "over")
+end)
+test("coins award once, high ones only in a jump", function()
+    local s = fresh(coin(0, 1), coin(0, 3, 4))
     advance(s, 0.3, 60)
     assert(s.coins == 1 and g.Score(s) == math.floor(s.distance) + 25)
+    s = fresh(coin(0, 4, 4))
+    g.Jump(s)
+    advance(s, 0.4, 60)
+    assert(s.coins == 1)
+end)
+test("barriers on layer 3 are run under but hit in a jump", function()
+    local s = fresh(g.Box("barrier", 0, 3, 0.4, 3, 1))
+    advance(s, 0.4, 60)
+    assert(s.status == "running")
+    s = fresh(g.Box("barrier", 0, 3, 0.4, 3, 1))
+    g.Jump(s)
+    advance(s, 0.4, 60)
+    assert(s.status == "over")
+end)
+test("running into a platform ends the run, jumping lands on it", function()
+    local s = fresh(platform(0, 5, 20, 2))
+    advance(s, 0.5, 60)
+    assert(s.status == "over")
+    s = fresh(platform(0, 5, 20, 2))
+    g.Jump(s)
+    advance(s, 0.8, 60)
+    assert(s.status == "running" and s.height == 2 * L and s.floor == 2 * L)
+end)
+test("a ramp climbs to a platform too high to jump onto", function()
+    local s = fresh(platform(0, 2, 30, 3, 12))
+    advance(s, 1, 60)
+    assert(s.status == "running" and s.height == 3 * L)
+end)
+test("the runner jumps from a platform and falls off its end", function()
+    local s = fresh(platform(0, -1, 4, 1))
+    s.height, s.floor = L, L
+    g.Jump(s)
+    advance(s, 0.2, 60)
+    assert(s.height > 3 * L, "a jump from a platform reaches past layer 3")
+    advance(s, 1, 60)
+    assert(s.status == "running" and s.height == 0)
+end)
+test("obstacles on a platform collide at its layer", function()
+    local s = fresh(platform(0, -1, 30, 2), obstacle(0, 4, 2, 1))
+    s.height, s.floor = 2 * L, 2 * L
+    advance(s, 0.4, 60)
+    assert(s.status == "over")
+end)
+test("changing lanes into a platform's side ends the run, jumping across lands on it", function()
+    local s = fresh(platform(1, -1, 30, 2))
+    g.Move(s, 1)
+    advance(s, 0.3, 60)
+    assert(s.status == "over")
+    s = fresh(platform(1, -1, 30, 2))
+    g.Jump(s)
+    advance(s, 0.12, 60)
+    g.Move(s, 1)
+    advance(s, 0.8, 60)
+    assert(s.status == "running" and s.height == 2 * L)
 end)
 test("frame rate independence", function()
     local a, b = fresh(), fresh()
@@ -80,22 +151,9 @@ test("frame rate independence", function()
     assert(math.abs(a.distance - b.distance) < 0.001)
 end)
 test("long stalls cannot tunnel through obstacles", function()
-    local s = fresh()
-    s.objects = { { kind = "obstacle", lane = 0, at = 1 } }
+    local s = fresh(obstacle(0, 1))
     g.Update(s, 10)
-    assert(s.status == "over" and s.distance < 1)
-end)
-test("spawn stream remains bounded on long runs", function()
-    local s = fresh()
-    advance(s, 120, 60)
-    assert(s.status == "running")
-    assert(#s.objects < 20 and s.speed <= 32)
-    for _, o in ipairs(s.objects) do
-        assert(o.lane >= -1 and o.lane <= 1)
-        if o.kind == "obstacle" then
-            assert(o.lane == -1)
-        end
-    end
+    assert(s.status == "over" and s.distance < 1.5)
 end)
 test("restart is clean", function()
     local s = g.New()
@@ -104,25 +162,71 @@ test("restart is clean", function()
     g.Move(s, 1)
     assert(s.velocity == 0 and s.lane == 0)
 end)
+
+-- Generated tracks: boxes stay on the grid, the stream stays bounded, and at every point some
+-- lane is free of anything a runner on the ground can neither jump nor climb.
+test("generated patterns always leave a way through", function()
+    for seed = 1, 200 do
+        math.randomseed(seed)
+        -- Jump ahead pattern by pattern, keeping every box before the track drops it.
+        local s, objects, seen = g.New(), {}, {}
+        g.Start(s)
+        for _ = 1, 40 do
+            -- High above the track, so nothing ends the run before the next pattern spawns.
+            s.distance, s.height = s.nextRow - 80, 100
+            g.Update(s, 1 / 120)
+            s.status = "running"
+            for _, o in ipairs(s.objects) do
+                if not seen[o] then
+                    seen[o] = true
+                    objects[#objects + 1] = o
+                end
+            end
+        end
+        assert(#s.objects < 120, "the live stream stays bounded")
+        assert(#objects > 150, "the track was generated")
+        local far = 0
+        for _, o in ipairs(objects) do
+            assert(o.lane >= -1 and o.lane <= 1 and o.layer >= 0 and o.layers >= 1)
+            far = math.max(far, o.at + o.length)
+        end
+        for at = 0, far, 0.25 do
+            local open = 0
+            for lane = -1, 1 do
+                local blocked = false
+                for _, o in ipairs(objects) do
+                    local solid = o.kind == "obstacle" or (o.kind == "platform" and not o.ramp)
+                    if solid and o.lane == lane and at >= o.at and at <= o.at + o.length then
+                        -- Taller than a jump from the ground, starting below the body's top.
+                        if g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight then
+                            blocked = true
+                        end
+                    end
+                end
+                open = open + (blocked and 0 or 1)
+            end
+            assert(open > 0, string.format("seed %d blocks every lane at %.2f", seed, at))
+        end
+    end
+end)
 print(string.format("%d simulation tests passed", count))
 
--- Near misses must use the same dimensions as the obstacle/coin visuals.
+-- Near misses use the same box dimensions the views draw.
 local s = fresh()
-s.distance = 0
-assert(not g.Overlaps(s, { kind = "obstacle", lane = 0, at = 0.6 }))
-assert(g.Overlaps(s, { kind = "obstacle", lane = 0, at = 0.2 }))
+assert(not g.Overlaps(s, obstacle(0, 0.2)))
+assert(g.Overlaps(s, obstacle(0, -0.2)))
 s.lateral = 0.4
-assert(not g.Overlaps(s, { kind = "obstacle", lane = 0, at = 0 }))
+assert(not g.Overlaps(s, obstacle(0, -0.2)))
 s.lateral = 0
-s.height = 0.96
-assert(not g.Overlaps(s, { kind = "obstacle", lane = 0, at = 0 }))
-assert(g.Overlaps(s, { kind = "coin", lane = 0, at = 0 }))
-s.height = 1.41
-assert(not g.Overlaps(s, { kind = "coin", lane = 0, at = 0 }))
+s.height = L + 0.01
+assert(not g.Overlaps(s, obstacle(0, -0.2)))
+assert(g.Overlaps(s, coin(0, -0.1, 1)))
+s.height = 2 * L + 0.01
+assert(not g.Overlaps(s, coin(0, -0.1, 1)))
 s.height = 0
 s.lateral = 0.2
-assert(not g.Overlaps(s, { kind = "coin", lane = 0, at = 0 }))
-print("PASS visible obstacle depth, lateral near misses, jump clearance and coin bounds")
+assert(not g.Overlaps(s, coin(0, -0.1, 0)))
+print("PASS box depth, lateral near misses, jump clearance and coin layers")
 
 local stopped = fresh()
 stopped.forward = false

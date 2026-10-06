@@ -1,6 +1,7 @@
 -- Exercise the actual local normalizer without creating any client UI frames.
 local app = {}
 assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
+assert(loadfile("Surfer/src/game/shapes.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/window.lua"))("Surfer", app)
 local normalize
 for i = 1, 30 do

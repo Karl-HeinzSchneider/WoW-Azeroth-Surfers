@@ -61,7 +61,10 @@ be listed**. The order follows these rules:
 
 ## Runner prototype
 
-src/game/simulation.lua is the pure fixed-step simulation. Two views render it, chosen by `profile.view`;
+src/game/simulation.lua is the pure fixed-step simulation on a lane/layer grid: every object is a
+box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
+collide or are collected. src/game/shapes.lua turns boxes into the faces both views draw (split at
+the runner for the overlay's mask) and pools their textures. Two views render it, chosen by `profile.view`;
 `app.ToggleGame()` (/surfer, minimap button) opens the chosen one and closes the other.
 
 - src/game/window.lua: `app.runner`, a window with a ModelScene copy of the character, a projected

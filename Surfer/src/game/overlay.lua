@@ -1,6 +1,7 @@
 ---@type string, Surfer
 local _, app = ...
 local sim = app.simulation
+local shapes = app.shapes
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
 -- Opaque except for a soft capsule; CLAMP stretches the opaque border over the whole screen.
@@ -29,9 +30,7 @@ for _, name in ipairs({ "SaveBest", "Restart", "Action", "IsMovingForward", "OnM
     overlay[name] = app.runner[name]
 end
 
-local function ground(d)
-    return -0.0005 * math.max(d, 0) ^ 2
-end
+local ground = shapes.Ground
 
 -- WoW's follow camera orbits a focus point on the character and keeps it at the screen's
 -- center; zoom, pitch and the focus height decide where the feet land below it.
@@ -211,16 +210,14 @@ function overlay:Create()
     for i = 90, 1, -1 do
         local strip = {}
         for j = 1, 5 do
-            strip[j] = f:CreateTexture(nil, j == 1 and "BACKGROUND" or "BORDER")
+            -- Lane lines just above the road; the boxes on it draw on BORDER.
+            strip[j] = f:CreateTexture(nil, "BACKGROUND", nil, j == 1 and 0 or 1)
             strip[j]:SetColorTexture(1, 1, 1)
             self:SetBehind(strip[j], i >= 4)
         end
         self.strips[i] = strip
     end
-    self.markers = {}
-    for i = 1, 32 do
-        self.markers[i] = { top = f:CreateTexture(nil, "ARTWORK"), texture = f:CreateTexture(nil, "ARTWORK") }
-    end
+    self.faces = shapes.Pool(f, "BORDER")
     self.feet = f:CreateTexture(nil, "OVERLAY")
     self.feet:SetColorTexture(1, 0.82, 0.2, 0.9)
     local probe = CreateFrame("ModelScene", nil, f)
@@ -232,7 +229,7 @@ function overlay:Create()
     -- One small scene per coin, placed at its projected position. The scenes stay shown so
     -- models load; unused ones only hide their actor.
     self.coins = {}
-    for i = 1, 12 do
+    for i = 1, 24 do
         local scene = CreateFrame("ModelScene", nil, f)
         scene:EnableMouse(false)
         scene:SetSize(1, 1)
@@ -364,11 +361,12 @@ end
 function overlay:PlaceCutout()
     local s = self.state
     local h, w = self.height, self.width * app.db.profile.overlay.cutout
-    local running = s.status == "running" and s.forward and s.height == 0
+    local airborne = s.height - s.floor
+    local running = s.status == "running" and s.forward and airborne == 0
     local phase = running and (self.clock or 0) * RUN_CYCLE * 2 * math.pi or 0
     local bob = 0.03 * h * math.abs(math.sin(phase))
     local sway = 0.06 * w * math.sin(phase)
-    local tuck = 0.12 * h * math.min(1, s.height / 0.3)
+    local tuck = 0.12 * h * math.min(1, airborne / 0.3)
     self:PlacePart(1, sway / 2, HEAD[1] * h + bob, HEAD[2] * h + bob, HEAD_WIDTH * h)
     self:PlacePart(2, sway / 2, TORSO[1] * h + bob, TORSO[2] * h + bob, w)
     self:PlacePart(3, sway, LEGS[1] * h + tuck, LEGS[2] * h + bob, LEGS_WIDTH * w)
@@ -381,10 +379,11 @@ function overlay:PlaceCutout()
 end
 
 -- A 3D coin: its scene is centered on the projected coin and sized to COIN_FRAME yards there.
-function overlay:PlaceCoin(coin, d, x, at)
-    local cx, cy, scale = project(d, x, ground(d) + bounds.coinBottom + bounds.coinHeight / 2)
+function overlay:PlaceCoin(coin, o)
+    local d = o.at + o.length / 2 - self.state.distance
+    local cx, cy, scale = project(d, -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d))
     local hidden = not cx
-    if cx and d - bounds.coinHalfDepth > 0 then
+    if cx and d - o.length / 2 > 0 then
         -- 3D coins cannot be masked; one behind the body hides while its center is inside a part.
         for i = 1, #self.cutouts do
             local hole = self.holes[i]
@@ -401,7 +400,7 @@ function overlay:PlaceCoin(coin, d, x, at)
     coin.scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", cx, cy)
     coin.scene:SetSize(scale * COIN_FRAME, scale * COIN_FRAME)
     -- Each coin spins with its own phase.
-    coin.actor:SetYaw(GetTime() * 3 + at)
+    coin.actor:SetYaw(GetTime() * 3 + o.at)
     coin.actor:Show()
 end
 
@@ -429,52 +428,34 @@ function overlay:Render()
             strip[j + 1]:SetColorTexture(0.35, 0.75, 0.71, opacity * ((j == 1 or j == 4) and 1 or 0.55))
         end
     end
-    local index, coinIndex = 0, 0
-    for _, o in ipairs(s.objects) do
-        local d = o.at - s.distance
-        local marker = self.markers[index + 1]
-        -- Simulation lanes are positive to the left of the character.
-        local x = -o.lane * LANE
-        local coin = self.coinReady and o.kind == "coin" and self.coins[coinIndex + 1]
-        if coin and not o.hit and d > -3 and d < 85 then
+    -- Boxes and flat coins from the shared faces; coins become 3D once their model loaded.
+    local faces, count = shapes.Collect(s, -cam.offset)
+    local coinIndex = 0
+    for i = 1, count do
+        local f = faces[i]
+        local coin = f.kind == "coin" and self.coinReady and self.coins[coinIndex + 1]
+        if coin then
             coinIndex = coinIndex + 1
-            self:PlaceCoin(coin, d, x, o.at)
-        elseif marker and not o.hit and d > -3 and d < 85 then
-            index = index + 1
-            if o.kind == "coin" then
-                local bottom = ground(d) + bounds.coinBottom
-                local half = bounds.coinHalfWidth
-                face(marker.texture, x - half, x + half, d, bottom, d, bottom + bounds.coinHeight)
-                marker.texture:SetColorTexture(1, 0.77, 0.2, 1)
-                self:SetBehind(marker.texture, d - bounds.coinHalfDepth > 0)
-                marker.top:Hide()
-            else
-                local half, height = bounds.obstacleHalfWidth, bounds.obstacleHeight
-                local front, back = d - bounds.obstacleHalfDepth, d + bounds.obstacleHalfDepth
-                face(marker.texture, x - half, x + half, front, ground(front), front, ground(front) + height)
-                face(marker.top, x - half, x + half, front, ground(front) + height, back, ground(back) + height)
-                marker.texture:SetColorTexture(0.9, 0.29, 0.17, 0.95)
-                marker.top:SetColorTexture(1, 0.48, 0.25, 0.95)
-                self:SetBehind(marker.texture, front > 0)
-                self:SetBehind(marker.top, front > 0)
-            end
+            self:PlaceCoin(coin, f.object)
+        else
+            local t = shapes.Acquire(self.faces, shapes.Sublevel(f))
+            shapes.Draw(t, project, f)
+            self:SetBehind(t, f.behind)
         end
     end
-    for i = index + 1, #self.markers do
-        self.markers[i].texture:Hide()
-        self.markers[i].top:Hide()
-    end
+    shapes.Release(self.faces)
     for i = coinIndex + 1, #self.coins do
         self.coins[i].actor:Hide()
     end
     self.feet:SetShown(s.status ~= "running")
     self.score:SetText(
         string.format(
-            "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %.0f",
+            "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %.0f     LAYER  %d",
             sim.Score(s),
             s.coins,
             app.db.global.bestScore,
-            s.speed
+            s.speed,
+            math.floor(s.height / sim.LAYER + 0.01)
         )
     )
     local messages = { ready = "READY TO RUN?", paused = "PAUSED", over = "RUN COMPLETE" }

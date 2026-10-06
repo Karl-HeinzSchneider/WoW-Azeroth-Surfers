@@ -1,6 +1,7 @@
 -- Exercise the full-screen projection and cutout rules without creating client UI frames.
 local app = {}
 assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
+assert(loadfile("Surfer/src/game/shapes.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/window.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/overlay.lua"))("Surfer", app)
 app.db = {
@@ -32,6 +33,7 @@ local function texture()
         AddMaskTexture = function() end,
         RemoveMaskTexture = function() end,
         SetText = function() end,
+        SetDrawLayer = function() end,
     }
 end
 o.frame = {
@@ -41,7 +43,17 @@ o.frame = {
 }
 o.height, o.width = 2, 0.8
 o.strips = { { texture(), texture(), texture(), texture(), texture() } }
-o.markers = { { texture = texture(), top = texture() } }
+o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
+-- The first face drawn: a box's front, or a flat coin.
+local function first()
+    return o.faces[1]
+end
+local function obstacle(lane, at, layer)
+    return g.Box("obstacle", lane, at, 0.5, layer or 0, 1)
+end
+local function coin(lane, center, layer)
+    return g.Box("coin", lane, center - 0.16, 0.32, layer or 1, 1)
+end
 o.cutouts, o.holes, o.feet = { texture(), texture(), texture() }, {}, texture()
 o.coins = {}
 o.score, o.message, o.hint = texture(), texture(), texture()
@@ -68,26 +80,25 @@ o.state.height = 0
 print("PASS run cycle and jump tuck")
 
 for _, lane in ipairs({ -1, 1 }) do
-    local obj = { kind = "obstacle", lane = lane, at = 10 }
-    o.state.objects = { obj }
+    o.state.objects = { obstacle(lane, 10) }
     o:Render()
-    local x = o.markers[1].texture.x
+    local x = first().x + first().w / 2
     -- Positive simulation lanes are on the screen's left, as in the window view.
     assert((lane == 1 and x < W / 2) or (lane == -1 and x > W / 2), "obstacle lane follows the controls")
-    assert(o.markers[1].texture.surferBehind, "an obstacle ahead is behind the character")
+    assert(first().surferBehind, "an obstacle ahead is behind the character")
 end
-o.state.objects = { { kind = "obstacle", lane = 0, at = -1 } }
+o.state.objects = { obstacle(0, -1) }
 o:Render()
-assert(not o.markers[1].texture.surferBehind, "a passed obstacle is drawn over the character")
+assert(not first().surferBehind, "a passed obstacle is drawn over the character")
 print("PASS lane sides and behind/in-front masking")
 
 -- Changing lanes moves the road under the character, which stays centered.
-o.state.objects = { { kind = "coin", lane = 0, at = 10 } }
+o.state.objects = { coin(0, 10) }
 o:Render()
-local centered = o.markers[1].texture.x
+local centered = first().x
 o.state.lateral = 1
 o:Render()
-assert(o.markers[1].texture.x > centered, "moving left slides the world to the right")
+assert(first().x > centered, "moving left slides the world to the right")
 assert(o.feet.x == W / 2, "the character stays centered while changing lanes")
 print("PASS road follows the character's lane")
 
@@ -110,10 +121,10 @@ for _, case in ipairs({
     { lane = 1, at = 1, shown = true },
     { lane = 0, at = -1, shown = true },
 }) do
-    o.state.objects = { { kind = "coin", lane = case.lane, at = case.at } }
+    o.state.objects = { coin(case.lane, case.at) }
     o:Render()
     assert(o.coins[1].actor.shown == case.shown, "3D coin visibility around the character")
-    assert(not o.markers[1].texture.shown, "a loaded coin model replaces the flat coin")
+    assert(not first().shown, "a loaded coin model replaces the flat coin")
 end
 o.state.objects = {}
 o:Render()
@@ -122,12 +133,33 @@ print("PASS 3D coins hide behind the character and replace flat coins")
 
 -- Jumping: the camera rises with the character, so it keeps its place and the road drops.
 o.coinReady = false
-o.state.objects = { { kind = "coin", lane = 1, at = 10 } }
+o.state.objects = { coin(1, 10) }
 o.state.height = 0
 o:Render()
-local feetY, coinY = o.feet.y, o.markers[1].texture.y
+local feetY, coinY = o.feet.y, first().y
 o.state.height = 1.5
 o:Render()
 assert(math.abs(o.feet.y - feetY) < 0.001, "the character keeps its place on screen")
-assert(o.markers[1].texture.y < coinY, "the road and its objects drop while jumping")
+assert(first().y < coinY, "the road and its objects drop while jumping")
 print("PASS jumping drops the road beneath the character")
+
+-- A platform under the runner: its top in front of the feet is drawn over the character, the
+-- part behind them is masked; the side facing the runner shows.
+o.state.height, o.state.floor = 2 * g.LAYER, 2 * g.LAYER
+o.state.objects = { g.Box("platform", 0, -5, 30, 0, 2), g.Box("platform", 1, 5, 20, 0, 1) }
+o:Render()
+local before, after, sides = 0, 0, 0
+for i = 1, #o.faces do
+    local t = o.faces[i]
+    if t.shown then
+        before = before + ((t.surferBehind == false) and 1 or 0)
+        after = after + (t.surferBehind and 1 or 0)
+    end
+end
+local faces, count = app.shapes.Collect(o.state, -o.state.lateral * g.geometry.laneWidth)
+for i = 1, count do
+    sides = sides + (faces[i].part == "side" and 1 or 0)
+end
+assert(before > 0 and after > 0, "the platform splits at the runner")
+assert(sides > 0, "the neighbouring platform shows the side facing the runner")
+print("PASS platforms split at the runner and show their sides")

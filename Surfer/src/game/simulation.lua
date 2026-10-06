@@ -1,43 +1,75 @@
 ---@type string, Surfer
 local _, app = ...
--- Fixed-step rules are independent of the curved render coordinates.
+-- Fixed-step rules on a grid: three lanes side by side and layers stacked LAYER yards high.
+-- Everything on the track is a box on that grid, so one overlap test serves every kind, and
+-- the rules are independent of how the views draw them.
 local game = {}
 app.simulation = game
--- Shared world-space dimensions for collision and the visible obstacle faces.
+
+-- A jump (about 1.64 yards) reaches a little past layer 2.
+game.LAYER = 0.6
 game.geometry = {
     laneWidth = 2.4,
     playerHalfWidth = 0.22,
     playerHalfDepth = 0.15,
-    playerHeight = 2,
-    obstacleHalfWidth = 0.65,
-    obstacleHalfDepth = 0.25,
-    obstacleHeight = 0.95,
-    coinHalfWidth = 0.16,
-    coinHalfDepth = 0.16,
-    coinBottom = 0.9,
-    coinHeight = 0.5,
+    -- The runner's body is three layers tall: a barrier on layer 3 can be run under.
+    playerHeight = 1.8,
+    -- Half widths by kind: obstacles leave room to squeeze past, platforms fill their lane.
+    halfWidth = { obstacle = 0.65, barrier = 1.1, platform = 1.05, coin = 0.16 },
+    -- The drawn size of a coin; it collects anywhere in its layer.
+    coinSize = 0.5,
 }
 local bounds = game.geometry
-function game.Overlaps(s, o)
-    local obstacle = o.kind == "obstacle"
-    local halfWidth = obstacle and bounds.obstacleHalfWidth or bounds.coinHalfWidth
-    local halfDepth = obstacle and bounds.obstacleHalfDepth or bounds.coinHalfDepth
-    local bottom = obstacle and 0 or bounds.coinBottom
-    local top = obstacle and bounds.obstacleHeight or (bottom + bounds.coinHeight)
-    return math.abs(o.at - s.distance) < bounds.playerHalfDepth + halfDepth
-        and math.abs(o.lane - s.lateral) * bounds.laneWidth < bounds.playerHalfWidth + halfWidth
-        and s.height < top
-        and s.height + bounds.playerHeight > bottom
+local L = game.LAYER
+
+-- A box: `lane`; `at`, its near end, and `length` in yards along the track; `layer`, its
+-- bottom, and `layers`, its height, in layers. Kinds: "obstacle" and "barrier" end the run on
+-- contact, a "coin" is collected, a "platform" can be walked on and is a wall below its top;
+-- its first `ramp` yards rise from its bottom to its top.
+function game.Box(kind, lane, at, length, layer, layers, ramp)
+    return { kind = kind, lane = lane, at = at, length = length, layer = layer, layers = layers, ramp = ramp }
 end
+
+-- The box's top in yards; along a ramp, its height at track distance `at`.
+function game.Top(o, at)
+    local bottom, top = o.layer * L, (o.layer + o.layers) * L
+    if o.ramp and at and at < o.at + o.ramp then
+        return bottom + (top - bottom) * math.max(0, at - o.at) / o.ramp
+    end
+    return top
+end
+
+local function sideBySide(s, o)
+    return math.abs(o.lane - s.lateral) * bounds.laneWidth < bounds.playerHalfWidth + bounds.halfWidth[o.kind]
+end
+
+local function alongside(s, o)
+    return s.distance + bounds.playerHalfDepth > o.at and s.distance - bounds.playerHalfDepth < o.at + o.length
+end
+
+-- Whether the runner's body overlaps the box (for platforms, its full height). Boxes that only
+-- touch, like a body three layers tall under a barrier on layer 3, do not overlap.
+local EPSILON = 1e-6
+function game.Overlaps(s, o)
+    return sideBySide(s, o)
+        and alongside(s, o)
+        and s.height < game.Top(o) - EPSILON
+        and s.height + bounds.playerHeight > o.layer * L + EPSILON
+end
+
 local STEP = 1 / 120
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
+-- How high the runner steps up without jumping: ramps, and landings just short of a top.
+local STEP_UP = 0.25
+
 function game.New(random)
     return {
         status = "ready",
         lane = 0,
         lateral = 0,
         height = 0,
+        floor = 0,
         velocity = 0,
         distance = 0,
         forward = false,
@@ -49,24 +81,30 @@ function game.New(random)
         random = random or math.random,
     }
 end
+
 function game.Score(s)
     return math.floor(s.distance) + s.coins * 25
 end
+
 function game.Start(s)
     if s.status == "ready" then
         s.status = "running"
     end
 end
+
 function game.Move(s, delta)
     if s.status == "running" then
         s.lane = math.max(-1, math.min(1, s.lane + delta))
     end
 end
+
+-- Only from a floor: the ground or a platform's top.
 function game.Jump(s)
-    if s.status == "running" and s.height == 0 then
+    if s.status == "running" and s.velocity == 0 and s.height <= s.floor then
         s.velocity = JUMP_VELOCITY
     end
 end
+
 function game.Pause(s)
     if s.status == "running" then
         s.status = "paused"
@@ -75,6 +113,82 @@ function game.Pause(s)
     end
     s.accumulator = 0
 end
+
+local function add(s, kind, lane, at, length, layer, layers, ramp)
+    s.objects[#s.objects + 1] = game.Box(kind, lane, at, length, layer, layers, ramp)
+end
+
+-- `count` coins in `lane` on `layer`, one every 2 yards from `at`.
+local function coins(s, lane, at, count, layer)
+    for i = 0, count - 1 do
+        add(s, "coin", lane, at + i * 2 - 0.16, 0.32, layer, 1)
+    end
+end
+
+-- Each pattern places its boxes from `at` and returns its length. Every pattern leaves a lane
+-- that can be run, jumped or climbed through.
+local patterns = {
+    -- One lane blocked low enough to jump, coins in another.
+    function(s, at, r)
+        local blocked = r(-1, 1)
+        add(s, "obstacle", blocked, at, 0.5, 0, r(1, 2))
+        coins(s, (blocked + 2) % 3 - 1, at - 4, 5, 0)
+        return 1
+    end,
+    -- A hurdle under an arc of coins that only a jump collects.
+    function(s, at, r)
+        local lane = r(-1, 1)
+        add(s, "obstacle", lane, at, 0.5, 0, 1)
+        for i, layer in ipairs({ 3, 4, 5, 5, 4, 3 }) do
+            add(s, "coin", lane, at - 6 + i * 2 - 0.16, 0.32, layer, 1)
+        end
+        return 8
+    end,
+    -- A tall wall to dodge beside a hurdle to jump; the third lane is clear.
+    function(s, at, r)
+        local tall = r(-1, 1)
+        local low = (tall + 1 + r(1, 2)) % 3 - 1
+        add(s, "obstacle", tall, at, 0.8, 0, 4)
+        add(s, "obstacle", low, at, 0.5, 0, 1)
+        coins(s, -tall - low, at - 4, 4, 0)
+        return 1
+    end,
+    -- Overhead barriers on layer 3: run under them, do not jump.
+    function(s, at, r)
+        local first = r(-1, 1)
+        local last = r(first, 1)
+        for lane = first, last do
+            add(s, "barrier", lane, at, 0.4, 3, 1)
+        end
+        coins(s, first, at - 2, 3, 0)
+        return 1
+    end,
+    -- Higher ground: a platform (with a ramp when too high to jump onto), coins and maybe an
+    -- obstacle on top, sometimes a higher platform beside it to jump across to.
+    function(s, at, r)
+        local lane, layers = r(-1, 1), r(1, 3)
+        local ramp = (layers == 3 or r(0, 1) == 1) and layers * 4 or nil
+        local length = r(24, 40)
+        add(s, "platform", lane, at, length, 0, layers, ramp)
+        coins(s, lane, at + (ramp or 0) + 2, 6, layers)
+        -- Past the coins, with room to land before the platform ends.
+        if r(0, 1) == 1 and length - 6 > (ramp or 0) + 16 then
+            add(s, "obstacle", lane, at + length - 6, 0.5, layers, 1)
+        end
+        if layers < 3 and r(0, 1) == 1 then
+            local beside = lane == 0 and (r(0, 1) == 0 and -1 or 1) or 0
+            add(s, "platform", beside, at + 10, length - 10, 0, layers + 1)
+            coins(s, beside, at + 14, 6, layers + 1)
+        end
+        return length
+    end,
+}
+
+local function spawn(s)
+    local r = s.random
+    s.nextRow = s.nextRow + patterns[r(1, #patterns)](s, s.nextRow, r) + r(10, 16)
+end
+
 local function tick(s)
     s.speed = math.min(32, 20 + s.distance / 180)
     if s.forward then
@@ -82,37 +196,48 @@ local function tick(s)
     end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
-    if s.velocity ~= 0 or s.height > 0 then
-        s.height = math.max(0, s.height + s.velocity * STEP - GRAVITY / 2 * STEP * STEP)
-        s.velocity = s.velocity - GRAVITY * STEP
-        if s.height == 0 then
-            s.velocity = 0
+    -- The floor is the highest top under the runner it can step onto; a higher one is a wall.
+    local floor = 0
+    for _, o in ipairs(s.objects) do
+        if o.kind == "platform" and sideBySide(s, o) and alongside(s, o) then
+            local top = game.Top(o, s.distance + bounds.playerHalfDepth)
+            if top > s.height + STEP_UP then
+                s.status = "over"
+                return
+            end
+            floor = math.max(floor, top)
         end
     end
+    s.floor = floor
+    if s.velocity > 0 or s.height > floor then
+        s.height = s.height + s.velocity * STEP - GRAVITY / 2 * STEP * STEP
+        s.velocity = s.velocity - GRAVITY * STEP
+        if s.height <= floor then
+            s.height, s.velocity = floor, 0
+        end
+    else
+        s.height, s.velocity = floor, 0
+    end
     while s.nextRow < s.distance + 85 do
-        local blocked = s.random(-1, 1)
-        s.objects[#s.objects + 1] = { kind = "obstacle", lane = blocked, at = s.nextRow }
-        -- One blocked lane per row; the other two always offer an escape.
-        s.objects[#s.objects + 1] = { kind = "coin", lane = (blocked + 2) % 3 - 1, at = s.nextRow + 3 }
-        s.nextRow = s.nextRow + 13
+        spawn(s)
     end
     for i = #s.objects, 1, -1 do
         local o = s.objects[i]
-        local d = o.at - s.distance
-        if not o.hit and game.Overlaps(s, o) then
+        if not o.hit and o.kind ~= "platform" and game.Overlaps(s, o) then
             if o.kind == "coin" then
                 o.hit = true
                 s.coins = s.coins + 1
-            elseif o.kind == "obstacle" then
+            else
                 s.status = "over"
                 return
             end
         end
-        if d < -4 then
+        if o.at + o.length < s.distance - 4 then
             table.remove(s.objects, i)
         end
     end
 end
+
 function game.Update(s, elapsed)
     if s.status ~= "running" then
         return

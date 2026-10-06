@@ -1,5 +1,6 @@
 local app = {}
 assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
+assert(loadfile("Surfer/src/game/shapes.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/window.lua"))("Surfer", app)
 local r = app.runner
 local focused, binding, chord
