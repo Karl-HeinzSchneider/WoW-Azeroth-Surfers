@@ -24,6 +24,17 @@ end
 local COLUMN, COLUMN_NEAR = 2.4, 12
 -- A band's pieces by its `segments` (biomes/default.lua).
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
+-- The addon's draw order, bottom to top. The overlay frame (BACKGROUND strata) draws the ground
+-- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it, in frames of their
+-- own, the decorations, then the 3D coins; the twin a strata above all of them (LOW), and the
+-- buttons above that (MEDIUM). Levels count from the overlay frame's; all are fixed, so nothing
+-- the client or another frame does changes them.
+local ORDER = {
+    decorations = { "BACKGROUND", 2 },
+    coins = { "BACKGROUND", 3 },
+    twin = { "LOW", 10 },
+    controls = { "MEDIUM", 1 },
+}
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
 -- Farther coins are a few pixels tall: drawn flat, without a scene of their own.
@@ -243,6 +254,15 @@ function overlay:ScrollGround()
     end
 end
 
+-- Puts `frame` at its place in ORDER.
+function overlay:Stack(frame, place)
+    local strata, level = ORDER[place][1], ORDER[place][2]
+    frame:SetFrameStrata(strata)
+    frame:SetFixedFrameStrata(true)
+    frame:SetFrameLevel(self.frame:GetFrameLevel() + level)
+    frame:SetFixedFrameLevel(true)
+end
+
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
 local function extents(actor)
     if not actor:IsLoaded() then
@@ -390,12 +410,14 @@ function overlay:Create()
     probe:SetPoint("TOPLEFT")
     probe:SetAlpha(0)
     self.probeScene, self.probe = probe, probe:CreateActor()
-    -- The twin draws over everything else of the addon, the 3D coins included: a strata above.
+    -- The twin draws over everything else of the addon (ORDER), its model on the scene's top
+    -- layer.
     local twin = CreateFrame("ModelScene", nil, f)
     twin:SetSize(1, 1)
     twin:SetPoint("CENTER")
     twin:EnableMouse(false)
-    twin:SetFrameStrata("LOW")
+    self:Stack(twin, "twin")
+    twin:SetDrawLayer("OVERLAY")
     twin:SetCameraNearClip(0.1)
     twin:SetCameraFarClip(200)
     light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
@@ -410,6 +432,7 @@ function overlay:Create()
     for i = 1, 24 do
         local scene = CreateFrame("ModelScene", nil, f)
         scene:EnableMouse(false)
+        self:Stack(scene, "coins")
         scene:SetSize(1, 1)
         scene:SetPoint("TOPLEFT")
         scene:SetCameraFieldOfView(2 * math.atan(COIN_FRAME / 2 / COIN_VIEW))
@@ -427,7 +450,7 @@ function overlay:Create()
     self.hint = label(f, "GameFontHighlight", "CENTER", 175)
     self.hint:SetWidth(700)
     local controls = CreateFrame("Frame", nil, f)
-    controls:SetFrameStrata("MEDIUM")
+    self:Stack(controls, "controls")
     controls:SetSize(3 * 112, 24)
     controls:SetPoint("TOP", 0, -38)
     local buttons = {

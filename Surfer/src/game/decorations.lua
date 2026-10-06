@@ -49,6 +49,7 @@ end
 function overlay:CreateDecorations(f)
     local scene = CreateFrame("ModelScene", nil, f)
     scene:EnableMouse(false)
+    self:Stack(scene, "decorations")
     scene:SetAllPoints(f)
     scene:SetCameraNearClip(0.2)
     scene:SetCameraFarClip(250)
