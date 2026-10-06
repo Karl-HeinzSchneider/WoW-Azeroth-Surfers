@@ -10,6 +10,7 @@ local F = H / (2 * math.tan(FOV / 2))
 local CAMERA_PITCH = 0.18
 local C, S = math.cos(CAMERA_PITCH), math.sin(CAMERA_PITCH)
 local bounds = sim.geometry
+local EDGES = { -3.7, -1.2, 1.2, 3.7 }
 local LANE = bounds.laneWidth
 -- The current yaw/pitch actor view renders positive simulation lanes on the left; app.shapes
 -- hands out screen-right coordinates (-lane * LANE) for the art.
@@ -145,22 +146,25 @@ end
 function runner:IsMovingForward(elapsed)
     local x, y, _, map = UnitPosition("player")
     local facing = GetPlayerFacing()
-    local previous = self.previousPosition
+    -- Both tables are reused every frame.
+    local last = self.lastPosition or {}
+    self.lastPosition = last
     self.motion = self.motion or {}
     self.motion.forward, self.motion.left, self.motion.speed = 0, 0, 0
     if type(x) ~= "number" or type(y) ~= "number" or type(facing) ~= "number" then
-        self.previousPosition = nil
+        last.valid = false
         return false
     end
-    self.previousPosition = { x = x, y = y, map = map }
-    if not previous or previous.map ~= map or elapsed <= 0 then
+    local lastX, lastY, lastMap, valid = last.x, last.y, last.map, last.valid
+    last.x, last.y, last.map, last.valid = x, y, map, true
+    if not valid or lastMap ~= map or elapsed <= 0 then
         return false
     end
     local speed = GetUnitSpeed("player") or 0
     if speed <= 0 then
         return false
     end
-    local dx, dy = x - previous.x, y - previous.y
+    local dx, dy = x - lastX, y - lastY
     -- Reject teleports and large discontinuities instead of advancing the track.
     local limit = math.max(1, speed * elapsed * 3)
     if dx * dx + dy * dy > limit * limit then
@@ -170,6 +174,44 @@ function runner:IsMovingForward(elapsed)
     local left = dy * math.cos(facing) - dx * math.sin(facing)
     self.motion.forward, self.motion.left, self.motion.speed = forward / elapsed, left / elapsed, speed
     return forward > 0.05 * elapsed
+end
+-- The next sample starts afresh, e.g. after the view was hidden.
+function runner:ForgetPosition()
+    if self.lastPosition then
+        self.lastPosition.valid = false
+    end
+end
+local MESSAGES = { ready = "READY TO RUN?", paused = "PAUSED", over = "RUN COMPLETE" }
+-- The score line and status message, rewritten only when they change, so a running game does
+-- not build new strings every frame.
+function runner:ShowStatus()
+    local s, shown = self.state, self.shown or {}
+    self.shown = shown
+    local score, best = sim.Score(s), app.db.global.bestScore
+    local speed, layer = math.floor(s.speed + 0.5), math.floor(s.height / sim.LAYER + 0.01)
+    if
+        shown.score ~= score
+        or shown.coins ~= s.coins
+        or shown.best ~= best
+        or shown.speed ~= speed
+        or shown.layer ~= layer
+    then
+        shown.score, shown.coins, shown.best, shown.speed, shown.layer = score, s.coins, best, speed, layer
+        self.score:SetText(
+            string.format(
+                "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %d     LAYER  %d",
+                score,
+                s.coins,
+                best,
+                speed,
+                layer
+            )
+        )
+    end
+    if shown.status ~= s.status then
+        shown.status = s.status
+        self.message:SetText(MESSAGES[s.status] or "")
+    end
 end
 function runner:OnMovementKey(key)
     if InCombatLockdown() or GetCurrentKeyBoardFocus() then
@@ -327,7 +369,7 @@ function runner:Create()
         self:OnMovementKey(key)
     end)
     f:SetScript("OnHide", function()
-        self.previousPosition = nil
+        self:ForgetPosition()
         self.state.forward = false
         if self.state.status == "running" then
             sim.Pause(self.state)
@@ -370,11 +412,10 @@ function runner:Render()
     local s = self.state
     if self.roadDirty then
         self:CalibrateLanes()
-        local edges = { -3.7, -1.2, 1.2, 3.7 }
         for i, strip in ipairs(self.strips) do
             quad(strip[1], -3.7, 3.7, i - 4, i - 3)
             for j = 1, 4 do
-                quad(strip[j + 1], edges[j] - 0.025, edges[j] + 0.025, i - 4, i - 3)
+                quad(strip[j + 1], EDGES[j] - 0.025, EDGES[j] + 0.025, i - 4, i - 3)
             end
         end
         self.roadDirty = false
@@ -404,17 +445,7 @@ function runner:Render()
         self.player:SetAnimation(animation, 0, 1, 0)
         self.animation = animation
     end
-    self.score:SetText(
-        string.format(
-            "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %.0f",
-            sim.Score(s),
-            s.coins,
-            app.db.global.bestScore,
-            s.speed
-        )
-    )
-    local messages = { ready = "READY TO RUN?", paused = "PAUSED", over = "RUN COMPLETE" }
-    self.message:SetText(messages[s.status] or "")
+    self:ShowStatus()
     self.hint:SetText(
         s.status == "running" and ""
             or "WoW turn / strafe keys: lanes   |   WoW jump key: jump\nAll inputs pass through. Use the buttons to restart or pause."

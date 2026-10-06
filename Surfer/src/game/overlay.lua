@@ -36,7 +36,17 @@ local overlay = {}
 app.overlay = overlay
 -- Input, movement sampling, the per-frame step, scoring and toggling only need `state`, `frame`
 -- and `Create`.
-for _, name in ipairs({ "SaveBest", "Restart", "Action", "IsMovingForward", "OnMovementKey", "Step", "Toggle" }) do
+for _, name in ipairs({
+    "SaveBest",
+    "Restart",
+    "Action",
+    "IsMovingForward",
+    "ForgetPosition",
+    "ShowStatus",
+    "OnMovementKey",
+    "Step",
+    "Toggle",
+}) do
     overlay[name] = app.runner[name]
 end
 
@@ -45,6 +55,15 @@ local ground = shapes.Ground
 -- WoW's follow camera orbits a focus point on the character and keeps it at the screen's
 -- center; zoom, pitch and the focus height decide where the feet land below it.
 local cam = {}
+overlay.camera = cam
+-- Stores `value` under `name` and tells whether it was already there.
+local function unchanged(last, name, value)
+    if last[name] == value then
+        return true
+    end
+    last[name] = value
+    return false
+end
 function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
@@ -64,21 +83,22 @@ function overlay:UpdateCamera()
     cam.feet = self.state.height
     cam.z = cam.feet + settings.focus * self.height + math.max(zoom, 0.5) * cam.sin
     cam.offset = self.state.lateral * LANE
-    return string.format(
-        "%.2f %.3f %.3f %.0f %.0f %.2f %.2f %g %g %g %g %s",
-        zoom,
-        cam.offset,
-        cam.feet,
-        w,
-        h,
-        self.height,
-        self.width,
-        settings.pitch,
-        settings.focus,
-        settings.fov,
-        settings.cutout,
-        settings.character
-    )
+    -- Whether the road has to be projected again: compared value by value, without building a
+    -- key, so an unchanged frame allocates nothing.
+    local last = self.lastRoad
+    local same = unchanged(last, "zoom", zoom)
+    same = unchanged(last, "offset", cam.offset) and same
+    same = unchanged(last, "feet", cam.feet) and same
+    same = unchanged(last, "w", w) and same
+    same = unchanged(last, "h", h) and same
+    same = unchanged(last, "height", self.height) and same
+    same = unchanged(last, "width", self.width) and same
+    same = unchanged(last, "pitch", settings.pitch) and same
+    same = unchanged(last, "focus", settings.focus) and same
+    same = unchanged(last, "fov", settings.fov) and same
+    same = unchanged(last, "cutout", settings.cutout) and same
+    same = unchanged(last, "character", settings.character) and same
+    return not same
 end
 
 -- Screen point of (distance ahead, screen-right world offset, height) and yards to pixels there.
@@ -241,7 +261,8 @@ function overlay:Create()
     -- Above the 3D world, below the rest of the UI; clicks go through to the world.
     f:SetFrameStrata("BACKGROUND")
     f:EnableMouse(false)
-    self.cutouts, self.holes = {}, {}
+    -- Each part's screen box, reused every frame; `valid` is false while it is off screen.
+    self.cutouts, self.holes, self.lastRoad = {}, { {}, {}, {} }, {}
     for i = 1, 3 do
         self.cutouts[i] = f:CreateMaskTexture()
         self.cutouts[i]:SetTexture(CUTOUT, "CLAMP", "CLAMP")
@@ -345,7 +366,7 @@ function overlay:Create()
         self:OnMovementKey(key)
     end)
     f:SetScript("OnHide", function()
-        self.previousPosition = nil
+        self:ForgetPosition()
         self.state.forward = false
         if self.state.status == "running" then
             sim.Pause(self.state)
@@ -359,7 +380,7 @@ function overlay:Create()
         end
         self:LoadPlayer()
         self:ApplyHideReal()
-        self.roadKey = nil
+        self.lastRoad = {}
     end)
     f:RegisterEvent("PLAYER_REGEN_DISABLED")
     f:RegisterEvent("PLAYER_LOGOUT")
@@ -485,12 +506,13 @@ function overlay:PlacePart(i, x, bottom, top, width)
     local sx, y1, scale = project(0, x - cam.offset, cam.feet + bottom)
     local _, y2 = project(0, x - cam.offset, cam.feet + top)
     if not sx or not y2 or y2 <= y1 then
-        self.holes[i] = nil
+        self.holes[i].valid = false
         mask:SetSize(0.01, 0.01)
         return
     end
     local half = width * scale / 2
-    self.holes[i] = { left = sx - half, right = sx + half, bottom = y1, top = y2 }
+    local hole = self.holes[i]
+    hole.valid, hole.left, hole.right, hole.bottom, hole.top = true, sx - half, sx + half, y1, y2
     local w, h = 2 * half / CUTOUT_WIDTH, (y2 - y1) / CUTOUT_HEIGHT
     mask:ClearAllPoints()
     mask:SetPoint("BOTTOMLEFT", sx - w / 2, y1 - h * CUTOUT_BOTTOM)
@@ -529,7 +551,7 @@ function overlay:PlaceCoin(coin, o)
         -- 3D coins cannot be masked; one behind the body hides while its center is inside a part.
         for i = 1, #self.cutouts do
             local hole = self.holes[i]
-            if hole and cx > hole.left and cx < hole.right and cy > hole.bottom and cy < hole.top then
+            if hole.valid and cx > hole.left and cx < hole.right and cy > hole.bottom and cy < hole.top then
                 hidden = true
             end
         end
@@ -549,9 +571,7 @@ end
 function overlay:Render()
     local s = self.state
     local settings = app.db.profile.overlay
-    local key = self:UpdateCamera()
-    if key ~= self.roadKey then
-        self.roadKey = key
+    if self:UpdateCamera() then
         for i, strip in ipairs(self.strips) do
             local near, far = i - 4, i - 3
             face(strip[1], EDGES[1], EDGES[4], near, ground(near), far, ground(far))
@@ -598,29 +618,31 @@ function overlay:Render()
     end
     local twin = settings.character == "twin"
     self.feet:SetShown(s.status ~= "running" and not twin)
-    self.score:SetText(
-        string.format(
-            "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %.0f     LAYER  %d",
-            sim.Score(s),
-            s.coins,
-            app.db.global.bestScore,
-            s.speed,
-            math.floor(s.height / sim.LAYER + 0.01)
-        )
-    )
-    local messages = { ready = "READY TO RUN?", paused = "PAUSED", over = "RUN COMPLETE" }
-    self.message:SetText(messages[s.status] or "")
+    self:ShowStatus()
+    self:ShowHint(twin)
+end
+
+-- The hint under the status message, rebuilt only when something it shows changes.
+function overlay:ShowHint(twin)
+    local hint, running = self.lastHint or {}, self.state.status == "running"
+    self.lastHint = hint
+    local distance = math.floor(cam.distance * 10 + 0.5)
+    local same = unchanged(hint, "running", running)
+    same = unchanged(hint, "twin", twin) and same
+    same = unchanged(hint, "zoomRead", cam.zoomRead) and same
+    same = unchanged(hint, "distance", distance) and same
+    if same then
+        return
+    end
     self.hint:SetText(
-        s.status == "running" and ""
+        running and ""
             or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
                 .. (twin and "Line the see-through copy up with your character in /surfer options." or "The gold bar should sit under your feet; adjust it in /surfer options.")
                 .. "\n"
-                .. (
-                    cam.zoomRead and string.format("Camera zoom %.1f, read from the game.", cam.distance)
-                    or string.format(
-                        "The game does not report its zoom: Camera distance (%.1f) must match yours.",
-                        cam.distance
-                    )
+                .. string.format(
+                    cam.zoomRead and "Camera zoom %.1f, read from the game."
+                        or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
+                    distance / 10
                 )
     )
 end

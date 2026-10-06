@@ -65,7 +65,8 @@ end
 local function coin(lane, center, layer)
     return g.Box("coin", lane, center - 0.16, 0.32, layer or 1, 1)
 end
-o.cutouts, o.holes, o.feet = { texture(), texture(), texture() }, {}, texture()
+o.cutouts, o.holes, o.feet = { texture(), texture(), texture() }, { {}, {}, {} }, texture()
+o.lastRoad = {}
 o.coins = {}
 o.score, o.message, o.hint = texture(), texture(), texture()
 
@@ -74,7 +75,11 @@ g.Start(o.state)
 o:Render()
 assert(o.feet.x == W / 2, "the character stays at the screen's horizontal center")
 assert(o.feet.y < H / 2, "the feet sit below the camera's focus at the screen center")
-local head, torso, legs = o.holes[1], o.holes[2], o.holes[3]
+-- The boxes are reused every frame: keep copies to compare with later frames.
+local function copy(hole)
+    return { left = hole.left, right = hole.right, bottom = hole.bottom, top = hole.top }
+end
+local head, torso, legs = copy(o.holes[1]), copy(o.holes[2]), copy(o.holes[3])
 assert(o.cutouts[3].y < o.feet.y and legs.bottom == o.feet.y, "the legs cutout reaches the feet")
 assert(legs.top > torso.bottom and torso.top > head.bottom, "the parts overlap without seams")
 assert(head.right - head.left < torso.right - torso.left, "the head is narrower than the shoulders")
@@ -179,8 +184,10 @@ print("PASS platforms split at the runner and show their sides")
 local settings = app.db.profile.overlay
 settings.character = "twin"
 local scene, actor = texture(), { loaded = true, shown = false }
+-- Stubs reuse their tables, so the allocation check below measures the addon only.
+scene.camera = {}
 function scene:SetCameraPosition(x, y, z)
-    self.camera = { x, y, z }
+    self.camera[1], self.camera[2], self.camera[3] = x, y, z
 end
 function scene:SetCameraOrientationByYawPitchRoll() end
 function scene:SetCameraFieldOfView(fov)
@@ -195,8 +202,9 @@ end
 function actor:SetScale(scale)
     self.scale = scale
 end
+actor.position = {}
 function actor:SetPosition(x, y, z)
-    self.position = { x, y, z }
+    self.position[1], self.position[2], self.position[3] = x, y, z
 end
 function actor:SetAnimation(animation, _, rate)
     self.animation, self.rate = animation, rate
@@ -310,8 +318,43 @@ end
 settings.character, settings.hideReal = "twin", true
 o:ApplyHideReal()
 assert(calls[1] == "in 50" and o.zoomedIn, "zoomed into first person")
-assert(o:UpdateCamera():match("^12%.00 "), "in first person the twin's camera uses the distance setting")
+o:UpdateCamera()
+assert(o.camera.distance == 12, "in first person the twin's camera uses the distance setting")
 shown = false
 o:ApplyHideReal()
 assert(calls[2] == "out 9" and zoom == 9 and not o.zoomedIn, "zoomed back out to the previous zoom")
 print("PASS hiding the real character zooms into first person and back")
+
+-- A running frame allocates nothing: no new tables or strings, so no garbage piles up.
+settings.character, settings.hideReal = "twin", false
+o.state = g.New()
+o.state.nextRow = math.huge
+o.state.objects = {
+    obstacle(0, 10),
+    coin(1, 12),
+    g.Box("platform", -1, 5, 30, 0, 2, 8),
+    g.Box("barrier", 0, 20, 0.4, 3, 1),
+}
+g.Start(o.state)
+o.state.forward, o.state.distance = true, 0.5
+o.motion = { forward = 7, left = 0, speed = 7 }
+local function frame()
+    o.state.distance = o.state.distance + 0.001
+    o.state.lateral = (o.state.lateral + 0.01) % 1
+    o:AnimateTwin(0.016)
+    o:Render()
+end
+-- One full sideways cycle first: the face and texture pools grow once to the most faces seen.
+for _ = 1, 150 do
+    frame()
+end
+collectgarbage("collect")
+collectgarbage("stop")
+local before = collectgarbage("count")
+for _ = 1, 300 do
+    frame()
+end
+local grown = collectgarbage("count") - before
+collectgarbage("restart")
+assert(grown < 0.5, string.format("300 frames allocated %.2f KB", grown))
+print(string.format("PASS 300 running frames allocate nothing (%.2f KB)", grown))

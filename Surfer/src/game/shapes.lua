@@ -50,6 +50,16 @@ local function segment(o, s, viewX, x1, x2, a, b)
     end
 end
 
+-- A barrier's post at `left`, from the ground up to the bar's bottom `z`.
+local POST = 0.08
+local function post(o, near, left, z)
+    local floor, right = ground(near), left + POST
+    add(o, "post", "front", near > 0, near, near, left, z, near, left, floor, near, right, z, near, right, floor)
+end
+
+-- Reused by every box: the points where its faces split.
+local cuts = {}
+
 local function box(o, s, viewX)
     local near, far = o.at - s.distance, o.at + o.length - s.distance
     if far < NEAR or near > DRAW_DISTANCE then
@@ -66,41 +76,33 @@ local function box(o, s, viewX)
         end
         if o.kind == "barrier" then
             -- Posts from the ground to the bar, for looks only.
-            local floor = ground(near)
-            for _, left in ipairs({ x1, x2 - 0.08 }) do
-                local right = left + 0.08
-                add(
-                    o,
-                    "post",
-                    "front",
-                    near > 0,
-                    near,
-                    near,
-                    left,
-                    z,
-                    near,
-                    left,
-                    floor,
-                    near,
-                    right,
-                    z,
-                    near,
-                    right,
-                    floor
-                )
-            end
+            post(o, near, x1, z)
+            post(o, near, x2 - POST, z)
         end
     end
     -- Split where a ramp ends and at the runner, so the part behind it can be masked.
     local a, b = math.max(near, NEAR), math.min(far, DRAW_DISTANCE)
-    local cuts = { a, b }
-    for _, cut in ipairs({ o.ramp and near + o.ramp or a, 0 }) do
-        if cut > a and cut < b then
-            cuts[#cuts + 1] = cut
-        end
+    local n = 2
+    cuts[1], cuts[2] = a, b
+    local rampEnd = o.ramp and near + o.ramp
+    if rampEnd and rampEnd > a and rampEnd < b then
+        n = n + 1
+        cuts[n] = rampEnd
     end
-    table.sort(cuts)
-    for i = 1, #cuts - 1 do
+    if a < 0 and b > 0 then
+        n = n + 1
+        cuts[n] = 0
+    end
+    -- At most four values: an insertion sort, without a comparison closure.
+    for i = 2, n do
+        local value, j = cuts[i], i - 1
+        while j >= 1 and cuts[j] > value do
+            cuts[j + 1] = cuts[j]
+            j = j - 1
+        end
+        cuts[j + 1] = value
+    end
+    for i = 1, n - 1 do
         segment(o, s, viewX, x1, x2, cuts[i], cuts[i + 1])
     end
 end
