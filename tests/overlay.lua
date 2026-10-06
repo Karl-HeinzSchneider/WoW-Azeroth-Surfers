@@ -42,7 +42,7 @@ o.frame = {
 o.height, o.width = 2, 0.8
 o.strips = { { texture(), texture(), texture(), texture(), texture() } }
 o.markers = { { texture = texture(), top = texture() } }
-o.cutout, o.feet = texture(), texture()
+o.cutouts, o.holes, o.feet = { texture(), texture(), texture() }, {}, texture()
 o.coins = {}
 o.score, o.message, o.hint = texture(), texture(), texture()
 
@@ -51,8 +51,21 @@ g.Start(o.state)
 o:Render()
 assert(o.feet.x == W / 2, "the character stays at the screen's horizontal center")
 assert(o.feet.y < H / 2, "the feet sit below the camera's focus at the screen center")
-assert(o.cutout.y < o.feet.y and o.cutout.y + o.cutout.h > o.feet.y, "the cutout covers the feet")
-print("PASS character anchor and cutout placement")
+local head, torso, legs = o.holes[1], o.holes[2], o.holes[3]
+assert(o.cutouts[3].y < o.feet.y and legs.bottom == o.feet.y, "the legs cutout reaches the feet")
+assert(legs.top > torso.bottom and torso.top > head.bottom, "the parts overlap without seams")
+assert(head.right - head.left < torso.right - torso.left, "the head is narrower than the shoulders")
+print("PASS character anchor and body cutout placement")
+
+-- Running bobs and sways the cutout; a jump tucks the legs in.
+o.state.forward, o.clock = true, 0.1
+o:Render()
+assert(o.holes[2].bottom > torso.bottom and o.holes[2].left ~= torso.left, "running bobs and sways")
+o.state.forward, o.state.height = false, 0.5
+o:Render()
+assert(o.holes[3].bottom > o.feet.y, "a jump tucks the legs in")
+o.state.height = 0
+print("PASS run cycle and jump tuck")
 
 for _, lane in ipairs({ -1, 1 }) do
     local obj = { kind = "obstacle", lane = lane, at = 10 }

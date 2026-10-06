@@ -114,7 +114,7 @@ local options = {
                     50,
                     "cutout",
                     "Character cutout",
-                    "Width of the hole the road leaves behind your character, as a share of its width.",
+                    "Shoulder width of the head, torso and legs cutout the road leaves behind your character, as a share of its width.",
                     0,
                     1.5,
                     0.05

@@ -7,6 +7,11 @@ local LANE = bounds.laneWidth
 local CUTOUT = "Interface\\AddOns\\Surfer\\assets\\game\\cutout"
 -- Share of the cutout texture the capsule fills: 4 opaque texels on each side of 64 x 128.
 local CUTOUT_WIDTH, CUTOUT_HEIGHT, CUTOUT_BOTTOM = 56 / 64, 120 / 128, 4 / 128
+-- The character seen from behind as head, torso and legs: bottom and top as shares of its
+-- height; width as a share of its cutout width, or of its height for the head. Parts overlap
+-- so no seam shows between them. Strides per second of the run cycle the cutout follows.
+local HEAD, TORSO, LEGS = { 0.8, 1.04 }, { 0.42, 0.88 }, { 0, 0.5 }
+local HEAD_WIDTH, LEGS_WIDTH, RUN_CYCLE = 0.16, 0.55, 1.5
 local EDGES = { -3.7, -1.2, 1.2, 3.7 }
 -- Coin models from the game files, tried in order until one loads (community listfile ids:
 -- 11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01). The flat coin stands in until then.
@@ -15,8 +20,8 @@ local COIN_MODELS = { 5737987, 2313815, 200137 }
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
 
 -- Full-screen view: the real character is the runner, and the road, obstacles and coins are
--- drawn around it. Everything behind the character is masked by a capsule over its body, so
--- the character appears in front of the UI.
+-- drawn around it. Everything behind the character is masked by capsules over its head, torso
+-- and legs, so the character appears in front of the UI.
 local overlay = {}
 app.overlay = overlay
 -- Input, movement sampling, scoring and toggling only need `state`, `frame` and `Create`.
@@ -93,10 +98,12 @@ end
 -- Only what lies behind the character gets the cutout; what passed it stays in front.
 function overlay:SetBehind(t, behind)
     if t.surferBehind ~= behind then
-        if behind then
-            t:AddMaskTexture(self.cutout)
-        else
-            t:RemoveMaskTexture(self.cutout)
+        for _, mask in ipairs(self.cutouts) do
+            if behind then
+                t:AddMaskTexture(mask)
+            else
+                t:RemoveMaskTexture(mask)
+            end
         end
         t.surferBehind = behind
     end
@@ -195,8 +202,11 @@ function overlay:Create()
     -- Above the 3D world, below the rest of the UI; clicks go through to the world.
     f:SetFrameStrata("BACKGROUND")
     f:EnableMouse(false)
-    self.cutout = f:CreateMaskTexture()
-    self.cutout:SetTexture(CUTOUT, "CLAMP", "CLAMP")
+    self.cutouts, self.holes = {}, {}
+    for i = 1, 3 do
+        self.cutouts[i] = f:CreateMaskTexture()
+        self.cutouts[i]:SetTexture(CUTOUT, "CLAMP", "CLAMP")
+    end
     self.strips = {}
     for i = 90, 1, -1 do
         local strip = {}
@@ -312,6 +322,7 @@ function overlay:Create()
         end
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
+        self.clock = (self.clock or 0) + elapsed
         self.state.forward = self:IsMovingForward(elapsed)
         if self.state.forward and self.state.status == "ready" then
             sim.Start(self.state)
@@ -328,41 +339,60 @@ function overlay:Create()
     self:Render()
 end
 
--- The capsule covers the character from the feet to just above the head.
-function overlay:PlaceCutout()
-    local settings = app.db.profile.overlay
-    local x, feet, scale = project(0, -cam.offset, cam.feet)
-    local _, head = project(0, -cam.offset, cam.feet + self.height * 1.05)
-    if not x or not head or head <= feet then
-        self.hole = nil
-        self.cutout:SetSize(0.01, 0.01)
-        self.feet:Hide()
+-- Cutout part i spans `bottom` to `top` yards above the feet, `width` yards wide, `x` yards to
+-- the right of the character's center. Its screen box is kept for the 3D coins.
+function overlay:PlacePart(i, x, bottom, top, width)
+    local mask = self.cutouts[i]
+    local sx, y1, scale = project(0, x - cam.offset, cam.feet + bottom)
+    local _, y2 = project(0, x - cam.offset, cam.feet + top)
+    if not sx or not y2 or y2 <= y1 then
+        self.holes[i] = nil
+        mask:SetSize(0.01, 0.01)
         return
     end
-    local half = self.width * settings.cutout * scale / 2
-    -- 3D coins cannot be masked; they hide while their center is inside this box.
-    self.hole = { left = x - half, right = x + half, bottom = feet, top = head }
-    local width = 2 * half / CUTOUT_WIDTH
-    local height = (head - feet) / CUTOUT_HEIGHT
-    self.cutout:ClearAllPoints()
-    self.cutout:SetPoint("BOTTOMLEFT", x - width / 2, feet - height * CUTOUT_BOTTOM)
-    self.cutout:SetSize(width, height)
-    self.feet:ClearAllPoints()
-    self.feet:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, feet)
-    self.feet:SetSize(self.width * scale * 1.6, 3)
+    local half = width * scale / 2
+    self.holes[i] = { left = sx - half, right = sx + half, bottom = y1, top = y2 }
+    local w, h = 2 * half / CUTOUT_WIDTH, (y2 - y1) / CUTOUT_HEIGHT
+    mask:ClearAllPoints()
+    mask:SetPoint("BOTTOMLEFT", sx - w / 2, y1 - h * CUTOUT_BOTTOM)
+    mask:SetSize(w, h)
+end
+
+-- Head, torso and legs follow a generic run cycle: the body bobs and sways with each stride,
+-- and a jump tucks the legs in. The real animation's phase is unknown, so this only
+-- approximates it.
+function overlay:PlaceCutout()
+    local s = self.state
+    local h, w = self.height, self.width * app.db.profile.overlay.cutout
+    local running = s.status == "running" and s.forward and s.height == 0
+    local phase = running and (self.clock or 0) * RUN_CYCLE * 2 * math.pi or 0
+    local bob = 0.03 * h * math.abs(math.sin(phase))
+    local sway = 0.06 * w * math.sin(phase)
+    local tuck = 0.12 * h * math.min(1, s.height / 0.3)
+    self:PlacePart(1, sway / 2, HEAD[1] * h + bob, HEAD[2] * h + bob, HEAD_WIDTH * h)
+    self:PlacePart(2, sway / 2, TORSO[1] * h + bob, TORSO[2] * h + bob, w)
+    self:PlacePart(3, sway, LEGS[1] * h + tuck, LEGS[2] * h + bob, LEGS_WIDTH * w)
+    local x, feet, scale = project(0, -cam.offset, cam.feet)
+    if x then
+        self.feet:ClearAllPoints()
+        self.feet:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, feet)
+        self.feet:SetSize(self.width * scale * 1.6, 3)
+    end
 end
 
 -- A 3D coin: its scene is centered on the projected coin and sized to COIN_FRAME yards there.
 function overlay:PlaceCoin(coin, d, x, at)
     local cx, cy, scale = project(d, x, ground(d) + bounds.coinBottom + bounds.coinHeight / 2)
-    local hole = self.hole
     local hidden = not cx
-        or d - bounds.coinHalfDepth > 0
-            and hole
-            and cx > hole.left
-            and cx < hole.right
-            and cy > hole.bottom
-            and cy < hole.top
+    if cx and d - bounds.coinHalfDepth > 0 then
+        -- 3D coins cannot be masked; one behind the body hides while its center is inside a part.
+        for i = 1, #self.cutouts do
+            local hole = self.holes[i]
+            if hole and cx > hole.left and cx < hole.right and cy > hole.bottom and cy < hole.top then
+                hidden = true
+            end
+        end
+    end
     if hidden then
         coin.actor:Hide()
         return
@@ -388,9 +418,9 @@ function overlay:Render()
                 face(strip[j + 1], EDGES[j] - 0.025, EDGES[j] + 0.025, near, ground(near), far, ground(far))
             end
         end
-        self:PlaceCutout()
         self:AimCoinCameras()
     end
+    self:PlaceCutout()
     local opacity = settings.opacity
     for i, strip in ipairs(self.strips) do
         local shade = math.floor((i - 4 + s.distance) / 4) % 2 == 0 and 0.19 or 0.22

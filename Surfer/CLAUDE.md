@@ -70,7 +70,8 @@ src/game/simulation.lua is the pure fixed-step simulation. Two views render it, 
   road, obstacles and coins are UI textures at BACKGROUND strata, projected with a model of the
   follow camera (focus point at screen center; pitch, focus height, FOV and, without
   `GetCameraZoom`, distance from `profile.overlay`). Everything behind the character gets the
-  `assets/game/cutout.tga` mask (opaque, transparent capsule, CLAMP-wrapped) over its body.
+  `assets/game/cutout.tga` mask (opaque, transparent capsule, CLAMP-wrapped) three times: head,
+  torso and legs, sized from the model's bounds and moved with a generic run cycle and jump tuck.
   Coins are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene each at the
   projected position; models cannot be masked, so a coin hides while behind the body.
 
