@@ -16,6 +16,7 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
+    biome = "elwynn", -- how the game looks: a file in src/biomes/
     -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
         hideReal = false, -- first-person camera while the view is open, so only the twin shows

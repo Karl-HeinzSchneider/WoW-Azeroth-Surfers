@@ -16,32 +16,8 @@ local function edges(scale)
     end
     return list
 end
-local SEGMENTS = { edges(1), edges(2), edges(4) }
--- An Elwynn Forest road from the game's own terrain textures (community listfile ids:
--- elwynncobblestonebase, elwynndirtbase2, elwynngrassbase). They repeat every TILE yards, as
--- on the game's own ground; the colors stand in if one does not load.
-local TEXTURES = { road = 187099, dirt = 187114, grass = 187126 }
-local COLORS = { road = { 0.55, 0.53, 0.45 }, dirt = { 0.45, 0.33, 0.18 }, grass = { 0.4, 0.5, 0.1 } }
-local TILE = 4.1667
--- Bands from the road's middle outward, mirrored to both sides (one band across the middle
--- when it starts there): texture, draw sublevel, segment length (index into SEGMENTS),
--- yards off the middle and the opacity there. Gradients are linear across a texture, so a
--- soft edge is a band of its own. Cobbles fade into a dirt shoulder, the dirt into grass and
--- the grass into the world; worn dirt ruts mark the lanes. Cobbles need the shortest
--- segments: a texture seam next to them would show.
-local BANDS = {
-    { "grass", -2, 2, 3.3, 5.5, 1, 1 },
-    { "grass", -2, 2, 5.5, 8.5, 1, 0 },
-    { "dirt", -1, 2, 3.3, 5.3, 1, 0 },
-    { "road", 0, 1, 0, 3.3, 1, 1 },
-    { "road", 0, 1, 3.3, 4.3, 1, 0 },
-    { "dirt", 1, 3, 0.95, 1.45, 0.3, 0.3 },
-}
--- The far ground fades out between these distances instead of ending at a hard edge.
-local FADE_START, FADE_END = 60, 88
--- Coin models from the game files, tried in order until one loads (community listfile ids:
--- 11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01). The flat coin stands in until then.
-local COIN_MODELS = { 5737987, 2313815, 200137 }
+-- A band's pieces by its `segments` (biomes/default.lua).
+local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
 -- Farther coins are a few pixels tall: drawn flat, without a scene of their own.
@@ -137,38 +113,67 @@ local function face(t, left, right, d1, z1, d2, z2)
 end
 
 -- The ground's pieces: textures fixed to a stretch of the ground, `left` to `right` across
--- it and `near` to `far` ahead of the runner, on BACKGROUND under the boxes.
-local function pieces(list, f, band, left, right, alphaLeft, alphaRight)
-    local kind, sublevel, segments = band[1], band[2], SEGMENTS[band[3]]
+-- it and `near` to `far` ahead of the runner, on BACKGROUND under the boxes. Textures are
+-- reused when the biome changes; spare ones stay hidden.
+function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
+    local look = self.biome.ground
+    local surface = look.surfaces[band.surface]
+    local segments = SEGMENTS[band.segments]
+    assert(surface, "Surfer biome: unknown ground surface " .. tostring(band.surface))
+    assert(segments, "Surfer biome: a band's segments are 1, 2 or 4")
+    local list, pool = self.ground, self.groundPool
     for i = 1, #segments - 1 do
-        local t = f:CreateTexture(nil, "BACKGROUND", nil, sublevel)
-        t.kind, t.near, t.far, t.left, t.right = kind, segments[i], segments[i + 1], left, right
+        local n = #list + 1
+        local t = pool[n]
+        if not t then
+            t = self.groundParent:CreateTexture(nil, "BACKGROUND", nil, band.layer)
+            t.groundLayer = band.layer
+            pool[n] = t
+        end
+        if t.groundLayer ~= band.layer then
+            t:SetDrawLayer("BACKGROUND", band.layer)
+            t.groundLayer = band.layer
+        end
+        t.kind, t.near, t.far, t.left, t.right = band.surface, segments[i], segments[i + 1], left, right
         t.alphaLeft, t.alphaRight = alphaLeft, alphaRight
-        if t:SetTexture(TEXTURES[kind], "REPEAT", "REPEAT", "TRILINEAR") then
-            t.tile = TILE
+        if surface.texture and t:SetTexture(surface.texture, "REPEAT", "REPEAT", "TRILINEAR") then
+            t.tile = surface.tile or look.tile
         else
-            local color = COLORS[kind]
+            local color = surface.color
             t:SetColorTexture(color[1], color[2], color[3], 1)
             t.tile = false
         end
-        list[#list + 1] = t
+        list[n] = t
+    end
+end
+
+-- The biome's bands, mirrored to both sides of the road.
+function overlay:BuildGround()
+    local list = self.ground
+    for i = #list, 1, -1 do
+        list[i] = nil
+    end
+    for _, band in ipairs(self.biome.ground.bands) do
+        local from, to, inner, outer = band.from, band.to, band.opacity[1], band.opacity[2]
+        if from == 0 then
+            self:AddGroundPieces(band, -to, to, outer, outer)
+        else
+            self:AddGroundPieces(band, -to, -from, outer, inner)
+            self:AddGroundPieces(band, from, to, inner, outer)
+        end
+    end
+    for i = #list + 1, #self.groundPool do
+        shapes.Hide(self.groundPool[i])
     end
 end
 
 function overlay:CreateGround(f)
-    local list = {}
-    self.ground = list
-    for _, band in ipairs(BANDS) do
-        local from, to, inner, outer = band[4], band[5], band[6], band[7]
-        if from == 0 then
-            pieces(list, f, band, -to, to, outer, outer)
-        else
-            pieces(list, f, band, -to, -from, outer, inner)
-            pieces(list, f, band, from, to, inner, outer)
-        end
-    end
+    self.groundParent, self.groundPool, self.ground = f, {}, {}
     -- Reused for the gradients: colors are only read during the call.
     self.groundColors = { CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1) }
+    if self.biome then
+        self:BuildGround()
+    end
 end
 
 -- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
@@ -188,8 +193,9 @@ function overlay:ShadeGround()
     local left, right = self.groundColors[1], self.groundColors[2]
     local brightness, opacity = self.groundLight.brightness, self.groundLight.opacity
     local r, g, b = light.r * brightness, light.g * brightness, light.b * brightness
+    local fade = self.biome.ground.fade
     for _, t in ipairs(self.ground) do
-        local alpha = opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
+        local alpha = opacity * math.min(1, math.max(0, (fade.to - t.near) / (fade.to - fade.from)))
         if t.alphaLeft == t.alphaRight then
             t:SetVertexColor(r, g, b, alpha * t.alphaLeft)
         else
@@ -275,9 +281,26 @@ function overlay:ApplyHideReal()
     self:HideRealCharacter(shown and app.db.profile.overlay.hideReal or false)
 end
 
+-- The biome's look: ground, coins, box colors and night light. On a change while playing,
+-- everything is redrawn with the new one.
+function overlay:ApplyBiome()
+    local biome = app.biomes.Current()
+    self.biome = biome
+    shapes.colors = biome.shapes
+    light.SetNight(biome.light.night)
+    if self.groundParent then
+        self:BuildGround()
+    end
+    for _, coin in ipairs(self.coins) do
+        light.AddScene(coin.scene, biome.coin.ambient, biome.coin.diffuse)
+    end
+    self:LoadCoinModel(1)
+    self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
+end
+
 function overlay:LoadCoinModel(index)
     self.coinModel, self.coinWait, self.coinReady = index, 0, false
-    local id = COIN_MODELS[index]
+    local id = self.biome.coin.models[index]
     for _, coin in ipairs(self.coins) do
         if id and not coin.actor:SetModelByFileID(id) then
             return self:LoadCoinModel(index + 1)
@@ -287,7 +310,8 @@ end
 
 -- Fits the coin model into COIN_SIZE once it has loaded, or moves on to the next candidate.
 function overlay:UpdateCoinModel(elapsed)
-    if self.coinReady or not COIN_MODELS[self.coinModel] then
+    local models = self.biome.coin.models
+    if self.coinReady or not models[self.coinModel] then
         return
     end
     local minX, minY, minZ, maxX, maxY, maxZ = extents(self.coins[1].actor)
@@ -300,12 +324,12 @@ function overlay:UpdateCoinModel(elapsed)
             coin.actor:SetPitch(flat and math.pi / 2 or 0)
         end
         self.coinReady = true
-        app.logger:debug("Coin model %d loaded", COIN_MODELS[self.coinModel])
+        app.logger:debug("Coin model %d loaded", models[self.coinModel])
         return
     end
     self.coinWait = self.coinWait + elapsed
     if self.coinWait > 3 then
-        app.logger:debug("Coin model %d did not load", COIN_MODELS[self.coinModel])
+        app.logger:debug("Coin model %d did not load", models[self.coinModel])
         self:LoadCoinModel(self.coinModel + 1)
     end
 end
@@ -367,12 +391,11 @@ function overlay:Create()
         scene:SetCameraFieldOfView(2 * math.atan(COIN_FRAME / 2 / COIN_VIEW))
         scene:SetCameraNearClip(0.1)
         scene:SetCameraFarClip(10)
-        light.AddScene(scene, { 0.9, 0.85, 0.7 }, { 0.8, 0.75, 0.6 })
         local actor = scene:CreateActor()
         actor:SetUseCenterForOrigin(true, true, true)
         self.coins[i] = { scene = scene, actor = actor }
     end
-    self:LoadCoinModel(1)
+    self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
     self.message = label(f, "GameFontNormalHuge", "CENTER", 220)

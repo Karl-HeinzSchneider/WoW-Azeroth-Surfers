@@ -56,6 +56,24 @@ local options = {
                 app.db.profile.coinSound = value
             end,
         },
+        biome = {
+            type = "select",
+            order = 7,
+            name = "Biome",
+            desc = "How the game looks: its ground, obstacles and coins.",
+            values = function()
+                return app.biomes.Names()
+            end,
+            get = function()
+                return app.db.profile.biome
+            end,
+            set = function(_, value)
+                app.db.profile.biome = value
+                if app.overlay.frame then
+                    app.overlay:ApplyBiome()
+                end
+            end,
+        },
         overlay = {
             type = "group",
             order = 30,

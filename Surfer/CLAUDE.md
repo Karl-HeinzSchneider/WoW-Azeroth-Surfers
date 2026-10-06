@@ -64,6 +64,15 @@ be listed**. The order follows these rules:
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
   collide or are collected.
+- `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
+  `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
+  biome each and override only what they change; `default.lua` holds every field, documented, and
+  is the reference for writing one. Tables merge field by field, lists (colors, bands, models)
+  are replaced whole. **Anything visual a region could change (ground, obstacles, coins,
+  decorations, light) belongs in the biome, not as a constant in the game code**: add the field
+  with its current value to `default.lua`, read it from `overlay.biome`, and re-apply it in
+  `overlay:ApplyBiome()` (called on Create and when the setting changes). New biome files go in
+  the TOC after `default.lua`. Only classic-era game files.
 - `src/game/light.lua` — `app.light`, the day/night light by the game's clock (`GetGameTime`; the
   world's own light cannot be read). Every 3D model's ModelScene registers with
   `light.AddScene(scene, ambient, diffuse)` (its colors by day) instead of setting its lights;

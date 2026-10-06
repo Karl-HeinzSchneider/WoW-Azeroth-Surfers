@@ -1,11 +1,21 @@
 -- Exercise the full-screen projection, the twin and the coins without creating client UI frames.
 local app = {}
-for _, file in ipairs({ "simulation", "light", "shapes", "overlay", "controls" }) do
-    assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
+for _, file in ipairs({
+    "game/biomes",
+    "biomes/default",
+    "biomes/elwynn",
+    "game/simulation",
+    "game/light",
+    "game/shapes",
+    "game/overlay",
+    "game/controls",
+}) do
+    assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
 end
 app.db = {
     global = { bestScore = 0 },
     profile = {
+        biome = "elwynn",
         overlay = {
             twinScale = 1,
             pitch = 20,
@@ -116,6 +126,11 @@ local function coinScene()
     t.SetYaw = function() end
     t.SetCameraPosition = function() end
     t.SetCameraOrientationByYawPitchRoll = function() end
+    t.SetLightAmbientColor = function() end
+    t.SetLightDiffuseColor = function() end
+    t.SetModelByFileID = function()
+        return true
+    end
     return t
 end
 
@@ -126,6 +141,7 @@ o.frame = {
 }
 o.height, o.lastRoad = 2, {}
 o.coins = {}
+o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
 o.twin, o.twinActor = scene, actor
@@ -308,6 +324,43 @@ missing = 187113
 o:CreateGround({ CreateTexture = texture })
 o.groundLight, o.lastRoad = nil, {}
 print("PASS a missing ground texture falls back to a color")
+
+-- Biomes override the default field by field; lists are replaced whole.
+local biomes = app.biomes
+local elwynn, plain = biomes.Get("elwynn"), biomes.Get("default")
+assert(elwynn.ground.surfaces.road.texture == 187099, "a biome's own field")
+assert(elwynn.ground.surfaces.road.color == plain.ground.surfaces.road.color, "the default's field beside it")
+assert(elwynn.ground.bands == plain.ground.bands and elwynn.coin == plain.coin, "untouched parts are the default's")
+assert(plain.ground.surfaces.road.texture == nil, "the default is not changed by a biome")
+assert(biomes.Get("nowhere") == plain, "an unknown biome is the default")
+biomes.Register(
+    "test",
+    { name = "Test", ground = { bands = { plain.ground.bands[4] } }, light = { night = { 0, 0, 0 } } }
+)
+local test = biomes.Get("test")
+assert(#test.ground.bands == 1 and test.light.night[3] == 0 and test.coin == plain.coin, "lists are replaced whole")
+assert(biomes.Names().elwynn == "Elwynn Forest" and biomes.Names().test == "Test", "names for the options")
+-- Every biome builds its ground.
+for id in pairs(biomes.list) do
+    app.db.profile.biome = id
+    o:ApplyBiome()
+    assert(#o.ground > 0, id .. " builds its ground")
+end
+-- Switching while playing re-skins the same textures: spare ones are hidden.
+app.db.profile.biome = "test"
+o:ApplyBiome()
+o:Render()
+local used = #o.ground
+assert(o.groundPool[used + 1].shown == false, "a band fewer hides its pieces")
+app.db.profile.biome = "default"
+o:ApplyBiome()
+o:Render()
+assert(piece("road", 0, 5).tile == false and app.shapes.colors == plain.shapes, "the plain biome: colors")
+biomes.list.test, biomes.merged = nil, {}
+app.db.profile.biome = "elwynn"
+o:ApplyBiome()
+assert(piece("road", 0, 5).texture == 187099, "back to Elwynn's cobbles")
+print("PASS biomes override the default, and switching re-skins the running game")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
 local falling = false
