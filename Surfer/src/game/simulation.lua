@@ -118,29 +118,40 @@ local function add(s, kind, lane, at, length, layer, layers, ramp)
     s.objects[#s.objects + 1] = game.Box(kind, lane, at, length, layer, layers, ramp)
 end
 
--- `count` coins in `lane` on `layer`, one every 2 yards from `at`.
+-- Yards between coins in a row: close enough to read as a trail, far enough apart that
+-- distant coins do not merge.
+local COIN_SPACING = 3
+
+-- `count` coins in `lane` on `layer`, one every COIN_SPACING yards from `at`.
 local function coins(s, lane, at, count, layer)
     for i = 0, count - 1 do
-        add(s, "coin", lane, at + i * 2 - 0.16, 0.32, layer, 1)
+        add(s, "coin", lane, at + i * COIN_SPACING - 0.16, 0.32, layer, 1)
     end
 end
 
--- Each pattern places its boxes from `at` and returns its length. Every pattern leaves a lane
--- that can be run, jumped or climbed through.
+-- How many coins fit in a row from `from` to `to`, at most `most`.
+local function fit(from, to, most)
+    return math.max(0, math.min(most, math.floor((to - from) / COIN_SPACING) + 1))
+end
+
+-- Each pattern places its boxes around `at` and returns where its last box ends, relative to
+-- `at`; coins may lead in up to 8 yards before it, less than the gap between patterns. Every
+-- pattern leaves a lane that can be run, jumped or climbed through.
 local patterns = {
     -- One lane blocked low enough to jump, coins in another.
     function(s, at, r)
         local blocked = r(-1, 1)
         add(s, "obstacle", blocked, at, 0.5, 0, r(1, 2))
         coins(s, (blocked + 2) % 3 - 1, at - 4, 5, 0)
-        return 1
+        return 4 * COIN_SPACING - 4
     end,
     -- A hurdle under an arc of coins that only a jump collects.
     function(s, at, r)
         local lane = r(-1, 1)
         add(s, "obstacle", lane, at, 0.5, 0, 1)
+        -- Centred over the hurdle.
         for i, layer in ipairs({ 3, 4, 5, 5, 4, 3 }) do
-            add(s, "coin", lane, at - 6 + i * 2 - 0.16, 0.32, layer, 1)
+            add(s, "coin", lane, at + 0.25 + (i - 3.5) * COIN_SPACING - 0.16, 0.32, layer, 1)
         end
         return 8
     end,
@@ -151,7 +162,7 @@ local patterns = {
         add(s, "obstacle", tall, at, 0.8, 0, 4)
         add(s, "obstacle", low, at, 0.5, 0, 1)
         coins(s, -tall - low, at - 4, 4, 0)
-        return 1
+        return 3 * COIN_SPACING - 4
     end,
     -- Overhead barriers on layer 3: run under them, do not jump.
     function(s, at, r)
@@ -161,7 +172,7 @@ local patterns = {
             add(s, "barrier", lane, at, 0.4, 3, 1)
         end
         coins(s, first, at - 2, 3, 0)
-        return 1
+        return 2 * COIN_SPACING - 2
     end,
     -- Higher ground: a platform (with a ramp when too high to jump onto), coins and maybe an
     -- obstacle on top, sometimes a higher platform beside it to jump across to.
@@ -170,15 +181,18 @@ local patterns = {
         local ramp = (layers == 3 or r(0, 1) == 1) and layers * 4 or nil
         local length = r(24, 40)
         add(s, "platform", lane, at, length, 0, layers, ramp)
-        coins(s, lane, at + (ramp or 0) + 2, 6, layers)
+        -- Coins on top, from past the ramp to short of the end.
+        local first = at + (ramp or 0) + 2
+        local count = fit(first, at + length - 2, 6)
+        coins(s, lane, first, count, layers)
         -- Past the coins, with room to land before the platform ends.
-        if r(0, 1) == 1 and length - 6 > (ramp or 0) + 16 then
+        if r(0, 1) == 1 and at + length - 6 > first + (count - 1) * COIN_SPACING + 3 then
             add(s, "obstacle", lane, at + length - 6, 0.5, layers, 1)
         end
         if layers < 3 and r(0, 1) == 1 then
             local beside = lane == 0 and (r(0, 1) == 0 and -1 or 1) or 0
             add(s, "platform", beside, at + 10, length - 10, 0, layers + 1)
-            coins(s, beside, at + 14, 6, layers + 1)
+            coins(s, beside, at + 14, fit(at + 14, at + length - 2, 6), layers + 1)
         end
         return length
     end,

@@ -207,6 +207,26 @@ test("generated patterns always leave a way through", function()
             end
             assert(open > 0, string.format("seed %d blocks every lane at %.2f", seed, at))
         end
+        -- Coins: spaced apart, never inside a solid box, and on a platform only over its top.
+        for _, c in ipairs(objects) do
+            if c.kind == "coin" then
+                for _, o in ipairs(objects) do
+                    if o ~= c and o.lane == c.lane and math.abs(o.at - c.at) < 2.99 and o.kind == "coin" then
+                        assert(o.layer ~= c.layer, string.format("seed %d: coins closer than 3 yards", seed))
+                    end
+                    local overlaps = o.lane == c.lane and c.at < o.at + o.length and c.at + c.length > o.at
+                    if overlaps and o.kind ~= "coin" and o.kind ~= "platform" then
+                        local apart = c.layer >= o.layer + o.layers or c.layer + c.layers <= o.layer
+                        assert(apart, string.format("seed %d: a coin inside a %s", seed, o.kind))
+                    end
+                    if o.kind == "platform" and o.lane == c.lane and c.layer == o.layer + o.layers then
+                        local near = c.at > o.at - 2 and c.at < o.at + o.length + 2
+                        local over = c.at >= o.at and c.at + c.length <= o.at + o.length
+                        assert(not near or over, string.format("seed %d: a coin beyond a platform's top", seed))
+                    end
+                end
+            end
+        end
     end
 end)
 print(string.format("%d simulation tests passed", count))
