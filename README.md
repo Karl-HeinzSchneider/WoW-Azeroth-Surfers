@@ -36,6 +36,12 @@ checks that on generated tracks.
 
 ## Full-screen view (default)
 
+By default a twin (a copy of your character with your gear) runs exactly where your real character
+stands and covers it, in front of the road; while no run is going it is see-through, so you can line
+it up. **Hide your real character** in the options zooms into first person while the game is open,
+where WoW does not draw your character, and back out after. The **Cutout** character setting
+uses your real character instead, as described next.
+
 Your real character is the runner. The road, obstacles and coins are drawn full screen around it,
 under the rest of the UI; changing lanes slides the road under your character, which the camera
 keeps centered. Everything behind your character is cut out over its body with a capsule mask, so

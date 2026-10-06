@@ -75,6 +75,13 @@ the runner for the overlay's mask) and pools their textures. Two views render it
   `GetCameraZoom`, distance from `profile.overlay`). Everything behind the character gets the
   `assets/game/cutout.tga` mask (opaque, transparent capsule, CLAMP-wrapped) three times: head,
   torso and legs, sized from the model's bounds and moved with a generic run cycle and jump tuck.
+  With `profile.overlay.character = "twin"` (default) a copy of the character covers the real one
+  instead (no masks): a square ModelScene around the projected body, sized by the road's
+  projection, with its camera at the road's camera (a square frame makes the scene's field-of-view
+  axis irrelevant). The real character's animation cannot be read, so the twin mirrors its
+  movement (`runner.motion` from position sampling, `GetUnitSpeed`, `IsFalling`). `hideReal` zooms
+  into first person
+  (`CameraZoomIn`) while the view is open, where the game does not draw the character.
   Coins are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene each at the
   projected position; models cannot be masked, so a coin hides while behind the body.
 

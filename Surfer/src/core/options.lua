@@ -85,7 +85,40 @@ local options = {
                 help = {
                     type = "description",
                     order = 1,
-                    name = "Open the game, stand still and adjust until the gold bar sits under your feet and the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
+                    name = "Open the game and stand still. Twin: adjust until the see-through copy covers your character. Cutout: adjust until the gold bar sits under your feet. Then check that the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
+                },
+                character = {
+                    type = "select",
+                    order = 2,
+                    width = "double",
+                    name = "Character",
+                    desc = "Twin: a copy of your character runs on top of the real one, in front of the road. Cutout: your real character, with the road cut out behind it.",
+                    values = { twin = "Twin (copy covers your character)", cutout = "Cutout (your real character)" },
+                    sorting = { "twin", "cutout" },
+                    get = function()
+                        return app.db.profile.overlay.character
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.character = value
+                        app.overlay:ApplyHideReal()
+                    end,
+                },
+                hideReal = {
+                    type = "toggle",
+                    order = 3,
+                    width = "full",
+                    name = "Hide your real character (first-person camera)",
+                    desc = "The game does not draw your character in first person, so only the twin shows. Zooms all the way in while the game is open and back out after; the world is then seen from eye height.",
+                    disabled = function()
+                        return app.db.profile.overlay.character ~= "twin"
+                    end,
+                    get = function()
+                        return app.db.profile.overlay.hideReal
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.hideReal = value
+                        app.overlay:ApplyHideReal()
+                    end,
                 },
                 pitch = calibration(
                     10,
@@ -122,6 +155,15 @@ local options = {
                     30,
                     100,
                     1
+                ),
+                twinScale = calibration(
+                    45,
+                    "twinScale",
+                    "Twin size",
+                    "Size of the twin compared to your real character.",
+                    0.5,
+                    1.5,
+                    0.01
                 ),
                 cutout = calibration(
                     50,

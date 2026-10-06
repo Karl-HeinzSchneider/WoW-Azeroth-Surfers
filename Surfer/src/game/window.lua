@@ -35,8 +35,8 @@ local function project(d, side, z)
         local px, py = scene:Transform3DPointTo2D(d, laneY(side), z)
         local right = scene:Transform3DPointTo2D(d, laneY(side + 1), z)
         if px and py and right and right > px + 0.0001 then
-            local uiScale = scene:GetEffectiveScale()
-            return px / uiScale, py / uiScale, math.abs(right - px) / uiScale
+            -- Already in the scene's UI units, as Blizzard's own model scenes use them.
+            return px, py, math.abs(right - px)
         end
     end
     local x, height = d + 10, z - 5
@@ -140,10 +140,14 @@ function runner:Step(elapsed)
     end
 end
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
+-- Also keeps `motion`: the character's velocity relative to its facing (yards per second
+-- forward and to its left) and its speed, for the twin's animations.
 function runner:IsMovingForward(elapsed)
     local x, y, _, map = UnitPosition("player")
     local facing = GetPlayerFacing()
     local previous = self.previousPosition
+    self.motion = self.motion or {}
+    self.motion.forward, self.motion.left, self.motion.speed = 0, 0, 0
     if type(x) ~= "number" or type(y) ~= "number" or type(facing) ~= "number" then
         self.previousPosition = nil
         return false
@@ -163,6 +167,8 @@ function runner:IsMovingForward(elapsed)
         return false
     end
     local forward = dx * math.cos(facing) + dy * math.sin(facing)
+    local left = dy * math.cos(facing) - dx * math.sin(facing)
+    self.motion.forward, self.motion.left, self.motion.speed = forward / elapsed, left / elapsed, speed
     return forward > 0.05 * elapsed
 end
 function runner:OnMovementKey(key)

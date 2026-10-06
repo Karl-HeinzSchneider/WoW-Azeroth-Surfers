@@ -117,3 +117,19 @@ for _ = 1, 30 do
 end
 assert(r.state.coins == 2 and #played == 1, "the option silences it")
 print("PASS coin pickup plays the loot sound once, unless switched off")
+
+-- Motion relative to facing, for the twin: ahead and to the left are positive.
+facing, speed, map = 0, 7, 1
+x, y = 0, 0
+r:IsMovingForward(0.1)
+x = 0.7
+r:IsMovingForward(0.1)
+assert(math.abs(r.motion.forward - 7) < 1e-9 and math.abs(r.motion.left) < 1e-9 and r.motion.speed == 7)
+y = 0.7
+r:IsMovingForward(0.1)
+assert(math.abs(r.motion.forward) < 1e-9 and math.abs(r.motion.left - 7) < 1e-9, "west of north is left")
+facing = math.pi / 2
+y = 1.4
+r:IsMovingForward(0.1)
+assert(math.abs(r.motion.forward - 7) < 1e-9 and math.abs(r.motion.left) < 1e-9, "facing west, west is ahead")
+print("PASS motion relative to facing")

@@ -19,10 +19,19 @@ local EDGES = { -3.7, -1.2, 1.2, 3.7 }
 local COIN_MODELS = { 5737987, 2313815, 200137 }
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
+-- The twin's animations, and the speeds (yards per second) walking, running and walking
+-- backwards are animated for. A normal jump plays JUMP_START throughout; JUMP is the loop of a
+-- long fall, after AIR_LOOP seconds in the air (a normal jump lasts about 0.83).
+local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
+local WALK_SPEED, RUN_SPEED, BACKWARDS_SPEED = 2.5, 7, 4.5
+local AIR_LOOP = 1.1
+-- The twin's square scene spans this many character heights, room for arms and turns.
+local TWIN_FRAME = 1.6
 
--- Full-screen view: the real character is the runner, and the road, obstacles and coins are
--- drawn around it. Everything behind the character is masked by capsules over its head, torso
--- and legs, so the character appears in front of the UI.
+-- Full-screen view: the road, obstacles and coins are drawn around the real character. Either a
+-- twin (a copy of the character in a full-screen scene with the road's camera) stands on the
+-- real character and covers it, or everything behind the real character is masked by capsules
+-- over its head, torso and legs, so it appears in front of the UI.
 local overlay = {}
 app.overlay = overlay
 -- Input, movement sampling, the per-frame step, scoring and toggling only need `state`, `frame`
@@ -40,11 +49,15 @@ function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
     cam.f = h / 2 / math.tan(math.rad(settings.fov) / 2)
-    -- Not in this client's API docs; the distance setting stands in when it is missing.
-    local zoom = GetCameraZoom and GetCameraZoom() or settings.distance
+    -- Not in this client's API docs; the distance setting stands in when it is missing, and in
+    -- first person, where the twin still needs a camera behind it.
+    local zoom = not self.zoomedIn and GetCameraZoom and GetCameraZoom()
+    cam.zoomRead = zoom and true or false
+    zoom = zoom or settings.distance
     local pitch = math.rad(settings.pitch)
     cam.cos, cam.sin = math.cos(pitch), math.sin(pitch)
     cam.cx, cam.cy = w / 2, h / 2
+    cam.distance = zoom
     cam.x = -math.max(zoom, 0.5) * cam.cos
     -- The camera follows the character, so the world shifts by its lane offset and, while it
     -- jumps, drops away beneath it: the character keeps its place on screen.
@@ -52,7 +65,7 @@ function overlay:UpdateCamera()
     cam.z = cam.feet + settings.focus * self.height + math.max(zoom, 0.5) * cam.sin
     cam.offset = self.state.lateral * LANE
     return string.format(
-        "%.2f %.3f %.3f %.0f %.0f %.2f %.2f %g %g %g %g",
+        "%.2f %.3f %.3f %.0f %.0f %.2f %.2f %g %g %g %g %s",
         zoom,
         cam.offset,
         cam.feet,
@@ -63,7 +76,8 @@ function overlay:UpdateCamera()
         settings.pitch,
         settings.focus,
         settings.fov,
-        settings.cutout
+        settings.cutout,
+        settings.character
     )
 end
 
@@ -95,8 +109,10 @@ local function face(t, left, right, d1, z1, d2, z2)
     t:Show()
 end
 
--- Only what lies behind the character gets the cutout; what passed it stays in front.
+-- Only what lies behind the character gets the cutout; what passed it stays in front. The twin
+-- covers what lies behind it on its own.
 function overlay:SetBehind(t, behind)
+    behind = behind and app.db.profile.overlay.character == "cutout"
     if t.surferBehind ~= behind then
         for _, mask in ipairs(self.cutouts) do
             if behind then
@@ -141,6 +157,29 @@ end
 function overlay:LoadPlayer()
     self.measured = false
     self.probe:SetModelByUnit("player", true, true, true, true)
+    self.twinActor:SetModelByUnit("player", true, true, false, true)
+    self.twinLow, self.twinAnimation = nil, nil
+end
+
+-- The game does not draw the character in first person: zoom all the way in while the view is
+-- open and back out to the previous zoom after.
+function overlay:HideRealCharacter(hide)
+    if hide == (self.zoomedIn or false) then
+        return
+    end
+    if hide then
+        self.savedZoom = GetCameraZoom and GetCameraZoom() or nil
+        CameraZoomIn(50)
+    else
+        CameraZoomOut(self.savedZoom or app.db.profile.overlay.distance)
+    end
+    self.zoomedIn = hide
+end
+
+function overlay:ApplyHideReal()
+    local settings = app.db.profile.overlay
+    local shown = self.frame and self.frame:IsShown()
+    self:HideRealCharacter(shown and settings.hideReal and settings.character == "twin" or false)
 end
 
 function overlay:LoadCoinModel(index)
@@ -226,6 +265,20 @@ function overlay:Create()
     probe:SetPoint("TOPLEFT")
     probe:SetAlpha(0)
     self.probe = probe:CreateActor()
+    -- The twin draws over everything else of the addon, the 3D coins included: a strata above.
+    local twin = CreateFrame("ModelScene", nil, f)
+    twin:SetSize(1, 1)
+    twin:SetPoint("CENTER")
+    twin:EnableMouse(false)
+    twin:SetFrameStrata("LOW")
+    twin:SetCameraNearClip(0.1)
+    twin:SetCameraFarClip(200)
+    twin:SetLightAmbientColor(0.8, 0.8, 0.8)
+    twin:SetLightDiffuseColor(0.6, 0.6, 0.6)
+    self.twin = twin
+    self.twinActor = twin:CreateActor()
+    self.twinActor:SetUseCenterForOrigin(true, true, false)
+    self.twinActor:SetYaw(0)
     self:LoadPlayer()
     -- One small scene per coin, placed at its projected position. The scenes stay shown so
     -- models load; unused ones only hide their actor.
@@ -298,12 +351,14 @@ function overlay:Create()
             sim.Pause(self.state)
         end
         self:SaveBest()
+        self:ApplyHideReal()
     end)
     f:SetScript("OnShow", function()
         if not InCombatLockdown() then
             f:SetPropagateKeyboardInput(true)
         end
         self:LoadPlayer()
+        self:ApplyHideReal()
         self.roadKey = nil
     end)
     f:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -322,11 +377,105 @@ function overlay:Create()
     f:SetScript("OnUpdate", function(_, elapsed)
         self.clock = (self.clock or 0) + elapsed
         self:Step(elapsed)
+        if app.db.profile.overlay.character == "twin" then
+            self:AnimateTwin(elapsed)
+        end
         self:Measure()
         self:UpdateCoinModel(elapsed)
         self:Render()
     end)
+    self:ApplyHideReal()
     self:Render()
+end
+
+-- The twin stands where the real character stands and covers it. Its scene is a square around
+-- the character's projected body, sized by the road's own projection; its camera sits where
+-- the road's camera is and looks at the body from the same angle and distance. A square frame
+-- spans the same angle across and up, so how the scene measures its field of view cannot
+-- change the twin's size. Half see-through while not running, to line it up.
+function overlay:PlaceTwin()
+    local s, settings = self.state, app.db.profile.overlay
+    local scene, actor = self.twin, self.twinActor
+    if settings.character ~= "twin" or not actor:IsLoaded() then
+        actor:Hide()
+        return
+    end
+    if not self.twinLow then
+        local _, _, low = extents(actor)
+        if not low then
+            actor:Hide()
+            return
+        end
+        self.twinLow = low
+    end
+    local middle = cam.feet + self.height / 2
+    local x, y, scale = project(0, -cam.offset, middle)
+    if not x then
+        actor:Hide()
+        return
+    end
+    local side = TWIN_FRAME * self.height
+    scene:ClearAllPoints()
+    scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, y)
+    scene:SetSize(side * scale, side * scale)
+    -- From the road's camera to the middle of the body.
+    local ahead, down = -cam.x, cam.z - middle
+    local distance = math.sqrt(ahead * ahead + down * down)
+    scene:SetCameraPosition(cam.x, 0, cam.z)
+    scene:SetCameraOrientationByYawPitchRoll(0, math.atan2(down, ahead), 0)
+    scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
+    actor:SetScale(settings.twinScale)
+    actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
+    actor:SetAlpha(s.status == "running" and 1 or 0.5)
+    actor:Show()
+end
+
+-- The real character's animation cannot be read, so the twin mirrors how it moves: walking or
+-- running at its speed, its body turned toward a strafe or diagonal as WoW turns it,
+-- backpedalling, and a jump's start, air and landing while it (or the twin on the track) is in
+-- the air.
+function overlay:AnimateTwin(elapsed)
+    local actor, s, motion = self.twinActor, self.state, self.motion or {}
+    local airborne = IsFalling("player") or s.height > s.floor
+    self.airTime = airborne and (self.airTime or 0) + elapsed or 0
+    if self.wasAirborne and not airborne then
+        self.landTime = 0
+    elseif self.landTime then
+        self.landTime = self.landTime + elapsed
+    end
+    self.wasAirborne = airborne
+    -- The direction comes from one frame's step, which is noisy: smooth it.
+    local k = math.min(1, elapsed * 12)
+    self.towardForward = (self.towardForward or 0) + ((motion.forward or 0) - (self.towardForward or 0)) * k
+    self.towardLeft = (self.towardLeft or 0) + ((motion.left or 0) - (self.towardLeft or 0)) * k
+    local speed = motion.speed or 0
+    local animation, rate, yaw = STAND, 1, self.twinYaw or 0
+    if airborne then
+        animation = self.airTime < AIR_LOOP and JUMP_START or JUMP
+    elseif speed > 0 then
+        -- 0 straight ahead, positive to the left; pushing against a wall runs on the spot.
+        local direction = math.atan2(self.towardLeft, self.towardForward)
+        if self.towardForward < -0.1 and math.abs(direction) > math.pi * 0.6 then
+            animation, rate = BACKWARDS, speed / BACKWARDS_SPEED
+            yaw = direction - (direction > 0 and math.pi or -math.pi)
+        else
+            animation = speed < 4 and WALK or RUN
+            rate, yaw = speed / (animation == WALK and WALK_SPEED or RUN_SPEED), direction
+        end
+    elseif self.landTime and self.landTime < 0.3 then
+        animation = JUMP_END
+    else
+        yaw = 0
+    end
+    -- Turn the body smoothly, the short way round.
+    local turn = (yaw - (self.twinYaw or 0) + math.pi) % (2 * math.pi) - math.pi
+    self.twinYaw = (self.twinYaw or 0) + turn * math.min(1, elapsed * 10)
+    actor:SetYaw(self.twinYaw)
+    -- Setting an animation restarts it: only when it or its speed really changes.
+    if animation ~= self.twinAnimation or math.abs(rate - (self.twinRate or 1)) > 0.1 then
+        actor:SetAnimation(animation, 0, rate, 0)
+        self.twinAnimation, self.twinRate = animation, rate
+    end
 end
 
 -- Cutout part i spans `bottom` to `top` yards above the feet, `width` yards wide, `x` yards to
@@ -376,7 +525,7 @@ function overlay:PlaceCoin(coin, o)
     local d = o.at + o.length / 2 - self.state.distance
     local cx, cy, scale = project(d, -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d))
     local hidden = not cx
-    if cx and d - o.length / 2 > 0 then
+    if cx and d - o.length / 2 > 0 and app.db.profile.overlay.character == "cutout" then
         -- 3D coins cannot be masked; one behind the body hides while its center is inside a part.
         for i = 1, #self.cutouts do
             local hole = self.holes[i]
@@ -409,10 +558,17 @@ function overlay:Render()
             for j = 1, 4 do
                 face(strip[j + 1], EDGES[j] - 0.025, EDGES[j] + 0.025, near, ground(near), far, ground(far))
             end
+            -- The character setting decides whether the road behind it is masked.
+            for j = 1, 5 do
+                self:SetBehind(strip[j], i >= 4)
+            end
         end
         self:AimCoinCameras()
     end
     self:PlaceCutout()
+    if self.twin then
+        self:PlaceTwin()
+    end
     local opacity = settings.opacity
     for i, strip in ipairs(self.strips) do
         local shade = math.floor((i - 4 + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
@@ -440,7 +596,8 @@ function overlay:Render()
     for i = coinIndex + 1, #self.coins do
         self.coins[i].actor:Hide()
     end
-    self.feet:SetShown(s.status ~= "running")
+    local twin = settings.character == "twin"
+    self.feet:SetShown(s.status ~= "running" and not twin)
     self.score:SetText(
         string.format(
             "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %.0f     LAYER  %d",
@@ -456,7 +613,58 @@ function overlay:Render()
     self.hint:SetText(
         s.status == "running" and ""
             or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
-                .. "The gold bar should sit under your feet; adjust it in /surfer options."
+                .. (twin and "Line the see-through copy up with your character in /surfer options." or "The gold bar should sit under your feet; adjust it in /surfer options.")
+                .. "\n"
+                .. (
+                    cam.zoomRead and string.format("Camera zoom %.1f, read from the game.", cam.distance)
+                    or string.format(
+                        "The game does not report its zoom: Camera distance (%.1f) must match yours.",
+                        cam.distance
+                    )
+                )
+    )
+end
+
+-- /surfer debug: what the twin's camera and scene do, to compare with the game's camera.
+function overlay:Report()
+    local log = app.logger
+    if not self.frame or not self.frame:IsShown() then
+        log:chat("Open the full-screen game first (/surfer).")
+        return
+    end
+    local settings, scene = app.db.profile.overlay, self.twin
+    log:chat(
+        "zoom %s (used %.2f), cameraFov %s, fov setting %d",
+        tostring(GetCameraZoom and GetCameraZoom()),
+        cam.distance or -1,
+        tostring(GetCVar("cameraFov")),
+        settings.fov
+    )
+    log:chat(
+        "UI scale %.3f, scene scale %.3f, screen %.0f x %.0f, scene %.0f x %.0f",
+        UIParent:GetEffectiveScale(),
+        scene:GetEffectiveScale(),
+        self.frame:GetWidth(),
+        self.frame:GetHeight(),
+        scene:GetWidth(),
+        scene:GetHeight()
+    )
+    local _, feet = project(0, -cam.offset, cam.feet)
+    local _, head = project(0, -cam.offset, cam.feet + 1)
+    local y1, y2
+    if scene.Transform3DPointTo2D then
+        _, y1 = scene:Transform3DPointTo2D(0, 0, cam.feet)
+        _, y2 = scene:Transform3DPointTo2D(0, 0, cam.feet + 1)
+    end
+    log:chat("feet / 1 yd up: road %s / %s, scene %s / %s", tostring(feet), tostring(head), tostring(y1), tostring(y2))
+    local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
+    log:chat(
+        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f, width %.2f",
+        tostring(self.twinActor:IsLoaded()),
+        low and string.format("%.2f x %.2f x %.2f", maxX - minX, maxY - minY, high - low) or "none",
+        self.twinActor:GetScale(),
+        self.height,
+        self.width
     )
 end
 

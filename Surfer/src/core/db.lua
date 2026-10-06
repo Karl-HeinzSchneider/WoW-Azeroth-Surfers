@@ -20,6 +20,11 @@ local profile = {
     coinSound = true,
     -- Full-screen calibration: the follow camera that the road's projection imitates.
     overlay = {
+        -- "twin": a copy of the character covers the real one; "cutout": the real character with
+        -- the road masked behind it.
+        character = "twin",
+        hideReal = false, -- first-person camera while the view is open, so only the twin shows
+        twinScale = 1,
         pitch = 20, -- degrees the camera looks down
         focus = 0.9, -- camera focus height, as a share of the character's height
         distance = 12, -- camera distance in yards, when the client cannot report its zoom

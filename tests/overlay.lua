@@ -6,7 +6,18 @@ assert(loadfile("Surfer/src/game/window.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/overlay.lua"))("Surfer", app)
 app.db = {
     global = { bestScore = 0 },
-    profile = { overlay = { pitch = 20, focus = 0.9, distance = 12, fov = 55, opacity = 0.85, cutout = 0.8 } },
+    profile = {
+        overlay = {
+            character = "cutout",
+            twinScale = 1,
+            pitch = 20,
+            focus = 0.9,
+            distance = 12,
+            fov = 55,
+            opacity = 0.85,
+            cutout = 0.8,
+        },
+    },
 }
 local o, g = app.overlay, app.simulation
 local W, H = 1600, 900
@@ -163,3 +174,144 @@ end
 assert(before > 0 and after > 0, "the platform splits at the runner")
 assert(sides > 0, "the neighbouring platform shows the side facing the runner")
 print("PASS platforms split at the runner and show their sides")
+
+-- The twin: a copy in a full-screen scene with the road's camera, standing on the real feet.
+local settings = app.db.profile.overlay
+settings.character = "twin"
+local scene, actor = texture(), { loaded = true, shown = false }
+function scene:SetCameraPosition(x, y, z)
+    self.camera = { x, y, z }
+end
+function scene:SetCameraOrientationByYawPitchRoll() end
+function scene:SetCameraFieldOfView(fov)
+    self.fov = fov
+end
+function actor:IsLoaded()
+    return self.loaded
+end
+function actor:GetActiveBoundingBox()
+    return -0.3, -0.4, -0.05, 0.3, 0.4, 1.9
+end
+function actor:SetScale(scale)
+    self.scale = scale
+end
+function actor:SetPosition(x, y, z)
+    self.position = { x, y, z }
+end
+function actor:SetAnimation(animation, _, rate)
+    self.animation, self.rate = animation, rate
+end
+function actor:SetYaw(yaw)
+    self.yaw = yaw
+end
+function actor:SetAlpha(alpha)
+    self.alpha = alpha
+end
+function actor:Show()
+    self.shown = true
+end
+function actor:Hide()
+    self.shown = false
+end
+o.twin, o.twinActor = scene, actor
+o.coins = {}
+o.state = g.New()
+o.state.objects = {}
+o:Render()
+assert(actor.shown and actor.alpha == 0.5, "a see-through twin before the run")
+assert(math.abs(actor.position[3] - 0.05) < 1e-9, "the twin's feet stand on the real feet")
+assert(scene.camera[2] == 0 and scene.camera[1] < 0 and scene.camera[3] > 0, "the twin's camera follows behind")
+assert(scene.x == W / 2 and scene.w == scene.h, "a square scene centred on the character")
+-- Seen from above at angle a, the twin spans height * cos(a) / side of its square frame; on
+-- the road's projection the body spans about twice the distance from its feet to its middle.
+local side = 1.6 * o.height
+local a = math.atan2(scene.camera[3] - 1, -scene.camera[1])
+local twinHeight = scene.h * o.height * math.cos(a) / side
+local roadHeight = 2 * (scene.y - o.feet.y)
+assert(math.abs(twinHeight / roadHeight - 1) < 0.03, "the twin is exactly as tall as the road's projection")
+assert(
+    math.abs(math.tan(scene.fov / 2) * 2 * math.sqrt(scene.camera[1] ^ 2 + (scene.camera[3] - 1) ^ 2) - side) < 1e-6,
+    "the scene's lens spans its frame"
+)
+g.Start(o.state)
+o:Render()
+assert(actor.alpha == 1, "the twin is fully drawn while running")
+o.state.height = 0.5
+o:Render()
+assert(math.abs(actor.position[3] - 0.55) < 1e-9, "the twin rises on the sim's arc")
+o.state.height = 0
+o.state.objects = { obstacle(0, 10) }
+o:Render()
+assert(not first().surferBehind, "with the twin the road needs no cutout")
+settings.character = "cutout"
+o:Render()
+assert(not actor.shown, "the cutout mode hides the twin")
+print("PASS twin stands on the real character, on the sim's arc, and replaces the cutout")
+
+-- The twin mirrors how the real character moves, as a player holds the keys.
+local falling = false
+function IsFalling()
+    return falling
+end
+local function hold(forward, left, speed, seconds)
+    o.motion = { forward = forward, left = left, speed = speed }
+    for _ = 1, seconds * 20 do
+        o:AnimateTwin(0.05)
+    end
+end
+hold(0, 0, 0, 0.5)
+assert(actor.animation == 0 and math.abs(actor.yaw) < 1e-6, "standing still, facing ahead")
+hold(7, 0, 7, 1)
+assert(actor.animation == 5 and math.abs(actor.rate - 1) < 1e-9 and math.abs(actor.yaw) < 0.01, "running ahead")
+hold(0, 7, 7, 1)
+assert(actor.animation == 5 and math.abs(actor.yaw - math.pi / 2) < 0.05, "strafing left turns the body left")
+hold(4.95, -4.95, 7, 1)
+assert(math.abs(actor.yaw + math.pi / 4) < 0.05, "a forward-right diagonal turns it halfway right")
+hold(-4.5, 0, 4.5, 1)
+assert(actor.animation == 13 and math.abs(actor.yaw) < 0.05, "backpedalling faces ahead")
+hold(2.5, 0, 2.5, 1)
+assert(actor.animation == 4 and math.abs(actor.rate - 1) < 1e-9, "walking at walking speed")
+hold(7, 0, 7, 1)
+falling = true
+hold(7, 0, 7, 0.1)
+assert(actor.animation == 37, "a jump starts")
+hold(7, 0, 7, 0.7)
+assert(actor.animation == 37, "a normal jump keeps its own animation, rising and falling")
+hold(7, 0, 7, 0.5)
+assert(actor.animation == 38, "a long fall loops in the air")
+falling = false
+hold(0, 0, 0, 0.1)
+assert(actor.animation == 39, "and lands")
+hold(0, 0, 0, 0.5)
+assert(actor.animation == 0, "then stands")
+hold(7, 0, 7, 0.5)
+local rate = actor.rate
+hold(7, 0, 7.2, 0.5)
+assert(actor.rate == rate, "small speed changes do not restart the animation")
+print("PASS twin mirrors standing, running, strafing, backpedalling, walking and jumping")
+
+-- Hiding the real character zooms into first person while the view is open, and back out.
+local zoom, calls = 9, {}
+function GetCameraZoom()
+    return zoom
+end
+function CameraZoomIn(n)
+    calls[#calls + 1] = "in " .. n
+    zoom = 0
+end
+function CameraZoomOut(n)
+    calls[#calls + 1] = "out " .. n
+    zoom = n
+end
+local shown = true
+o.frame.IsShown = function()
+    return shown
+end
+settings.character, settings.hideReal = "twin", true
+o:ApplyHideReal()
+assert(calls[1] == "in 50" and o.zoomedIn, "zoomed into first person")
+assert(o:UpdateCamera():match("^12%.00 "), "in first person the twin's camera uses the distance setting")
+shown = false
+o:ApplyHideReal()
+assert(calls[2] == "out 9" and zoom == 9 and not o.zoomedIn, "zoomed back out to the previous zoom")
+print("PASS hiding the real character zooms into first person and back")
