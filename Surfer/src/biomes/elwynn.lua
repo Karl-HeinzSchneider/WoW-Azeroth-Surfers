@@ -20,7 +20,10 @@ local bush = { model = { 189697, 189699 }, x = 5.3, d = { 1.5, 11 }, yaw = { 0, 
 
 -- A fence group with `...` added to it, picked by `weight`.
 local function fenceWith(weight, ...)
-    local items = { unpack(fence) }
+    local items = {}
+    for _, item in ipairs(fence) do
+        items[#items + 1] = item
+    end
     for _, extra in ipairs({ ... }) do
         items[#items + 1] = extra
     end
