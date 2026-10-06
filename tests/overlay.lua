@@ -397,7 +397,10 @@ end
 function decorScene:CreateActor()
     created = created + 1
     local a = texture()
-    a.SetUseCenterForOrigin, a.SetYaw, a.SetScale, a.SetAlpha = noop, noop, noop, noop
+    a.SetUseCenterForOrigin, a.SetYaw, a.SetAlpha = noop, noop, noop
+    function a:SetScale(scale)
+        self.scale = scale
+    end
     -- Every model a 2 x 2 yard square around its origin.
     function a:IsLoaded()
         return true
@@ -408,8 +411,9 @@ function decorScene:CreateActor()
     function a:SetModelByFileID(id)
         self.model = id
     end
+    -- As in the client, the position is scaled with the model.
     function a:SetPosition(x, y, z)
-        self.ahead, self.y, self.z = x, y, z
+        self.ahead, self.y, self.z = x * self.scale, y * self.scale, z * self.scale
     end
     return a
 end

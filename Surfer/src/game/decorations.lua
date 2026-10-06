@@ -238,7 +238,9 @@ function overlay:UpdateDecorations()
             if not d.fitted then
                 self:FitDecoration(d, look.clear)
             end
-            d.actor:SetPosition(ahead, d.y, ground(ahead))
+            -- An actor's position is scaled with it: divided out, so every size stands in place.
+            local scale = d.scale
+            d.actor:SetPosition(ahead / scale, d.y / scale, ground(ahead) / scale)
             local alpha = math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
             if not d.alpha or math.abs(alpha - d.alpha) > 0.02 then
                 d.actor:SetAlpha(alpha)
