@@ -1,0 +1,22 @@
+## Interface: 16001
+## Title: Surfer
+## Notes: A three-lane endless runner starring your character. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/Surfer/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
+## IconTexture: Interface\Icons\INV_Misc_QuestionMark
+## Author: Karl-HeinzSchneider
+## Version: |cff8080ff@project-version@|r
+## SavedVariables: SurferDB
+## X-License: MIT
+## X-Website: https://github.com/Karl-HeinzSchneider/WoW-Surfer
+
+embeds.xml
+
+src\core\logger.lua
+src\core\db.lua
+src\core\ace.lua
+src\core\options.lua
+src\core\minimapbutton.lua
+
+src\game\simulation.lua
+src\game\window.lua
+
+Surfer.lua

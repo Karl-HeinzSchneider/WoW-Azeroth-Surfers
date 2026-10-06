@@ -1,0 +1,37 @@
+# BigWigs packager (https://github.com/BigWigsMods/packager), used by .github/workflows/ and
+# `npm run package:local`.
+#
+# The addon lives in Surfer/, not at the root. The packager copies the whole checkout into
+# .release/Surfer/, then move-folders lifts the addon to the top of the zip. Whatever the
+# ignore list below lets through at the root ends up inside the addon's folder, so every root
+# entry that is not an addon has to be ignored here. Dotfiles/dot-folders (.github, .vscode, ...)
+# and everything git ignores (node_modules, .cache, dist, .release) are skipped by the packager
+# on its own.
+#
+# A second addon in the same repo (e.g. Surfer_Options) gets its own move-folders line.
+#
+# The CurseForge / Wago / WoWInterface project ids are read from Surfer/Surfer.toc
+# (## X-Curse-Project-ID, ## X-Wago-ID, ## X-WoWI-ID).
+
+package-as: Surfer
+
+move-folders:
+  Surfer/Surfer: Surfer
+
+ignore:
+  # Root tooling (the root src/ would also collide with Surfer/src/ when the addon is moved).
+  - tests
+  - docs
+  - screenshots
+  - src
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - stylua.toml
+  # Claude Code guidance: the root one and the one in every addon.
+  - CLAUDE.md
+  - "*/CLAUDE.md"
+  # Any other Markdown, at any depth.
+  - "*.md"
+  # LuaLS annotation files; no TOC loads them.
+  - Surfer/src/types.lua

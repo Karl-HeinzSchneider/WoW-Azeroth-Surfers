@@ -1,0 +1,23 @@
+-- Type annotations only; this file is not listed in the TOC and never runs in-game.
+-- It exists so the Lua language server can type the `...` vararg every file receives.
+-- Every file should start with:
+--   ---@type string, Surfer
+--   local appName, app = ...
+-- When a file adds something to `app`, add a matching ---@field here.
+
+---@class Surfer
+---@field simulation table
+---@field runner table
+---@field logger Surfer.Logger
+---@field addon Surfer.Addon
+---@field dbDefaults Surfer.DBDefaults
+---@field db Surfer.DB
+---@field options Surfer.Options  # the AceConfig options, in the Settings panel and a standalone window
+---@field minimapButton Surfer.MinimapButton
+
+-- The AceDB object, with profile/char/global narrowed to the shape of app.dbDefaults.
+-- Ace3 API types (AceAddon, AceDBObject-3.0, ...) come from the ketho.wow-api extension.
+---@class Surfer.DB : AceDBObject-3.0
+---@field profile Surfer.DB.Profile
+---@field char Surfer.DB.Char
+---@field global Surfer.DB.Global
