@@ -137,8 +137,10 @@ function overlay:ResetDecorations()
     self.decorState = nil
 end
 
--- One decoration at `at` yards along the run, on `side` (1 right, -1 left).
-local function place(self, item, at, side)
+-- One decoration of a group starting `at` yards along the run, on `side` (1 right, -1 left).
+-- The left side's group is the right side's turned round about its middle: each model turned
+-- round, and its place along the group reversed, so parts that join up on the right still do.
+local function place(self, group, item, at, side)
     local model = choose(item.model)
     local spare = self.spareActors[model]
     if not spare then
@@ -157,7 +159,11 @@ local function place(self, item, at, side)
     end
     local d = self.spareDecor[#self.spareDecor] or {}
     self.spareDecor[#self.spareDecor] = nil
-    d.model, d.actor, d.at, d.alpha = model, actor, at + value(item.d, 0), nil
+    local along = value(item.d, 0)
+    if side < 0 then
+        along = (group.length or 0) - along
+    end
+    d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
     d.side, d.x, d.overhang, d.fitted = side, value(item.x, 6), item.overhang, false
     d.y = -side * d.x
     -- Built for the right side; the left side's are turned round to face the road too.
@@ -222,7 +228,9 @@ function overlay:UpdateDecorations()
             while self.decorNext[side] < s.distance + fade.to do
                 local group, at = pick(groups), self.decorNext[side]
                 for _, item in ipairs(group.items) do
-                    place(self, item, at, side)
+                    if not item.chance or math.random() < item.chance then
+                        place(self, group, item, at, side)
+                    end
                 end
                 self.decorNext[side] = at + (group.length or 0) + value(look.spacing, 0)
             end

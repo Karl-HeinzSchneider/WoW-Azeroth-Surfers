@@ -53,9 +53,14 @@ app.biomes.Register("default", {
     --          the model would reach closer to the middle than `clear`.
     --   overhang  true: may reach over the road (a lamp's arm), `clear` does not apply
     --   d      yards along the road from the group's start, 0 if left out
-    --   yaw    degrees the model turns (0 if left out), as built for the right side; the left
-    --          side's turn round to face the road too
+    --   yaw    degrees the model turns (0 if left out)
+    -- Groups are written for the right side of the road (models face the road at yaw 0 when
+    -- built facing the model's +y). The left side's are the same group turned round about its
+    -- middle: every model turned round to face the road too, and `d` counted back from the
+    -- group's `length`, so parts that join up (a fence and the post closing it) still do.
     --   scale  its size, 1 if left out
+    --   chance from 0 to 1: how often it is placed with its group, always if left out. Optional
+    --          parts make variants: a fence that sometimes has a lamp, sometimes a bush, or both.
     -- Any number may instead be a { min, max } range, picked at random for each one placed.
     -- `ambient` and `diffuse` light them by day. None by default.
     decorations = {

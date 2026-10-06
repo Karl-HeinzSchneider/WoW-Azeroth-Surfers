@@ -794,6 +794,10 @@ function overlay:Report()
         tostring(px),
         tostring(py)
     )
+    -- Each decoration model's bounds as the client measured them: which way a model extends.
+    for model, b in pairs(self.decorBounds) do
+        log:chat("model %d: x %.2f to %.2f, y %.2f to %.2f", model, b[1], b[3], b[2], b[4])
+    end
     local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
     log:chat(
         "twin loaded %s, bounds %s, scale %.2f; measured height %.2f",

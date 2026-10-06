@@ -427,8 +427,9 @@ o:CreateDecorations({})
 o:ApplyBiome()
 o.state = g.New()
 o:Render()
-local left, right, models = 0, 0, {}
+local left, right, models, longest = 0, 0, {}, 0
 for _, group in ipairs(app.biomes.Current().decorations.groups) do
+    longest = math.max(longest, group.length or 0)
     for _, item in ipairs(group.items) do
         for _, id in ipairs(type(item.model) == "table" and item.model or { item.model }) do
             models[id] = true
@@ -438,7 +439,10 @@ end
 for _, d in ipairs(o.decor) do
     left, right = left + (d.y > 0 and 1 or 0), right + (d.y < 0 and 1 or 0)
     assert(models[d.actor.model] and d.actor.shown, "Elwynn's models, shown")
-    assert(d.actor.ahead < 88 and d.actor.ahead > o.camera.x - 4, "between the camera and the far end")
+    assert(
+        d.actor.ahead < 88 + longest and d.actor.ahead > o.camera.x - 4,
+        "from the camera to a group past the far end"
+    )
     assert(math.abs(d.actor.z - app.shapes.Ground(d.actor.ahead)) < 1e-9, "on the curved ground")
     -- Turned, a square reaches |sin| + |cos| toward the road.
     local reach = (math.abs(math.sin(d.yaw)) + math.abs(math.cos(d.yaw))) * d.scale
@@ -479,7 +483,11 @@ end
 assert(created < 4 * placed, string.format("actors are reused: %d for %d in view", created, placed))
 o.state = g.New()
 o:Render()
-assert(o.decor[1].actor.ahead < 0, "a new run starts with new decorations from behind the camera")
+local nearest = math.huge
+for _, d in ipairs(o.decor) do
+    nearest = math.min(nearest, d.actor.ahead)
+end
+assert(nearest < 0, "a new run starts with new decorations from behind the camera")
 app.db.profile.biome = "default"
 o:ApplyBiome()
 o:Render()
