@@ -26,12 +26,13 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- The addon's draw order, bottom to top. The overlay frame (BACKGROUND strata) draws the ground
 -- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin a strata above all of them (LOW), and the buttons above that
--- (MEDIUM). Levels count from the overlay frame's; all are fixed, so nothing
--- the client or another frame does changes them.
+-- decorations and coins; the twin a strata above all of them (LOW), the window frame over its
+-- edges (window.lua), and the buttons above that (MEDIUM). Levels count from the overlay
+-- frame's; all are fixed, so nothing the client or another frame does changes them.
 local ORDER = {
     world = { "BACKGROUND", 2 },
     twin = { "LOW", 10 },
+    window = { "LOW", 20 },
     controls = { "MEDIUM", 1 },
 }
 -- The clip planes of every 3D scene, in yards. The scenes share the depth buffer, so with the
@@ -50,9 +51,10 @@ local AIR_LOOP = 1.1
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
--- The game, full screen: the road, obstacles and coins are drawn around the real character,
--- and a twin (a copy of the character, seen through the road's camera) runs on top of it.
--- This file draws; controls.lua adds input, movement sampling, the per-frame step and scoring.
+-- The game: the road, obstacles and coins, and a twin (a copy of the character, seen through
+-- the road's camera) running on it. Full screen they are drawn around the real character and
+-- the twin covers it; window.lua adds the side window and the window frame. This file draws;
+-- controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
 overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
@@ -76,9 +78,10 @@ function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
     cam.f = h / 2 / math.tan(math.rad(settings.fov) / 2)
-    -- Not in this client's API docs; the distance setting stands in when it is missing, and in
-    -- first person, where the twin still needs a camera behind it.
-    local zoom = not self.zoomedIn and GetCameraZoom and GetCameraZoom()
+    -- Not in this client's API docs; the distance setting stands in when it is missing, in
+    -- first person, where the twin still needs a camera behind it, and in the side window,
+    -- which has a camera of its own.
+    local zoom = not self.zoomedIn and not self.side and GetCameraZoom and GetCameraZoom()
     cam.zoomRead = zoom and true or false
     zoom = zoom or settings.distance
     local pitch = math.rad(settings.pitch)
@@ -211,14 +214,14 @@ function overlay:CreateGround(f)
 end
 
 -- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
--- or the opacity, changed since the last call.
+-- or the opacity, changed since the last call. The side window has nothing to see through to.
 function overlay:UpdateGroundLight()
     local settings = app.db.profile.overlay
     local last = self.groundLight or {}
     self.groundLight = last
     local same = unchanged(last, "day", light.day)
     same = unchanged(last, "brightness", settings.brightness) and same
-    same = unchanged(last, "opacity", settings.opacity) and same
+    same = unchanged(last, "opacity", self.side and 1 or settings.opacity) and same
     return not same
 end
 
@@ -306,7 +309,7 @@ function overlay:LoadPlayer()
 end
 
 -- The game does not draw the character in first person: zoom all the way in while the view is
--- open and back out to the previous zoom after.
+-- open full screen and back out to the previous zoom after.
 function overlay:HideRealCharacter(hide)
     if hide == (self.zoomedIn or false) then
         return
@@ -322,7 +325,7 @@ end
 
 function overlay:ApplyHideReal()
     local shown = self.frame and self.frame:IsShown()
-    self:HideRealCharacter(shown and app.db.profile.overlay.hideReal or false)
+    self:HideRealCharacter(shown and not self.side and app.db.profile.overlay.hideReal or false)
 end
 
 -- The biome's look: ground, coins, box colors and night light. On a change while playing,
@@ -452,9 +455,9 @@ function overlay:Create()
     self.hint = label(f, "GameFontHighlight", "CENTER", 175)
     self.hint:SetWidth(700)
     local controls = CreateFrame("Frame", nil, f)
+    self.controls = controls
     self:Stack(controls, "controls")
     controls:SetSize(3 * 112, 24)
-    controls:SetPoint("TOP", 0, -38)
     local buttons = {
         {
             "Restart",
@@ -521,6 +524,7 @@ function overlay:Create()
             self:LoadPlayer()
         end
     end)
+    self:CreateWindow(f)
     f:SetScript("OnUpdate", function(_, elapsed)
         local lap = self.timing and debugprofilestop()
         self:Step(elapsed)
@@ -531,7 +535,7 @@ function overlay:Create()
         lap = self:Lap("twin animation, models", lap)
         self:Render(lap)
     end)
-    self:ApplyHideReal()
+    self:ApplyMode()
     self:Render()
 end
 
@@ -539,7 +543,7 @@ end
 -- the character's projected body, sized by the road's own projection; its camera sits where
 -- the road's camera is and looks at the body from the same angle and distance. A square frame
 -- spans the same angle across and up, so how the scene measures its field of view cannot
--- change the twin's size. Half see-through while not running, to line it up.
+-- change the twin's size. Half see-through while not running full screen, to line it up.
 function overlay:PlaceTwin()
     local s, settings = self.state, app.db.profile.overlay
     local scene, actor = self.twin, self.twinActor
@@ -573,7 +577,7 @@ function overlay:PlaceTwin()
     scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
     actor:SetScale(settings.twinScale)
     actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
-    actor:SetAlpha(s.status == "running" and 1 or 0.5)
+    actor:SetAlpha((s.status == "running" or self.side) and 1 or 0.5)
     actor:Show()
 end
 
@@ -653,10 +657,16 @@ function overlay:Render(lap)
         if self.worldScene then
             self:AimDecorations()
         end
+        if self.side then
+            self:PlaceBackdrop()
+        end
     end
     light.Update()
     if self:UpdateGroundLight() then
         self:ShadeGround()
+        if self.side then
+            self:ShadeBackdrop()
+        end
     end
     lap = self:Lap("road placement", lap)
     self:PlaceTwin()
@@ -717,16 +727,27 @@ function overlay:ShowHint()
     if same then
         return
     end
-    self.hint:SetText(
-        running and ""
-            or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
+    if running then
+        self.hint:SetText("")
+    elseif self.capture then
+        self.hint:SetText(
+            "Forward or jump key to start. Turn / strafe keys: lanes   |   Jump key: jump\n"
+                .. "The game has your movement keys: your character stays where it is."
+                .. (self.side and "" or "\nLine the see-through copy up with your character in /surfer options.")
+        )
+    elseif self.side then
+        self.hint:SetText("Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump")
+    else
+        self.hint:SetText(
+            "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
                 .. "Line the see-through copy up with your character in /surfer options.\n"
                 .. string.format(
                     cam.zoomRead and "Camera zoom %.1f, read from the game."
                         or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
                     distance / 10
                 )
-    )
+        )
+    end
 end
 
 -- Adds the time since `since` to `part` of a frame and starts the next lap, into `timing` while

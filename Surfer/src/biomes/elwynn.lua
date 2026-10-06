@@ -50,6 +50,14 @@ app.biomes.Register("elwynn", {
         },
     },
 
+    -- A clear summer sky over the forest's dark grass.
+    sky = {
+        top = { 0.36, 0.55, 0.8 },
+        horizon = { 0.72, 0.8, 0.85 },
+        land = { 0.26, 0.32, 0.13 },
+        haze = 0.45,
+    },
+
     -- The track: crates, kegs and hay to jump, a beam of lumber on two fence posts to run under,
     -- long piles of lumber to run on. Models from world/generic/human/passive doodads/
     -- (crates, beerkegs, lumberpiles) and world/azeroth/elwynn/passivedoodads/.

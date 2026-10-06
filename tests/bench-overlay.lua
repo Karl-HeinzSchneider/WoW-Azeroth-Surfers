@@ -100,10 +100,14 @@ function special.GetEffectiveScale()
     return 1
 end
 
-function CreateFrame(kind)
+function CreateFrame(kind, _, _, template)
     local frame = stub(kind)
     if kind == "ModelScene" then
         shownScenes[#shownScenes + 1] = frame
+    end
+    if template == "DefaultPanelBaseTemplate" then
+        frame.TitleContainer = stub("Frame")
+        frame.TitleContainer.TitleText = stub("FontString")
     end
     return frame
 end
@@ -160,6 +164,7 @@ for _, file in ipairs({
     "game/overlay",
     "game/decorations",
     "game/obstacles",
+    "game/window",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

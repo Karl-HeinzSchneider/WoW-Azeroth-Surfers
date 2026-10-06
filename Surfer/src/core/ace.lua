@@ -48,6 +48,9 @@ end
 -- Re-apply everything that depends on profile settings. Modules opt in by defining OnProfileRefresh.
 function addon:OnProfileRefresh()
     log:setLevel(self.db.profile.logLevel)
+    if app.overlay and app.overlay.frame then
+        app.overlay:ApplyMode()
+    end
     for _, module in self:IterateModules() do
         if module.OnProfileRefresh then
             module:OnProfileRefresh()

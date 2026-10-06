@@ -50,6 +50,19 @@ a run starts) covers your character. Zooming or tilting the camera mid-run chang
 the client reports the zoom. **Hide your real character** zooms into first person while the game is
 open, where WoW does not draw your character, and back out after.
 
+### Modes
+
+In **/surfer options**, under Mode:
+
+- **Full screen** (the default) is the game as described above, part of the world. **Window frame
+  in full screen** adds a border, title bar and close button around the screen.
+- **Side window** puts the game in a window of its own, out of the way: drag it by its title, size
+  it from its corner. It has its own camera (the calibration's pitch, focus, distance and field of
+  view) and a sky behind the road. Its frame can be turned off too, which fixes it in place.
+- **Capture movement keys** works in both: while the game is open it takes your move, strafe, turn
+  and jump keys, so your character stays where it is and the runner runs on its own. Steering with
+  the mouse buttons still moves your character.
+
 The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
 `/surfer help` lists them.
 
@@ -57,7 +70,7 @@ The `Surfer_Dev` addon in this repository (never released) adds development tool
 
 - npm install
 - npm run format
-- npm run check (TypeScript, addon manifest, Lua syntax, XML, formatting, simulation tests)
+- npm run check (TypeScript, addon manifest, Lua syntax, XML, formatting)
 - npm run dev:link -- "<WoW>/Interface/AddOns", then /reload
 - npm run package:addons produces a local distributable ZIP.
 

@@ -3,8 +3,23 @@ local _, app = ...
 local sim = app.simulation
 -- The game's input, movement sampling, per-frame step and scoring, added to the view that
 -- overlay.lua creates. Keys are only observed: WoW still gets them, so the real character
--- moves and jumps too.
+-- moves and jumps too, unless the game captures the movement keys (`profile.capture`): then
+-- they stop here, the character stays put and the runner runs by itself.
 local overlay = app.overlay
+
+-- The bindings a captured key may have: they move the character.
+local MOVEMENT = {
+    MOVEFORWARD = true,
+    MOVEBACKWARD = true,
+    TURNLEFT = true,
+    TURNRIGHT = true,
+    STRAFELEFT = true,
+    STRAFERIGHT = true,
+    JUMP = true,
+    TOGGLEAUTORUN = true,
+}
+-- Yards per second the twin runs at while captured, the character's normal running speed.
+local RUN_SPEED = 7
 
 function overlay:SaveBest()
     app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))
@@ -53,7 +68,11 @@ local COIN_SOUND_FILE = 567428
 -- One frame of the game: movement, simulation, best score, coin sound.
 function overlay:Step(elapsed)
     local s = self.state
-    s.forward = self:IsMovingForward(elapsed)
+    if self.capture then
+        s.forward = self:AutoRun()
+    else
+        s.forward = self:IsMovingForward(elapsed)
+    end
     if s.forward and s.status == "ready" then
         sim.Start(s)
     end
@@ -108,6 +127,17 @@ function overlay:IsMovingForward(elapsed)
     return forward > 0.05 * elapsed
 end
 
+-- Captured, the character stands still: the runner runs while the game runs, and the twin runs
+-- with it.
+function overlay:AutoRun()
+    self:ForgetPosition()
+    local running = self.state.status == "running"
+    local motion = self.motion or {}
+    self.motion = motion
+    motion.forward, motion.left, motion.speed = running and RUN_SPEED or 0, 0, running and RUN_SPEED or 0
+    return running
+end
+
 -- The next sample starts afresh, e.g. after the view was hidden.
 function overlay:ForgetPosition()
     if self.lastPosition then
@@ -125,23 +155,29 @@ function overlay:ShowStatus()
     local score, best = sim.Score(s), app.db.global.bestScore
     local speed, layer = math.floor(s.speed + 0.5), math.floor(s.height / sim.LAYER + 0.01)
     if
-        shown.score ~= score
+        shown.narrow ~= self.narrow
+        or shown.score ~= score
         or shown.coins ~= s.coins
         or shown.best ~= best
         or shown.speed ~= speed
         or shown.layer ~= layer
     then
         shown.score, shown.coins, shown.best, shown.speed, shown.layer = score, s.coins, best, speed, layer
-        self.score:SetText(
-            string.format(
-                "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %d     LAYER  %d",
-                score,
-                s.coins,
-                best,
-                speed,
-                layer
+        shown.narrow = self.narrow
+        if self.narrow then
+            self.score:SetText(string.format("SCORE  %06d     COINS  %d     BEST  %06d", score, s.coins, best))
+        else
+            self.score:SetText(
+                string.format(
+                    "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %d     LAYER  %d",
+                    score,
+                    s.coins,
+                    best,
+                    speed,
+                    layer
+                )
             )
-        )
+        end
     end
     if shown.status ~= s.status then
         shown.status = s.status
@@ -150,14 +186,19 @@ function overlay:ShowStatus()
 end
 
 function overlay:OnMovementKey(key)
-    if InCombatLockdown() or GetCurrentKeyBoardFocus() then
+    -- In combat the view is closed, and whether a key reaches WoW cannot be changed.
+    if InCombatLockdown() then
         return
     end
     local chord = (IsAltKeyDown() and "ALT-" or "")
         .. (IsControlKeyDown() and "CTRL-" or "")
         .. (IsShiftKeyDown() and "SHIFT-" or "")
         .. key
-    local binding = GetBindingAction(chord, true)
+    local binding = not GetCurrentKeyBoardFocus() and GetBindingAction(chord, true)
+    self.frame:SetPropagateKeyboardInput(not (self.capture and binding and MOVEMENT[binding]))
+    if not binding then
+        return
+    end
     if binding == "TURNLEFT" or binding == "STRAFELEFT" then
         self:Action("LEFT")
     elseif binding == "TURNRIGHT" or binding == "STRAFERIGHT" then

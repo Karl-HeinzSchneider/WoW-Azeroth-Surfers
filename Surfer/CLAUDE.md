@@ -79,9 +79,9 @@ be listed**. The order follows these rules:
   the ground multiplies its vertex colors by `light.r/g/b`.
 - `src/game/shapes.lua` — turns boxes and coins into the faces to draw, and pools their textures
   (show, color and draw layer only set on a change).
-- `src/game/overlay.lua` — `app.overlay`, the full-screen view: road, boxes and coins as UI
-  textures at BACKGROUND strata, projected with a model of the follow camera (focus point at
-  screen center; pitch, focus height, FOV and, without `GetCameraZoom`, distance from
+- `src/game/overlay.lua` — `app.overlay`, the view (full screen or the side window, see
+  `window.lua`): road, boxes and coins as UI textures at BACKGROUND strata, projected with a
+  model of the follow camera (focus point at the view's center; pitch, focus height, FOV and, without `GetCameraZoom`, distance from
   `profile.overlay`). A twin covers the real character: a square ModelScene (LOW strata) around
   the projected body, sized by the road's projection, its camera at the road's camera (a square
   frame makes the scene's field-of-view axis irrelevant). The real character's animation cannot be
@@ -97,8 +97,18 @@ be listed**. The order follows these rules:
   camera; actors are pooled by model and instance tables reused. Models are placed by their own
   origin (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
   biome's `clear` by their measured, turned bounds unless an item is `overhang`.
+- `src/game/window.lua` — the modes (`profile.mode`): `ApplyMode()` puts the view full screen
+  or in the side window (a movable, resizable, clipped frame whose place `profile.side` saves;
+  its camera uses the calibration distance, not the real zoom, and a sky/land backdrop from the
+  biome's `sky` fills it). The window frame (`profile.frame.full/side`) is a
+  DefaultPanelBaseTemplate sibling of the view, so the clipping does not cut it; full screen it
+  covers the screen's edges, since the road must stay centered on the real character.
+  `Layout()` places texts and buttons for the mode and size. Call `ApplyMode()` after any mode
+  setting changes (the options and `OnProfileRefresh` do).
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
-  `Step`, score texts and `Toggle`, added to `app.overlay`.
+  `Step`, score texts and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
+  bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
+  runs by itself (`AutoRun`) instead of following the sampled movement.
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.

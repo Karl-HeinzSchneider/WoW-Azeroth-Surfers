@@ -17,6 +17,14 @@ local profile = {
     },
     coinSound = true,
     biome = "elwynn", -- how the game looks: a file in src/biomes/
+    -- "full": the game covers the screen around the real character; "side": a window of its own.
+    mode = "full",
+    -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
+    capture = false,
+    -- The window frame (border, title bar, close button) in each mode.
+    frame = { full = false, side = true },
+    -- The side window's place and size, set by dragging and sizing it.
+    side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
         hideReal = false, -- first-person camera while the view is open, so only the twin shows
