@@ -5,17 +5,23 @@ local shapes = app.shapes
 local light = app.light
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- Where the ground's pieces start and end: a yard deep near the runner, then 2 and 4 yards
--- where they are only a few pixels tall. Fewer pieces to place on every lane change and jump,
--- and short enough near the runner that a texture keeps its perspective on them.
+-- Where the ground's pieces start and end, from behind the runner (the bottom of the screen at
+-- the usual zoom) to the far fade. A texture is stretched over a piece's two triangles without
+-- perspective, so it bends where they meet; the bend stays on the screen while the texture
+-- scrolls through it, which shimmers like hot air. It grows with a piece's size on the screen,
+-- so pieces are half a yard deep close to the camera, then 1, 2 and 4 yards where they are
+-- only a few pixels tall: fewer pieces to place on every lane change and jump.
 local function edges(scale)
-    local list = { -3 }
+    local list = { -7 }
     while list[#list] < 87 do
         local d = list[#list]
-        list[#list + 1] = d + scale * (d < 20 and 1 or d < 44 and 2 or 4)
+        list[#list + 1] = d + scale * (d < 6 and 0.5 or d < 20 and 1 or d < 44 and 2 or 4)
     end
     return list
 end
+-- For the same reason, closer than COLUMN_NEAR yards wide bands are cut into columns at most
+-- COLUMN yards wide (about a lane).
+local COLUMN, COLUMN_NEAR = 2.4, 12
 -- A band's pieces by its `segments` (biomes/default.lua).
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
@@ -129,27 +135,35 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
     assert(segments, "Surfer biome: a band's segments are 1, 2 or 4")
     local list, pool = self.ground, self.groundPool
     for i = 1, #segments - 1 do
-        local n = #list + 1
-        local t = pool[n]
-        if not t then
-            t = self.groundParent:CreateTexture(nil, "BACKGROUND", nil, band.layer)
-            t.groundLayer = band.layer
-            pool[n] = t
+        local near = segments[i]
+        local columns = near < COLUMN_NEAR and math.ceil((right - left) / COLUMN - 1e-9) or 1
+        for c = 1, columns do
+            local n = #list + 1
+            local t = pool[n]
+            if not t then
+                t = self.groundParent:CreateTexture(nil, "BACKGROUND", nil, band.layer)
+                t.groundLayer = band.layer
+                pool[n] = t
+            end
+            if t.groundLayer ~= band.layer then
+                t:SetDrawLayer("BACKGROUND", band.layer)
+                t.groundLayer = band.layer
+            end
+            -- A column's share of the band, and of its opacity gradient.
+            local a, b = (c - 1) / columns, c / columns
+            t.kind, t.near, t.far = band.surface, near, segments[i + 1]
+            t.left, t.right = left + (right - left) * a, left + (right - left) * b
+            t.alphaLeft = alphaLeft + (alphaRight - alphaLeft) * a
+            t.alphaRight = alphaLeft + (alphaRight - alphaLeft) * b
+            if surface.texture and t:SetTexture(surface.texture, "REPEAT", "REPEAT", "TRILINEAR") then
+                t.tile = surface.tile or look.tile
+            else
+                local color = surface.color
+                t:SetColorTexture(color[1], color[2], color[3], 1)
+                t.tile = false
+            end
+            list[n] = t
         end
-        if t.groundLayer ~= band.layer then
-            t:SetDrawLayer("BACKGROUND", band.layer)
-            t.groundLayer = band.layer
-        end
-        t.kind, t.near, t.far, t.left, t.right = band.surface, segments[i], segments[i + 1], left, right
-        t.alphaLeft, t.alphaRight = alphaLeft, alphaRight
-        if surface.texture and t:SetTexture(surface.texture, "REPEAT", "REPEAT", "TRILINEAR") then
-            t.tile = surface.tile or look.tile
-        else
-            local color = surface.color
-            t:SetColorTexture(color[1], color[2], color[3], 1)
-            t.tile = false
-        end
-        list[n] = t
     end
 end
 
