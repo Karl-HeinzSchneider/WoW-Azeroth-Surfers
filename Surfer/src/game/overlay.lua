@@ -446,7 +446,7 @@ local function label(parent, font, point, y)
 end
 
 function overlay:Create()
-    self.state = sim.New()
+    self.state = self:NewState()
     self.height, self.lastRoad = 2, {}
     local f = CreateFrame("Frame", "SurferOverlay", UIParent)
     self.frame = f
@@ -557,7 +557,7 @@ function overlay:Create()
         end
         -- After a finished run the game opens on the start dialog again.
         if self.state.status == "over" then
-            self.state = sim.New()
+            self.state = self:NewState()
         end
         self:LoadPlayer()
         self:ApplyHideReal()
@@ -779,13 +779,15 @@ function overlay:ShowHint()
     local same = unchanged(hint, "status", status)
     same = unchanged(hint, "zoomRead", cam.zoomRead) and same
     same = unchanged(hint, "distance", distance) and same
+    same = unchanged(hint, "seed", self.state.seed) and same
     if same then
         return
     end
+    -- The seed, to play the run again.
     if status == "paused" then
-        self.hint:SetText("Press Q to go on. Hold R to start over.")
+        self.hint:SetText(string.format("Seed %d. Press Q to go on. Hold R to start over.", self.state.seed))
     elseif status == "over" then
-        self.hint:SetText("Press R to run again.")
+        self.hint:SetText(string.format("Seed %d. Press R to run again.", self.state.seed))
     else
         self.hint:SetText("")
     end

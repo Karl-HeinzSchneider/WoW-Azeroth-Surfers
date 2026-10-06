@@ -16,6 +16,9 @@ local DIALOG = {
     insets = { left = 11, right = 12, top = 12, bottom = 11 },
 }
 local WIDTH, BUTTON_WIDTH, BUTTON_HEIGHT = 300, 160, 24
+-- The seed's box: the classic input border, its ends and middle.
+local INPUT = "Interface\\Common\\Common-Input-Border"
+local INPUT_WIDTH, INPUT_HEIGHT = 110, 20
 
 local function button(parent, text, onClick)
     local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -23,6 +26,34 @@ local function button(parent, text, onClick)
     b:SetText(text)
     b:SetScript("OnClick", onClick)
     return b
+end
+
+-- A box for whole numbers, framed like the game's own number boxes.
+local function numberBox(parent)
+    local box = CreateFrame("EditBox", nil, parent)
+    box:SetSize(INPUT_WIDTH, INPUT_HEIGHT)
+    box:SetFontObject(ChatFontNormal)
+    box:SetAutoFocus(false)
+    box:SetNumeric(true)
+    box:SetMaxLetters(10)
+    box:SetTextInsets(0, 4, 0, 0)
+    local left = box:CreateTexture(nil, "BACKGROUND")
+    left:SetTexture(INPUT)
+    left:SetTexCoord(0, 0.0625, 0, 0.625)
+    left:SetSize(8, INPUT_HEIGHT)
+    left:SetPoint("LEFT", -5, 0)
+    local right = box:CreateTexture(nil, "BACKGROUND")
+    right:SetTexture(INPUT)
+    right:SetTexCoord(0.9375, 1, 0, 0.625)
+    right:SetSize(8, INPUT_HEIGHT)
+    right:SetPoint("RIGHT")
+    local middle = box:CreateTexture(nil, "BACKGROUND")
+    middle:SetTexture(INPUT)
+    middle:SetTexCoord(0.0625, 0.9375, 0, 0.625)
+    middle:SetHeight(INPUT_HEIGHT)
+    middle:SetPoint("LEFT", left, "RIGHT")
+    middle:SetPoint("RIGHT", right, "LEFT")
+    return box
 end
 
 function overlay:CreateMenu(f)
@@ -57,11 +88,37 @@ function overlay:CreateMenu(f)
         sim.Start(self.state)
     end)
     start:SetPoint("TOP", help, "BOTTOM", 0, -16)
-    -- Room for options between the two buttons, later.
+
+    -- Options, between the two buttons. The seed: a number replays the same track on every
+    -- run, empty draws a new one each time. Taken on Enter or when the box loses focus.
+    local seed = numberBox(menu)
+    seed:SetPoint("TOP", start, "BOTTOM", 20, -12)
+    local seedLabel = menu:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    seedLabel:SetPoint("RIGHT", seed, "LEFT", -12, 0)
+    seedLabel:SetText("Seed")
+    seed:SetScript("OnEnterPressed", seed.ClearFocus)
+    seed:SetScript("OnEscapePressed", function()
+        self:ShowSeed()
+        seed:ClearFocus()
+    end)
+    seed:SetScript("OnEditFocusLost", function()
+        local value = tonumber(seed:GetText()) or false
+        if value ~= app.db.profile.seed then
+            self:SetSeed(value)
+        else
+            self:ShowSeed()
+        end
+    end)
+    self.seedBox = seed
+    local runSeed = menu:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    runSeed:SetPoint("TOP", start, "BOTTOM", 0, -12 - INPUT_HEIGHT - 6)
+    runSeed:SetWidth(WIDTH - 40)
+    self.runSeed = runSeed
+
     local close = button(menu, "Close", function()
         f:Hide()
     end)
-    close:SetPoint("TOP", start, "BOTTOM", 0, -8)
+    close:SetPoint("TOP", runSeed, "BOTTOM", 0, -12)
     self.menuButtons = { start, close }
 
     local bar = CreateFrame("StatusBar", nil, f)
@@ -89,15 +146,31 @@ function overlay:ShowMenu()
     self.menuShown = ready
     if ready then
         self.menuBest:SetText(string.format("Best score  %06d", app.db.global.bestScore))
+        self:ShowSeed()
         self:FitMenu()
     end
     self.menu:SetShown(ready)
 end
 
+-- The seed box (the fixed seed, or empty) and the seed of the run about to start.
+function overlay:ShowSeed()
+    local fixed = app.db.profile.seed
+    if not self.seedBox:HasFocus() then
+        self.seedBox:SetText(fixed and tostring(fixed) or "")
+    end
+    self.runSeed:SetText(
+        string.format(
+            fixed and "Every run: seed %d" or "This run: seed %d. Empty: a new seed each run.",
+            self.state.seed
+        )
+    )
+end
+
 -- The dialog's height around its texts and buttons.
 function overlay:FitMenu()
     local height = 34 + self.menuBest:GetStringHeight() + 10 + self.menuHelp:GetStringHeight()
-    self.menu:SetHeight(height + 16 + 2 * BUTTON_HEIGHT + 8 + 20)
+    local seed = 12 + INPUT_HEIGHT + 6 + self.runSeed:GetStringHeight() + 12
+    self.menu:SetHeight(height + 16 + 2 * BUTTON_HEIGHT + seed + 20)
 end
 
 -- The restart bar: how far the restart key has been held, nothing while it is not.

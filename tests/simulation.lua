@@ -1,5 +1,7 @@
 local app = {}
+assert(loadfile("Surfer/src/game/random.lua"))("Surfer", app)
 assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
+local random = app.random
 local g = app.simulation
 local L = g.LAYER
 local count = 0
@@ -168,9 +170,8 @@ end)
 -- lane is free of anything a runner on the ground can neither jump nor climb.
 test("generated patterns always leave a way through", function()
     for seed = 1, 200 do
-        math.randomseed(seed)
         -- Jump ahead pattern by pattern, keeping every box before the track drops it.
-        local s, objects, seen = g.New(), {}, {}
+        local s, objects, seen = g.New(seed), {}, {}
         g.Start(s)
         for _ = 1, 40 do
             -- High above the track, so nothing ends the run before the next pattern spawns.
@@ -229,6 +230,45 @@ test("generated patterns always leave a way through", function()
             end
         end
     end
+end)
+-- Seeds: Park and Miller's own check, and one seed always lays out the same track.
+test("the generator is the minimal standard", function()
+    local x = 1
+    for _ = 1, 10000 do
+        x = random.Step(x)
+    end
+    assert(x == 1043618065, x)
+    assert(random.Normalize(0) == random.MAX and random.Normalize(random.MAX + 1) == 1)
+    local r = random.New(7)
+    for _ = 1, 1000 do
+        local u, n = r(), r(-1, 1)
+        assert(u >= 0 and u < 1 and (n == -1 or n == 0 or n == 1))
+    end
+end)
+local function track(seed)
+    local s, objects = g.New(seed), {}
+    g.Start(s)
+    for _ = 1, 40 do
+        s.distance, s.height = s.nextRow - 80, 100
+        g.Update(s, 1 / 120)
+        s.status = "running"
+        for _, o in ipairs(s.objects) do
+            local line =
+                table.concat({ o.kind, o.lane, o.at, o.length, o.layer, o.layers, tostring(o.ramp), o.seed }, " ")
+            objects[line] = true
+        end
+    end
+    local lines = {}
+    for line in pairs(objects) do
+        lines[#lines + 1] = line
+    end
+    table.sort(lines)
+    return table.concat(lines, "\n")
+end
+test("a seed always lays out the same track", function()
+    assert(track(1234) == track(1234))
+    assert(track(1234) ~= track(1235))
+    assert(g.New(99).seed == 99 and g.New().seed >= 1)
 end)
 print(string.format("%d simulation tests passed", count))
 

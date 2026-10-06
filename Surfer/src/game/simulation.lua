@@ -1,8 +1,10 @@
 ---@type string, Surfer
 local _, app = ...
+local random = app.random
 -- Fixed-step rules on a grid: three lanes side by side and layers stacked LAYER yards high.
 -- Everything on the track is a box on that grid, so one overlap test serves every kind, and
--- the rules are independent of how the views draw them.
+-- the rules are independent of how the views draw them. A run's track follows only from its
+-- seed: the same seed lays out the same track.
 local game = {}
 app.simulation = game
 
@@ -63,8 +65,11 @@ local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
 
-function game.New(random)
+-- A run from `seed` (any whole number), or from a new one when left out.
+function game.New(seed)
+    seed = random.Normalize(seed or random.Seed())
     return {
+        seed = seed,
         status = "ready",
         lane = 0,
         lateral = 0,
@@ -78,7 +83,7 @@ function game.New(random)
         accumulator = 0,
         nextRow = 22,
         objects = {},
-        random = random or math.random,
+        random = random.New(seed, random.TRACK),
     }
 end
 
@@ -114,8 +119,12 @@ function game.Pause(s)
     s.accumulator = 0
 end
 
+-- Each box gets a seed of its own for its looks, so the views draw it the same whenever it
+-- comes into sight.
 local function add(s, kind, lane, at, length, layer, layers, ramp)
-    s.objects[#s.objects + 1] = game.Box(kind, lane, at, length, layer, layers, ramp)
+    local o = game.Box(kind, lane, at, length, layer, layers, ramp)
+    o.seed = s.random(random.MAX)
+    s.objects[#s.objects + 1] = o
 end
 
 -- Yards between coins in a row: close enough to read as a trail, far enough apart that

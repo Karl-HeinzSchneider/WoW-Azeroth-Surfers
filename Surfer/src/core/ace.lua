@@ -75,13 +75,25 @@ function addon:OnSlashCommand(input)
         else
             log:chat("Log level is %s", log:getLevelName())
         end
+    elseif cmd == "seed" then
+        local overlay, seed = app.overlay, tonumber(arg or "")
+        if seed then
+            overlay:SetSeed(seed)
+        elseif arg and arg:lower() == "random" then
+            overlay:SetSeed(false)
+        end
+        local fixed = self.db.profile.seed
+        log:chat(fixed and "Seed %d on every run" or "A new seed every run", fixed)
+        if overlay.state and overlay.state.seed ~= fixed then
+            log:chat("This run: seed %d", overlay.state.seed)
+        end
     elseif cmd == "reset" then
         self.db:ResetProfile()
         log:chat("Profile reset")
     elseif app.devCommands[cmd] then
         app.devCommands[cmd].run(input:match("^%s*%S+%s*(.-)%s*$"))
     else
-        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer reset")
+        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer seed [<number>|random], /surfer reset")
         local names = {}
         for name in pairs(app.devCommands) do
             names[#names + 1] = name

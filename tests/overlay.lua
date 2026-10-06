@@ -4,6 +4,7 @@ for _, file in ipairs({
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
+    "game/random",
     "game/simulation",
     "game/light",
     "game/shapes",

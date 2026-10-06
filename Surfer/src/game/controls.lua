@@ -30,10 +30,30 @@ function overlay:SaveBest()
     app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))
 end
 
+-- A run ready to start: from the fixed seed (`profile.seed`), or a new one.
+function overlay:NewState()
+    return sim.New(app.db.profile.seed or nil)
+end
+
 function overlay:Restart()
     self:SaveBest()
-    self.state = sim.New()
+    self.state = self:NewState()
     sim.Start(self.state)
+end
+
+-- Fixes the seed (a whole number) or lets every run draw its own (false). A run that has not
+-- started yet takes it at once.
+function overlay:SetSeed(seed)
+    app.db.profile.seed = seed and app.random.Normalize(seed) or false
+    -- Before the view is created, only the setting.
+    if not self.frame then
+        return
+    end
+    if self.state.status == "ready" then
+        self.state = self:NewState()
+    end
+    self:ShowSeed()
+    self:FitMenu()
 end
 
 function overlay:Action(key)

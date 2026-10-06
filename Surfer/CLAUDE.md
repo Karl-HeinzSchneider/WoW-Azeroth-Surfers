@@ -61,9 +61,17 @@ be listed**. The order follows these rules:
 
 ## The game
 
+- `src/game/random.lua` — `app.random`, seeded random numbers (WoW's `math.random` cannot be
+  seeded): Park–Miller's minimal standard, exact in Lua's doubles. `random.New(seed, stream)` is
+  a generator called like `math.random` (`r()`, `r(n)`, `r(m, n)`), `r:Seed(seed, stream)`
+  restarts it without allocating. Each system draws from its own `stream` (`TRACK`, `LEFT`,
+  `RIGHT`, `LOOK`), a far-away point of the cycle, so they do not repeat one another. **Nothing
+  in a run may use `math.random`**: everything a seed should replay draws from a generator of
+  the run's seed.
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
-  collide or are collected.
+  collide or are collected. `New(seed)` starts a run from `seed` (a new one when left out,
+  `s.seed`); the track follows only from it. Every generated box gets `o.seed` for its looks.
 - `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
   `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
   biome each and override only what they change; `default.lua` holds every field, documented, and
@@ -96,7 +104,9 @@ be listed**. The order follows these rules:
   axis irrelevant). Placed up to the ground's far fade, moved every frame, dropped behind the
   camera; actors are pooled by model and instance tables reused. Models are placed by their own
   origin (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
-  biome's `clear` by their measured, turned bounds unless an item is `overhang`.
+  biome's `clear` by their measured, turned bounds unless an item is `overhang`. Each side draws
+  from its own stream of the run's seed in road order, and an obstacle's look from its box's
+  `o.seed` (obstacles.lua), so a seed decorates the same at any frame rate.
 - `src/game/window.lua` — the modes (`profile.mode`): `ApplyMode()` puts the view full screen
   or in the side window (a movable, resizable, clipped frame whose place `profile.side` saves;
   its camera uses the calibration distance, not the real zoom, and a sky/land backdrop from the
@@ -109,8 +119,10 @@ be listed**. The order follows these rules:
   mode and size. Call `ApplyMode()` after any mode
   setting changes (the options and `OnProfileRefresh` do).
 - `src/game/menu.lua` — the start dialog (classic dialog box: best score, how to play, Start game
-  and Close; options go between the buttons) shown while a run is `ready`, and the restart bar
-  shown while the restart key is held.
+  and Close; options go between the buttons: the Seed box) shown while a run is `ready`, and the
+  restart bar shown while the restart key is held. `profile.seed` is a fixed seed (or false: a
+  new one every run); `overlay:NewState()` starts every run from it and `SetSeed(n|false)`
+  changes it (also `/surfer seed`).
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
   `Step`, score texts and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
