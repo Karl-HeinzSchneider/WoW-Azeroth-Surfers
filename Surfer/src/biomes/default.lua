@@ -46,7 +46,8 @@ app.biomes.Register("default", {
 
     -- 3D models along both sides of the road, as actors of one scene. Along each side a group
     -- follows the last one after `spacing` yards; groups are picked at random by `weight`, and
-    -- each takes `length` yards of the roadside. A group's `items` are placed together:
+    -- each takes `length` yards of the roadside (a group without items leaves that stretch
+    -- empty). A group's `items` are placed together:
     --   model  a file id, or a list to pick one from at random
     --   x      yards from the road's middle to the model's origin, the point it stands on in the
     --          world (the road's edge is at 4.3, the grass ends at 8.5). Moved farther out if
