@@ -30,6 +30,8 @@ function game.Overlaps(s, o)
         and s.height + bounds.playerHeight > bottom
 end
 local STEP = 1 / 120
+-- WoW's own jump (yards, seconds), so the road drops in step with the real character.
+local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 function game.New(random)
     return {
         status = "ready",
@@ -62,7 +64,7 @@ function game.Move(s, delta)
 end
 function game.Jump(s)
     if s.status == "running" and s.height == 0 then
-        s.velocity = 9
+        s.velocity = JUMP_VELOCITY
     end
 end
 function game.Pause(s)
@@ -81,8 +83,8 @@ local function tick(s)
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
     if s.velocity ~= 0 or s.height > 0 then
-        s.height = math.max(0, s.height + s.velocity * STEP - 12 * STEP * STEP)
-        s.velocity = s.velocity - 24 * STEP
+        s.height = math.max(0, s.height + s.velocity * STEP - GRAVITY / 2 * STEP * STEP)
+        s.velocity = s.velocity - GRAVITY * STEP
         if s.height == 0 then
             s.velocity = 0
         end

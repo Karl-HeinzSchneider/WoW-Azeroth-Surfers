@@ -41,13 +41,16 @@ function overlay:UpdateCamera()
     cam.cos, cam.sin = math.cos(pitch), math.sin(pitch)
     cam.cx, cam.cy = w / 2, h / 2
     cam.x = -math.max(zoom, 0.5) * cam.cos
-    cam.z = settings.focus * self.height + math.max(zoom, 0.5) * cam.sin
-    -- The camera follows the character, so the world shifts by the character's lane offset.
+    -- The camera follows the character, so the world shifts by its lane offset and, while it
+    -- jumps, drops away beneath it: the character keeps its place on screen.
+    cam.feet = self.state.height
+    cam.z = cam.feet + settings.focus * self.height + math.max(zoom, 0.5) * cam.sin
     cam.offset = self.state.lateral * LANE
     return string.format(
-        "%.2f %.3f %.0f %.0f %.2f %.2f %g %g %g %g",
+        "%.2f %.3f %.3f %.0f %.0f %.2f %.2f %g %g %g %g",
         zoom,
         cam.offset,
+        cam.feet,
         w,
         h,
         self.height,
@@ -328,8 +331,8 @@ end
 -- The capsule covers the character from the feet to just above the head.
 function overlay:PlaceCutout()
     local settings = app.db.profile.overlay
-    local x, feet, scale = project(0, -cam.offset, 0)
-    local _, head = project(0, -cam.offset, self.height * 1.05)
+    local x, feet, scale = project(0, -cam.offset, cam.feet)
+    local _, head = project(0, -cam.offset, cam.feet + self.height * 1.05)
     if not x or not head or head <= feet then
         self.hole = nil
         self.cutout:SetSize(0.01, 0.01)

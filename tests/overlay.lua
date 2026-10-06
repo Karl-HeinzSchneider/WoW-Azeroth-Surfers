@@ -106,3 +106,15 @@ o.state.objects = {}
 o:Render()
 assert(not o.coins[1].actor.shown, "unused coin scenes hide their model")
 print("PASS 3D coins hide behind the character and replace flat coins")
+
+-- Jumping: the camera rises with the character, so it keeps its place and the road drops.
+o.coinReady = false
+o.state.objects = { { kind = "coin", lane = 1, at = 10 } }
+o.state.height = 0
+o:Render()
+local feetY, coinY = o.feet.y, o.markers[1].texture.y
+o.state.height = 1.5
+o:Render()
+assert(math.abs(o.feet.y - feetY) < 0.001, "the character keeps its place on screen")
+assert(o.markers[1].texture.y < coinY, "the road and its objects drop while jumping")
+print("PASS jumping drops the road beneath the character")
