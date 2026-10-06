@@ -78,6 +78,10 @@ end
 function special.GetActiveBoundingBox()
     return -0.3, -0.4, 0, 0.3, 0.4, 2
 end
+function special.SetTexture()
+    count("SetTexture")
+    return true
+end
 function special.SetModelByFileID()
     return true
 end
@@ -99,6 +103,9 @@ function CreateFrame(kind)
     return frame
 end
 UIParent = stub("Frame")
+function CreateColor()
+    return stub("Color")
+end
 local x = 0
 function UnitPosition()
     return x, 0, 0, 1

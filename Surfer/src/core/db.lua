@@ -24,7 +24,7 @@ local profile = {
         focus = 0.9, -- camera focus height, as a share of the character's height
         distance = 12, -- camera distance in yards, when the client cannot report its zoom
         fov = 55, -- vertical field of view in degrees
-        opacity = 0.85,
+        opacity = 1,
     },
 }
 

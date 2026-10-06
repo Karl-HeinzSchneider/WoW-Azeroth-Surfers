@@ -4,10 +4,9 @@ local sim = app.simulation
 local shapes = app.shapes
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
-local EDGES = { -3.7, -1.2, 1.2, 3.7 }
--- Where the road's strips start and end: a yard deep near the runner, then 2 and 4 yards
--- where they are only a few pixels tall. Fewer strips to place on every lane change and jump.
--- Lane lines are thin and need no bands: segments twice as long.
+-- Where the ground's pieces start and end: a yard deep near the runner, then 2 and 4 yards
+-- where they are only a few pixels tall. Fewer pieces to place on every lane change and jump,
+-- and short enough near the runner that a texture keeps its perspective on them.
 local function edges(scale)
     local list = { -3 }
     while list[#list] < 87 do
@@ -16,7 +15,29 @@ local function edges(scale)
     end
     return list
 end
-local STRIP_EDGES, LINE_EDGES = edges(1), edges(2)
+local SEGMENTS = { edges(1), edges(2), edges(4) }
+-- An Elwynn Forest road from the game's own terrain textures (community listfile ids:
+-- elwynncobblestonebase, elwynndirtbase2, elwynngrassbase). They repeat every TILE yards, as
+-- on the game's own ground; the colors stand in if one does not load.
+local TEXTURES = { road = 187099, dirt = 187114, grass = 187126 }
+local COLORS = { road = { 0.55, 0.53, 0.45 }, dirt = { 0.45, 0.33, 0.18 }, grass = { 0.4, 0.5, 0.1 } }
+local TILE = 4.1667
+-- Bands from the road's middle outward, mirrored to both sides (one band across the middle
+-- when it starts there): texture, draw sublevel, segment length (index into SEGMENTS),
+-- yards off the middle and the opacity there. Gradients are linear across a texture, so a
+-- soft edge is a band of its own. Cobbles fade into a dirt shoulder, the dirt into grass and
+-- the grass into the world; worn dirt ruts mark the lanes. Cobbles need the shortest
+-- segments: a texture seam next to them would show.
+local BANDS = {
+    { "grass", -2, 2, 3.3, 5.5, 1, 1 },
+    { "grass", -2, 2, 5.5, 8.5, 1, 0 },
+    { "dirt", -1, 2, 3.3, 5.3, 1, 0 },
+    { "road", 0, 1, 0, 3.3, 1, 1 },
+    { "road", 0, 1, 3.3, 4.3, 1, 0 },
+    { "dirt", 1, 3, 0.95, 1.45, 0.3, 0.3 },
+}
+-- The far ground fades out between these distances instead of ending at a hard edge.
+local FADE_START, FADE_END = 60, 88
 -- Coin models from the game files, tried in order until one loads (community listfile ids:
 -- 11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01). The flat coin stands in until then.
 local COIN_MODELS = { 5737987, 2313815, 200137 }
@@ -113,6 +134,73 @@ local function face(t, left, right, d1, z1, d2, z2)
     t:SetVertexOffset(1, tl - bl, 0)
     t:SetVertexOffset(3, tr - br, 0)
     shapes.Show(t)
+end
+
+-- The ground's pieces: textures fixed to a stretch of the ground, `left` to `right` across
+-- it and `near` to `far` ahead of the runner, on BACKGROUND under the boxes.
+local function pieces(list, f, band, left, right, alphaLeft, alphaRight)
+    local kind, sublevel, segments = band[1], band[2], SEGMENTS[band[3]]
+    for i = 1, #segments - 1 do
+        local t = f:CreateTexture(nil, "BACKGROUND", nil, sublevel)
+        t.kind, t.near, t.far, t.left, t.right = kind, segments[i], segments[i + 1], left, right
+        t.alphaLeft, t.alphaRight = alphaLeft, alphaRight
+        if t:SetTexture(TEXTURES[kind], "REPEAT", "REPEAT", "TRILINEAR") then
+            t.tile = TILE
+        else
+            local color = COLORS[kind]
+            t:SetColorTexture(color[1], color[2], color[3], 1)
+            t.tile = false
+        end
+        list[#list + 1] = t
+    end
+end
+
+function overlay:CreateGround(f)
+    local list = {}
+    self.ground = list
+    for _, band in ipairs(BANDS) do
+        local from, to, inner, outer = band[4], band[5], band[6], band[7]
+        if from == 0 then
+            pieces(list, f, band, -to, to, outer, outer)
+        else
+            pieces(list, f, band, -to, -from, outer, inner)
+            pieces(list, f, band, from, to, inner, outer)
+        end
+    end
+    -- Reused for the gradients: colors are only read during the call.
+    self.groundColors = { CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1) }
+end
+
+-- The pieces' see-through: the opacity setting, the far fade and the soft edges.
+function overlay:ShadeGround(opacity)
+    local left, right = self.groundColors[1], self.groundColors[2]
+    for _, t in ipairs(self.ground) do
+        local alpha = opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
+        if t.alphaLeft == t.alphaRight then
+            t:SetVertexColor(1, 1, 1, alpha * t.alphaLeft)
+        else
+            left:SetRGBA(1, 1, 1, alpha * t.alphaLeft)
+            right:SetRGBA(1, 1, 1, alpha * t.alphaRight)
+            t:SetGradient("HORIZONTAL", left, right)
+        end
+    end
+end
+
+-- The textures slide toward the runner as it runs; their place across the road is fixed, so
+-- they move with the road on lane changes. Offsets wrap at a tile, which looks the same.
+function overlay:ScrollGround()
+    local distance = self.state.distance
+    if self.scrolled == distance then
+        return
+    end
+    self.scrolled = distance
+    for _, t in ipairs(self.ground) do
+        local tile = t.tile
+        if tile then
+            local base = distance % tile
+            t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
+        end
+    end
 end
 
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
@@ -232,20 +320,8 @@ function overlay:Create()
     -- Above the 3D world, below the rest of the UI; clicks go through to the world.
     f:SetFrameStrata("BACKGROUND")
     f:EnableMouse(false)
-    -- The road: surface strips, and lane lines just above them; the boxes on it draw on BORDER.
-    self.strips, self.lines = {}, {}
-    for i = 1, #STRIP_EDGES - 1 do
-        local strip = f:CreateTexture(nil, "BACKGROUND", nil, 0)
-        strip.near, strip.far = STRIP_EDGES[i], STRIP_EDGES[i + 1]
-        self.strips[i] = strip
-    end
-    for i = 1, #LINE_EDGES - 1 do
-        for j = 1, 4 do
-            local line = f:CreateTexture(nil, "BACKGROUND", nil, 1)
-            line.near, line.far, line.edge = LINE_EDGES[i], LINE_EDGES[i + 1], j
-            self.lines[#self.lines + 1] = line
-        end
-    end
+    -- The ground; the boxes on it draw on BORDER.
+    self:CreateGround(f)
     self.faces = shapes.Pool(f, "BORDER")
     local probe = CreateFrame("ModelScene", nil, f)
     probe:SetSize(1, 1)
@@ -485,34 +561,21 @@ function overlay:Render(lap)
     local s = self.state
     local opacity = app.db.profile.overlay.opacity
     if self:UpdateCamera() then
-        for _, strip in ipairs(self.strips) do
-            local near, far = strip.near, strip.far
-            face(strip, EDGES[1], EDGES[4], near, ground(near), far, ground(far))
-            strip.shade = nil
+        for _, t in ipairs(self.ground) do
+            local near, far = t.near, t.far
+            face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
-        for _, line in ipairs(self.lines) do
-            local near, far, x = line.near, line.far, EDGES[line.edge]
-            face(line, x - 0.025, x + 0.025, near, ground(near), far, ground(far))
-            -- Only the opacity changes their color.
-            if line.opacity ~= opacity then
-                local edge = line.edge == 1 or line.edge == 4
-                line:SetColorTexture(0.35, 0.75, 0.71, opacity * (edge and 1 or 0.55))
-                line.opacity = opacity
-            end
+        -- Only the opacity changes their colors.
+        if self.groundOpacity ~= opacity then
+            self:ShadeGround(opacity)
+            self.groundOpacity = opacity
         end
         self:AimCoinCameras()
     end
     lap = self:Lap("road placement", lap)
     self:PlaceTwin()
     lap = self:Lap("twin", lap)
-    -- 4-yard bands scroll past; a strip is recolored only when its band changes.
-    for _, strip in ipairs(self.strips) do
-        local shade = math.floor((strip.near + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
-        if strip.shade ~= shade then
-            strip:SetColorTexture(shade, shade + 0.05, shade + 0.065, opacity)
-            strip.shade = shade
-        end
-    end
+    self:ScrollGround()
     -- Boxes and flat coins from the shared faces; near coins become 3D once their model loaded.
     local faces, count = shapes.Collect(s, -cam.offset)
     local coinIndex = 0
@@ -533,7 +596,7 @@ function overlay:Render(lap)
             shapes.Hide(self.coins[i].scene)
         end
     end
-    lap = self:Lap("road colors, boxes, coins", lap)
+    lap = self:Lap("road scroll, boxes, coins", lap)
     self:ShowStatus()
     self:ShowHint()
     self:Lap("texts", lap)
@@ -573,7 +636,7 @@ local PARTS = {
     "twin animation, models",
     "road placement",
     "twin",
-    "road colors, boxes, coins",
+    "road scroll, boxes, coins",
     "texts",
 }
 
@@ -626,7 +689,7 @@ function overlay:Profile()
         self.faceCount or 0,
         self.coinCount or 0,
         scenes,
-        #self.strips + #self.lines
+        #self.ground
     )
 end
 
