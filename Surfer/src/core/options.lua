@@ -20,10 +20,108 @@ table.sort(levelOrder, function(a, b)
     return log.level[a] < log.level[b]
 end)
 
+-- A full-screen calibration slider; the road reprojects on its own when a value changes.
+local function calibration(order, key, name, desc, min, max, step)
+    return {
+        type = "range",
+        order = order,
+        name = name,
+        desc = desc,
+        min = min,
+        max = max,
+        step = step,
+        get = function()
+            return app.db.profile.overlay[key]
+        end,
+        set = function(_, value)
+            app.db.profile.overlay[key] = value
+        end,
+    }
+end
+
 local options = {
     type = "group",
     name = appName,
     args = {
+        view = {
+            type = "select",
+            order = 5,
+            width = "double",
+            name = "View",
+            desc = "Full screen: your real character runs, the road is drawn around it. Window: a copy of your character runs in a window.",
+            values = { overlay = "Full screen (your character runs)", window = "Window (model copy)" },
+            sorting = { "overlay", "window" },
+            get = function()
+                return app.db.profile.view
+            end,
+            set = function(_, value)
+                local open = (app.runner.frame and app.runner.frame:IsShown())
+                    or (app.overlay.frame and app.overlay.frame:IsShown())
+                app.db.profile.view = value
+                if open then
+                    app.ToggleGame()
+                end
+            end,
+        },
+        overlay = {
+            type = "group",
+            order = 30,
+            inline = true,
+            name = "Full-screen calibration",
+            args = {
+                help = {
+                    type = "description",
+                    order = 1,
+                    name = "Open the game, stand still and adjust until the gold bar sits under your feet and the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
+                },
+                pitch = calibration(
+                    10,
+                    "pitch",
+                    "Camera pitch",
+                    "How far your camera looks down, in degrees. Moves the horizon.",
+                    -10,
+                    80,
+                    1
+                ),
+                focus = calibration(
+                    20,
+                    "focus",
+                    "Focus height",
+                    "Where on your character the camera points, as a share of its height. Moves the road up and down.",
+                    0.2,
+                    1.5,
+                    0.01
+                ),
+                distance = calibration(
+                    30,
+                    "distance",
+                    "Camera distance",
+                    "Your camera zoom in yards. Only used when the client cannot report the zoom itself.",
+                    1,
+                    40,
+                    0.5
+                ),
+                fov = calibration(
+                    40,
+                    "fov",
+                    "Field of view",
+                    "The game's vertical field of view in degrees. Changes how wide the road looks.",
+                    30,
+                    100,
+                    1
+                ),
+                cutout = calibration(
+                    50,
+                    "cutout",
+                    "Character cutout",
+                    "Width of the hole the road leaves behind your character, as a share of its width.",
+                    0,
+                    1.5,
+                    0.05
+                ),
+                opacity = calibration(60, "opacity", "Road opacity", nil, 0.1, 1, 0.05),
+            },
+        },
         minimap = {
             type = "toggle",
             order = 10,

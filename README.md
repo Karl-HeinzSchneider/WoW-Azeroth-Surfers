@@ -23,7 +23,19 @@ Dodge or jump over red obstacles; gold pickups award 25 points. Distance adds po
 speed increases gradually, and your best score is saved account-wide.
 Each obstacle row leaves two lanes clear. Obstacle faces and collision checks share world-space dimensions; the red obstacle volume is the collision reference. Decorative models are fitted inside it. Coin pickup uses its own smaller bounds and vertical overlap with the runner.
 
-## Prototype rendering
+## Full-screen view (default)
+
+Your real character is the runner. The road, obstacles and coins are drawn full screen around it,
+under the rest of the UI; changing lanes slides the road under your character, which the camera
+keeps centered. Everything behind your character is cut out over its body with a capsule mask, so
+your character appears in front of the road and obstacles.
+
+The road imitates WoW's follow camera and has to be calibrated once: in **/surfer options**, adjust
+camera pitch and focus height until the gold bar sits under your feet. Zooming or tilting the camera
+mid-run changes the fit (unless the client reports the zoom). The window view below is still
+available under **View**.
+
+## Window view
 
 A native ModelScene copies your current character and equipment and plays run/jump animations.
 The fixed camera projects a segmented track that curves away toward the horizon. Native scene projection keeps the track aligned with actors; an analytic projection is the fallback.

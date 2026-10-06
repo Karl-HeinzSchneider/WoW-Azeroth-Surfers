@@ -47,7 +47,7 @@ end
 ---@param button string "LeftButton", "RightButton", ...
 function module:OnClick(button)
     if button == "LeftButton" then
-        app.runner:Toggle()
+        app.ToggleGame()
     else
         log:debug("Minimap button clicked (%s)", button)
     end

@@ -15,6 +15,17 @@ local profile = {
         -- all stack on one spot; start somewhere else instead.
         minimapPos = 200,
     },
+    -- "overlay": your character runs on a full-screen road; "window": a model copy in a window.
+    view = "overlay",
+    -- Full-screen calibration: the follow camera that the road's projection imitates.
+    overlay = {
+        pitch = 20, -- degrees the camera looks down
+        focus = 0.9, -- camera focus height, as a share of the character's height
+        distance = 12, -- camera distance in yards, when the client cannot report its zoom
+        fov = 55, -- vertical field of view in degrees
+        opacity = 0.85,
+        cutout = 0.8, -- width of the hole behind the character, as a share of its width
+    },
 }
 
 -- Data tied to one character.
