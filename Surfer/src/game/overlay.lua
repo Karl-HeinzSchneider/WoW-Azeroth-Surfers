@@ -25,20 +25,17 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 -- A band's pieces by its `segments` (biomes/default.lua).
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- The addon's draw order, bottom to top. The overlay frame (BACKGROUND strata) draws the ground
--- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it, in frames of their
--- own, the decorations, then the 3D coins; the twin a strata above all of them (LOW), and the
--- buttons above that (MEDIUM). Levels count from the overlay frame's; all are fixed, so nothing
+-- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
+-- decorations and coins; the twin a strata above all of them (LOW), and the buttons above that
+-- (MEDIUM). Levels count from the overlay frame's; all are fixed, so nothing
 -- the client or another frame does changes them.
 local ORDER = {
-    decorations = { "BACKGROUND", 2 },
-    coins = { "BACKGROUND", 3 },
+    world = { "BACKGROUND", 2 },
     twin = { "LOW", 10 },
     controls = { "MEDIUM", 1 },
 }
--- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
-local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
--- Farther coins are a few pixels tall: drawn flat, without a scene of their own.
-local COIN_3D_DISTANCE = 40
+-- Yards: a coin model's largest side.
+local COIN_SIZE = 0.5
 -- The twin's animations, and the speeds (yards per second) walking, running and walking
 -- backwards are animated for. A normal jump plays JUMP_START throughout; JUMP is the loop of a
 -- long fall, after AIR_LOOP seconds in the air (a normal jump lasts about 0.83).
@@ -332,21 +329,41 @@ function overlay:ApplyBiome()
     if self.groundParent then
         self:BuildGround()
     end
-    for _, coin in ipairs(self.coins) do
-        light.AddScene(coin.scene, biome.coin.ambient, biome.coin.diffuse)
-    end
-    self:LoadCoinModel(1)
-    if self.decorScene then
+    if self.worldScene then
+        self:LoadCoinModel(1)
         self:ApplyDecorations(biome)
     end
     self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
 end
 
+-- A coin actor more in the world scene, with the current coin model, out of sight until placed.
+function overlay:NewCoinActor()
+    local actor = self.worldScene:CreateActor()
+    actor:SetUseCenterForOrigin(true, true, true)
+    actor:SetPosition(-1000, 0, 0)
+    actor.surferAlpha = false
+    local id = self.biome.coin.models[self.coinModel]
+    if id then
+        actor:SetModelByFileID(id)
+    end
+    if self.coinReady then
+        actor:SetScale(self.coinScale)
+        actor:SetPitch(self.coinPitch)
+    end
+    self.coinActors[#self.coinActors + 1] = actor
+    return actor
+end
+
+-- Loads the biome's coin models, tried in order until one loads, on every coin actor; the first
+-- actor is where it is measured.
 function overlay:LoadCoinModel(index)
     self.coinModel, self.coinWait, self.coinReady = index, 0, false
+    if #self.coinActors == 0 then
+        self:NewCoinActor()
+    end
     local id = self.biome.coin.models[index]
-    for _, coin in ipairs(self.coins) do
-        if id and not coin.actor:SetModelByFileID(id) then
+    for _, actor in ipairs(self.coinActors) do
+        if id and not actor:SetModelByFileID(id) then
             return self:LoadCoinModel(index + 1)
         end
     end
@@ -355,17 +372,18 @@ end
 -- Fits the coin model into COIN_SIZE once it has loaded, or moves on to the next candidate.
 function overlay:UpdateCoinModel(elapsed)
     local models = self.biome.coin.models
-    if self.coinReady or not models[self.coinModel] then
+    if self.coinReady or not self.worldScene or not models[self.coinModel] then
         return
     end
-    local minX, minY, minZ, maxX, maxY, maxZ = extents(self.coins[1].actor)
+    local minX, minY, minZ, maxX, maxY, maxZ = extents(self.coinActors[1])
     local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
     if size > 0.001 then
         -- A coin lying flat (as doodads do) is stood up to face the camera, then spun.
         local flat = maxZ - minZ < 0.3 * math.max(maxX - minX, maxY - minY)
-        for _, coin in ipairs(self.coins) do
-            coin.actor:SetScale(COIN_SIZE / size)
-            coin.actor:SetPitch(flat and math.pi / 2 or 0)
+        self.coinScale, self.coinPitch = COIN_SIZE / size, flat and math.pi / 2 or 0
+        for _, actor in ipairs(self.coinActors) do
+            actor:SetScale(self.coinScale)
+            actor:SetPitch(self.coinPitch)
         end
         self.coinReady = true
         app.logger:debug("Coin model %d loaded", models[self.coinModel])
@@ -375,15 +393,6 @@ function overlay:UpdateCoinModel(elapsed)
     if self.coinWait > 3 then
         app.logger:debug("Coin model %d did not load", models[self.coinModel])
         self:LoadCoinModel(self.coinModel + 1)
-    end
-end
-
--- Every coin scene looks at its coin the way the game camera looks at the road.
-function overlay:AimCoinCameras()
-    local pitch = math.rad(app.db.profile.overlay.pitch)
-    for _, coin in ipairs(self.coins) do
-        coin.scene:SetCameraPosition(-COIN_VIEW * math.cos(pitch), 0, COIN_VIEW * math.sin(pitch))
-        coin.scene:SetCameraOrientationByYawPitchRoll(0, pitch, 0)
     end
 end
 
@@ -426,23 +435,9 @@ function overlay:Create()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
     self.twinActor:SetYaw(0)
     self:LoadPlayer()
-    -- One small scene per coin, placed at its projected position. A scene without a coin is
-    -- hidden: every shown scene costs a render pass. The first stays shown while the model loads.
-    self.coins = {}
-    for i = 1, 24 do
-        local scene = CreateFrame("ModelScene", nil, f)
-        scene:EnableMouse(false)
-        self:Stack(scene, "coins")
-        scene:SetSize(1, 1)
-        scene:SetPoint("TOPLEFT")
-        scene:SetCameraFieldOfView(2 * math.atan(COIN_FRAME / 2 / COIN_VIEW))
-        scene:SetCameraNearClip(0.1)
-        scene:SetCameraFarClip(10)
-        local actor = scene:CreateActor()
-        actor:SetUseCenterForOrigin(true, true, true)
-        self.coins[i] = { scene = scene, actor = actor }
-    end
+    -- The world scene: 3D decorations and coins, one render pass for all of them.
     self:CreateDecorations(f)
+    self.coinActors = {}
     self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
@@ -623,21 +618,22 @@ function overlay:AnimateTwin(elapsed)
     end
 end
 
--- A 3D coin: its scene is centered on the projected coin and sized to COIN_FRAME yards there.
--- The twin's scene is a strata above, so a coin behind the twin is covered by it.
-function overlay:PlaceCoin(coin, o)
+-- The `i`th coin in view, an actor of the world scene: at the coin's place on the road, spinning
+-- with its own phase, fading in far ahead like the ground.
+function overlay:PlaceCoin(i, o)
+    local actor = self.coinActors[i] or self:NewCoinActor()
     local d = o.at + o.length / 2 - self.state.distance
-    local cx, cy, scale = project(d, -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d))
-    if not cx then
-        shapes.Hide(coin.scene)
-        return
+    -- The scene's y points left; an actor's position is scaled with it.
+    local scale = self.coinScale
+    actor:SetPosition(d / scale, o.lane * LANE / scale, ((o.layer + 0.5) * sim.LAYER + ground(d)) / scale)
+    actor:SetYaw(GetTime() * 3 + o.at)
+    local fade = self.biome.ground.fade
+    local alpha = math.min(1, math.max(0, (fade.to - d) / (fade.to - fade.from)))
+    if not actor.surferAlpha or math.abs(alpha - actor.surferAlpha) > 0.02 then
+        actor:SetAlpha(alpha)
+        actor.surferAlpha = alpha
     end
-    coin.scene:ClearAllPoints()
-    coin.scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", cx, cy)
-    coin.scene:SetSize(scale * COIN_FRAME, scale * COIN_FRAME)
-    -- Each coin spins with its own phase.
-    coin.actor:SetYaw(GetTime() * 3 + o.at)
-    shapes.Show(coin.scene)
+    shapes.Show(actor)
 end
 
 function overlay:Render(lap)
@@ -647,8 +643,7 @@ function overlay:Render(lap)
             local near, far = t.near, t.far
             face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
-        self:AimCoinCameras()
-        if self.decorScene then
+        if self.worldScene then
             self:AimDecorations()
         end
     end
@@ -660,28 +655,38 @@ function overlay:Render(lap)
     self:PlaceTwin()
     lap = self:Lap("twin", lap)
     self:ScrollGround()
-    if self.decorScene then
+    if self.worldScene then
         self:UpdateDecorations()
     end
     lap = self:Lap("ground scroll, decorations", lap)
-    -- Boxes and flat coins from the shared faces; near coins become 3D once their model loaded.
+    -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
+    -- their model has loaded, flat until then.
     local faces, count = shapes.Collect(s, -cam.offset)
-    local coinIndex = 0
+    local coins = 0
+    local real = self.worldScene and self.coinReady
     for i = 1, count do
         local f = faces[i]
-        local coin = f.kind == "coin" and f.depth < COIN_3D_DISTANCE and self.coinReady and self.coins[coinIndex + 1]
-        if coin then
-            coinIndex = coinIndex + 1
-            self:PlaceCoin(coin, f.object)
+        if f.kind == "coin" and real then
+            coins = coins + 1
+            self:PlaceCoin(coins, f.object)
         else
             shapes.Draw(shapes.Acquire(self.faces, shapes.Sublevel(f)), project, f)
         end
     end
-    self.faceCount, self.coinCount = self.faces.used, coinIndex
+    self.faceCount, self.coinCount = self.faces.used, coins
     shapes.Release(self.faces)
-    for i = coinIndex + 1, #self.coins do
-        if self.coinReady or i > 1 then
-            shapes.Hide(self.coins[i].scene)
+    if self.worldScene then
+        -- The first coin stays out of sight but shown while the model loads.
+        for i = coins + 1, #self.coinActors do
+            if self.coinReady or i > 1 then
+                shapes.Hide(self.coinActors[i])
+            end
+        end
+        -- Every shown scene costs a render pass, even an empty one.
+        if #self.decor > 0 or coins > 0 or not self.coinReady then
+            shapes.Show(self.worldScene)
+        else
+            shapes.Hide(self.worldScene)
         end
     end
     lap = self:Lap("boxes, coins", lap)
@@ -770,10 +775,7 @@ function overlay:Profile()
         log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
     end
     local scenes = (self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
-    scenes = scenes + (self.decorScene:IsShown() and 1 or 0)
-    for _, coin in ipairs(self.coins) do
-        scenes = scenes + (coin.scene:IsShown() and 1 or 0)
-    end
+    scenes = scenes + (self.worldScene:IsShown() and 1 or 0)
     log:chat(
         "Last frame: %d faces, %d 3D coins, %d decorations, %d model scenes shown, %d road textures",
         self.faceCount or 0,
@@ -812,13 +814,13 @@ function overlay:Report()
     -- scene's in its own units.
     local lens = self.decorLens
     local x, y = project(20, 4.3, ground(20))
-    local px, py = self.decorScene:Project3DPointTo2D(20, -4.3, ground(20))
+    local px, py = self.worldScene:Project3DPointTo2D(20, -4.3, ground(20))
     log:chat(
         "decorations: span %s, calibrated %s, last ratio %s, scene scale %.3f, middle %s, %s",
         tostring(lens.span),
         tostring(lens.calibrated),
         tostring(lens.ratio),
-        self.decorScene:GetEffectiveScale(),
+        self.worldScene:GetEffectiveScale(),
         tostring(self.decorMiddleX),
         tostring(self.decorMiddleY)
     )

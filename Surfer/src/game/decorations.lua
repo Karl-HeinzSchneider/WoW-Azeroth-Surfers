@@ -49,11 +49,11 @@ end
 function overlay:CreateDecorations(f)
     local scene = CreateFrame("ModelScene", nil, f)
     scene:EnableMouse(false)
-    self:Stack(scene, "decorations")
+    self:Stack(scene, "world")
     scene:SetAllPoints(f)
     scene:SetCameraNearClip(0.2)
     scene:SetCameraFarClip(250)
-    self.decorScene = scene
+    self.worldScene = scene
     -- Placed decorations, and spare ones: their tables and, by model, their actors.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}
     self.decorNext, self.decorLens, self.decorBounds = {}, {}, {}
@@ -88,7 +88,7 @@ end
 -- calibrated once for this screen size and UI scale (in a few rounds, should it not be a plain
 -- pinhole).
 function overlay:AimDecorations()
-    local scene, w, h = self.decorScene, self.frame:GetSize()
+    local scene, w, h = self.worldScene, self.frame:GetSize()
     local pitch = math.rad(app.db.profile.overlay.pitch)
     -- The scene's y points left: the road's lane offset moves its camera.
     scene:SetCameraPosition(cam.x, cam.offset, cam.z)
@@ -152,7 +152,7 @@ local function place(self, length, item, at, side)
     if actor then
         spare[#spare] = nil
     else
-        actor = self.decorScene:CreateActor()
+        actor = self.worldScene:CreateActor()
         -- Placed by the model's own origin, the point it stands on in the world. Not its
         -- bounds' center: an animated model's bounds change as it moves, so it would drift.
         actor:SetUseCenterForOrigin(false, false, false)
@@ -264,17 +264,11 @@ function overlay:UpdateDecorations()
             end
         end
     end
-    -- Every shown scene costs a render pass, even an empty one.
-    if #list > 0 then
-        shapes.Show(self.decorScene)
-    else
-        shapes.Hide(self.decorScene)
-    end
 end
 
 -- The biome's decorations and their light; called by ApplyBiome.
 function overlay:ApplyDecorations(biome)
     local look = biome.decorations
-    light.AddScene(self.decorScene, look.ambient, look.diffuse)
+    light.AddScene(self.worldScene, look.ambient, look.diffuse)
     self:ResetDecorations()
 end

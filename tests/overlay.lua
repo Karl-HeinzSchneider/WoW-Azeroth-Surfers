@@ -142,7 +142,6 @@ o.frame = {
     end,
 }
 o.height, o.lastRoad = 2, {}
-o.coins = {}
 o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
@@ -217,23 +216,6 @@ assert(math.abs(actor.position[3] - 1.55) < 1e-9, "the twin rises on the sim's a
 o.state.height = 0
 print("PASS jumping drops the road beneath the character")
 
--- Near coins are 3D, far ones flat; a scene without a coin is hidden.
-o.coins = { { scene = coinScene(), actor = coinScene() } }
-o.coinReady = true
-for _, lane in ipairs({ 0, 1 }) do
-    o.state.objects = { coin(lane, 5) }
-    o:Render()
-    assert(o.coins[1].scene.shown and not first().shown, "a near coin is a 3D model")
-end
-o.state.objects = {}
-o:Render()
-assert(not o.coins[1].scene.shown, "a scene without a coin is hidden")
-o.state.objects = { coin(1, 50) }
-o:Render()
-assert(not o.coins[1].scene.shown and first().shown, "a distant coin is drawn flat, without a scene")
-o.coinReady = false
-print("PASS near coins are 3D, distant ones flat")
-
 -- A platform beside the runner shows the side facing it.
 o.state.objects = { g.Box("platform", 0, -5, 30, 0, 2), g.Box("platform", 1, 5, 20, 0, 1) }
 local faces, count = app.shapes.Collect(o.state, 0)
@@ -267,7 +249,7 @@ o.state.distance = 1000 * road.tile + 0.25
 o:Render()
 assert(road.coords[4] > -2, "far runs keep the coordinates small")
 assert(road.alpha == settings.opacity and piece("road", 0, 85).alpha < 0.2 * settings.opacity, "the far road fades out")
-local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -7, 5)
+local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -8.4, 5)
 assert(cobbleEdge.gradient[1] > 0 and cobbleEdge.gradient[2] == 0, "the cobbles fade out toward the side")
 assert(grassLeft.gradient[1] == 0 and grassLeft.gradient[2] > 0, "the grass fades into the world on the left")
 assert(

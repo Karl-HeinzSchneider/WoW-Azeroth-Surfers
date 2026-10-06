@@ -77,13 +77,11 @@ app.biomes.Register("default", {
         night = { 0.45, 0.5, 0.7 },
     },
 
-    -- Near coins are 3D models: `models` are tried in order until one loads (11xp_coin01,
-    -- 8du_zuldazar_coin01, goldpilesmall01); farther coins are flat. `ambient` and `diffuse`
-    -- light the model by day.
+    -- Coins are 3D models in the same scene as the decorations, lit like them: `models` are tried
+    -- in order until one loads (11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01); flat coins
+    -- stand in until then.
     coin = {
         models = { 5737987, 2313815, 200137 },
-        ambient = { 0.9, 0.85, 0.7 },
-        diffuse = { 0.8, 0.75, 0.6 },
     },
 
     -- The flat boxes' colors by kind and face: obstacles to jump over, barriers to run under
