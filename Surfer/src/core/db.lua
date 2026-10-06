@@ -15,14 +15,9 @@ local profile = {
         -- all stack on one spot; start somewhere else instead.
         minimapPos = 200,
     },
-    -- "overlay": your character runs on a full-screen road; "window": a model copy in a window.
-    view = "overlay",
     coinSound = true,
-    -- Full-screen calibration: the follow camera that the road's projection imitates.
+    -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
-        -- "twin": a copy of the character covers the real one; "cutout": the real character with
-        -- the road masked behind it.
-        character = "twin",
         hideReal = false, -- first-person camera while the view is open, so only the twin shows
         twinScale = 1,
         pitch = 20, -- degrees the camera looks down
@@ -30,7 +25,6 @@ local profile = {
         distance = 12, -- camera distance in yards, when the client cannot report its zoom
         fov = 55, -- vertical field of view in degrees
         opacity = 0.85,
-        cutout = 0.8, -- width of the hole behind the character, as a share of its width
     },
 }
 

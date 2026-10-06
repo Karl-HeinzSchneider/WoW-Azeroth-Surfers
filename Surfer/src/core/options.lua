@@ -20,7 +20,7 @@ table.sort(levelOrder, function(a, b)
     return log.level[a] < log.level[b]
 end)
 
--- A full-screen calibration slider; the road reprojects on its own when a value changes.
+-- A calibration slider; the road reprojects on its own when a value changes.
 local function calibration(order, key, name, desc, min, max, step)
     return {
         type = "range",
@@ -43,26 +43,6 @@ local options = {
     type = "group",
     name = appName,
     args = {
-        view = {
-            type = "select",
-            order = 5,
-            width = "double",
-            name = "View",
-            desc = "Full screen: your real character runs, the road is drawn around it. Window: a copy of your character runs in a window.",
-            values = { overlay = "Full screen (your character runs)", window = "Window (model copy)" },
-            sorting = { "overlay", "window" },
-            get = function()
-                return app.db.profile.view
-            end,
-            set = function(_, value)
-                local open = (app.runner.frame and app.runner.frame:IsShown())
-                    or (app.overlay.frame and app.overlay.frame:IsShown())
-                app.db.profile.view = value
-                if open then
-                    app.ToggleGame()
-                end
-            end,
-        },
         coinSound = {
             type = "toggle",
             order = 6,
@@ -80,28 +60,12 @@ local options = {
             type = "group",
             order = 30,
             inline = true,
-            name = "Full-screen calibration",
+            name = "Calibration",
             args = {
                 help = {
                     type = "description",
                     order = 1,
-                    name = "Open the game and stand still. Twin: adjust until the see-through copy covers your character. Cutout: adjust until the gold bar sits under your feet. Then check that the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
-                },
-                character = {
-                    type = "select",
-                    order = 2,
-                    width = "double",
-                    name = "Character",
-                    desc = "Twin: a copy of your character runs on top of the real one, in front of the road. Cutout: your real character, with the road cut out behind it.",
-                    values = { twin = "Twin (copy covers your character)", cutout = "Cutout (your real character)" },
-                    sorting = { "twin", "cutout" },
-                    get = function()
-                        return app.db.profile.overlay.character
-                    end,
-                    set = function(_, value)
-                        app.db.profile.overlay.character = value
-                        app.overlay:ApplyHideReal()
-                    end,
+                    name = "Open the game and stand still, then adjust until the see-through copy covers your character and the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
                 },
                 hideReal = {
                     type = "toggle",
@@ -109,9 +73,6 @@ local options = {
                     width = "full",
                     name = "Hide your real character (first-person camera)",
                     desc = "The game does not draw your character in first person, so only the twin shows. Zooms all the way in while the game is open and back out after; the world is then seen from eye height.",
-                    disabled = function()
-                        return app.db.profile.overlay.character ~= "twin"
-                    end,
                     get = function()
                         return app.db.profile.overlay.hideReal
                     end,
@@ -164,15 +125,6 @@ local options = {
                     0.5,
                     1.5,
                     0.01
-                ),
-                cutout = calibration(
-                    50,
-                    "cutout",
-                    "Character cutout",
-                    "Shoulder width of the head, torso and legs cutout the road leaves behind your character, as a share of its width.",
-                    0,
-                    1.5,
-                    0.05
                 ),
                 opacity = calibration(60, "opacity", "Road opacity", nil, 0.1, 1, 0.05),
             },

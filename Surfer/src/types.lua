@@ -7,9 +7,8 @@
 
 ---@class Surfer
 ---@field simulation table
----@field runner table  # the window view
----@field overlay table  # the full-screen view around the real character
----@field ToggleGame fun()  # opens the view chosen in the options, closes the other
+---@field shapes table  # the faces of the track's boxes and coins, and their texture pool
+---@field overlay table  # the game: full-screen view (overlay.lua) and its controls (controls.lua)
 ---@field logger Surfer.Logger
 ---@field addon Surfer.Addon
 ---@field dbDefaults Surfer.DBDefaults

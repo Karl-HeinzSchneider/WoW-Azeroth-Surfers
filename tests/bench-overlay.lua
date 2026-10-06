@@ -137,11 +137,10 @@ local app = {
         end,
     },
 }
-for _, file in ipairs({ "core/db", "game/simulation", "game/shapes", "game/window", "game/overlay" }) do
+for _, file in ipairs({ "core/db", "game/simulation", "game/shapes", "game/overlay", "game/controls" }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
 end
 local profile = app.dbDefaults.profile
-profile.overlay.character = arg[1] or "twin"
 app.db = { profile = profile, global = { bestScore = 0 } }
 math.randomseed(1)
 
@@ -178,15 +177,7 @@ end
 table.sort(rows, function(a, b)
     return a[2] > b[2]
 end)
-print(
-    string.format(
-        "%s: %s, %.0f yards, %d boxes on the track",
-        profile.overlay.character,
-        o.state.status,
-        o.state.distance,
-        #o.state.objects
-    )
-)
+print(string.format("%s, %.0f yards, %d boxes on the track", o.state.status, o.state.distance, #o.state.objects))
 print(string.format("API calls per frame: %.0f   Lua time per frame (stubbed API): %.3f ms", total, lua))
 for i = 1, math.min(14, #rows) do
     print(string.format("  %-28s %8.1f", rows[i][1], rows[i][2]))

@@ -1,8 +1,8 @@
 local app = {}
-assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
-assert(loadfile("Surfer/src/game/shapes.lua"))("Surfer", app)
-assert(loadfile("Surfer/src/game/window.lua"))("Surfer", app)
-local r = app.runner
+for _, file in ipairs({ "simulation", "shapes", "overlay", "controls" }) do
+    assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
+end
+local r = app.overlay
 local focused, binding, chord
 function InCombatLockdown()
     return false
@@ -48,18 +48,6 @@ end
 r:OnMovementKey("Z")
 assert(chord == "SHIFT-Z" and r.state.lane == -1)
 print("PASS movement bindings, modifiers, forward start, jump and typing focus")
-for _, direction in ipairs({ -1, 1 }) do
-    r.scene = {
-        Transform3DPointTo2D = function(_, _, y)
-            return 450 + y * direction * 40
-        end,
-    }
-    r:CalibrateLanes()
-    assert(r.laneSign == direction)
-    assert(r.scene:Transform3DPointTo2D(0, -r.laneSign) < 450)
-    assert(r.scene:Transform3DPointTo2D(0, r.laneSign) > 450)
-end
-print("PASS lane orientation for both native camera directions")
 
 local x, y, map, facing, speed = 0, 0, 1, 0, 7
 function UnitPosition()

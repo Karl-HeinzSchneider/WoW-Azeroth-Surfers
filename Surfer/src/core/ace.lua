@@ -32,10 +32,8 @@ end
 
 -- Ace unregisters events/timers/hooks automatically on disable.
 function addon:OnDisable()
-    for _, view in ipairs({ app.runner, app.overlay }) do
-        if view and view.frame then
-            view.frame:Hide()
-        end
+    if app.overlay and app.overlay.frame then
+        app.overlay.frame:Hide()
     end
     log:debug("Disabled")
 end
@@ -56,7 +54,7 @@ function addon:OnSlashCommand(input)
     cmd = cmd and cmd:lower() or ""
 
     if cmd == "" then
-        app.ToggleGame()
+        app.overlay:Toggle()
     elseif cmd == "options" then
         app.options:Open()
     elseif cmd == "loglevel" then

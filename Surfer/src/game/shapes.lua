@@ -3,7 +3,8 @@ local _, app = ...
 local sim = app.simulation
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- The visible faces of the track's boxes, shared by both views. A face is four corners
+-- The visible faces of the track's boxes and coins, and the texture pool that draws them. A
+-- face is four corners
 -- (upper left, lower left, upper right, lower right), each (d, x, z): yards ahead of the
 -- runner, yards to the screen's right of the track's center, yards up including the curve.
 local shapes = {}
@@ -27,11 +28,11 @@ shapes.colors = {
 }
 
 local out, count = {}, 0
-local function add(object, kind, part, behind, depth, ...)
+local function add(object, kind, part, depth, ...)
     count = count + 1
     local f = out[count] or {}
     out[count] = f
-    f.object, f.kind, f.part, f.behind, f.depth = object, kind, part, behind, depth
+    f.object, f.kind, f.part, f.depth = object, kind, part, depth
     f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], f[12] = ...
 end
 
@@ -40,13 +41,12 @@ local function segment(o, s, viewX, x1, x2, a, b)
     local bottom = o.layer * sim.LAYER
     local ta, tb = sim.Top(o, a + s.distance) + ground(a), sim.Top(o, b + s.distance) + ground(b)
     local ba, bb = bottom + ground(a), bottom + ground(b)
-    local behind = a >= 0
-    add(o, o.kind, "top", behind, a, b, x1, tb, a, x1, ta, b, x2, tb, a, x2, ta)
+    add(o, o.kind, "top", a, b, x1, tb, a, x1, ta, b, x2, tb, a, x2, ta)
     -- On the screen, a side's near edge lies farther out than its far edge.
     if viewX < x1 then
-        add(o, o.kind, "side", behind, a, b, x1, tb, b, x1, bb, a, x1, ta, a, x1, ba)
+        add(o, o.kind, "side", a, b, x1, tb, b, x1, bb, a, x1, ta, a, x1, ba)
     elseif viewX > x2 then
-        add(o, o.kind, "side", behind, a, a, x2, ta, a, x2, ba, b, x2, tb, b, x2, bb)
+        add(o, o.kind, "side", a, a, x2, ta, a, x2, ba, b, x2, tb, b, x2, bb)
     end
 end
 
@@ -54,11 +54,8 @@ end
 local POST = 0.08
 local function post(o, near, left, z)
     local floor, right = ground(near), left + POST
-    add(o, "post", "front", near > 0, near, near, left, z, near, left, floor, near, right, z, near, right, floor)
+    add(o, "post", "front", near, near, left, z, near, left, floor, near, right, z, near, right, floor)
 end
-
--- Reused by every box: the points where its faces split.
-local cuts = {}
 
 local function box(o, s, viewX)
     local near, far = o.at - s.distance, o.at + o.length - s.distance
@@ -72,7 +69,7 @@ local function box(o, s, viewX)
     if near >= NEAR then
         local z, top = bottom + ground(near), sim.Top(o, o.at) + ground(near)
         if top - z > 0.01 then
-            add(o, o.kind, "front", near > 0, near, near, x1, top, near, x1, z, near, x2, top, near, x2, z)
+            add(o, o.kind, "front", near, near, x1, top, near, x1, z, near, x2, top, near, x2, z)
         end
         if o.kind == "barrier" then
             -- Posts from the ground to the bar, for looks only.
@@ -80,30 +77,14 @@ local function box(o, s, viewX)
             post(o, near, x2 - POST, z)
         end
     end
-    -- Split where a ramp ends and at the runner, so the part behind it can be masked.
+    -- A ramp's slope and the flat top after it are separate faces.
     local a, b = math.max(near, NEAR), math.min(far, DRAW_DISTANCE)
-    local n = 2
-    cuts[1], cuts[2] = a, b
     local rampEnd = o.ramp and near + o.ramp
     if rampEnd and rampEnd > a and rampEnd < b then
-        n = n + 1
-        cuts[n] = rampEnd
-    end
-    if a < 0 and b > 0 then
-        n = n + 1
-        cuts[n] = 0
-    end
-    -- At most four values: an insertion sort, without a comparison closure.
-    for i = 2, n do
-        local value, j = cuts[i], i - 1
-        while j >= 1 and cuts[j] > value do
-            cuts[j + 1] = cuts[j]
-            j = j - 1
-        end
-        cuts[j + 1] = value
-    end
-    for i = 1, n - 1 do
-        segment(o, s, viewX, x1, x2, cuts[i], cuts[i + 1])
+        segment(o, s, viewX, x1, x2, a, rampEnd)
+        segment(o, s, viewX, x1, x2, rampEnd, b)
+    else
+        segment(o, s, viewX, x1, x2, a, b)
     end
 end
 
@@ -115,7 +96,7 @@ local function coin(o, s)
     local x, z = -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d)
     local left, right = x - bounds.halfWidth.coin, x + bounds.halfWidth.coin
     local bottom, top = z - bounds.coinSize / 2, z + bounds.coinSize / 2
-    add(o, "coin", "front", d - o.length / 2 > 0, d, d, left, top, d, left, bottom, d, right, top, d, right, bottom)
+    add(o, "coin", "front", d, d, left, top, d, left, bottom, d, right, top, d, right, bottom)
 end
 
 -- The faces of every box and coin in view, reusing the same tables every frame. `viewX` is

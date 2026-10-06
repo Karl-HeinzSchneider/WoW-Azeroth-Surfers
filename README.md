@@ -11,13 +11,14 @@ Install the **Surfer** subfolder in Interface/AddOns, reload, and type **/surfer
 - Your WoW turn-right / strafe-right binding: right lane.
 - Your WoW jump binding: jump (also starts the first run).
 - Your WoW move-forward binding: start the first run.
-- Use the window buttons to restart, pause/resume, or close.
+- Use the buttons at the top to restart, pause/resume, or close.
 
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
 control the runner. Forward movement no longer triggers a jump. The track advances only while your character actually moves forward relative to its facing. Stopping, moving backward, pure strafing, and pushing against a wall do not advance it. Autorun and mouse movement work too. Jumping and lane transitions still update while stopped.
 **/surfer options** opens addon settings. The game closes and pauses on combat entry
-and pauses when hidden. No real-player movement or camera commands are issued by the addon.
+and pauses when hidden. The addon never moves your character; it only changes the camera when
+**Hide your real character** is on.
 
 The track is a grid: three lanes side by side and layers stacked 0.6 yards high. You run on
 layer 0; a jump (WoW's own arc) reaches a little past layer 2, and your body is three layers tall.
@@ -34,35 +35,23 @@ Distance adds points, speed increases gradually, and your best score is saved ac
 Every pattern leaves a lane that can be run, jumped or climbed through; `tests/simulation.lua`
 checks that on generated tracks.
 
-## Full-screen view (default)
+## How it looks
 
-By default a twin (a copy of your character with your gear) runs exactly where your real character
-stands and covers it, in front of the road; while no run is going it is see-through, so you can line
-it up. **Hide your real character** in the options zooms into first person while the game is open,
-where WoW does not draw your character, and back out after. The **Cutout** character setting
-uses your real character instead, as described next.
-
-Your real character is the runner. The road, obstacles and coins are drawn full screen around it,
-under the rest of the UI; changing lanes slides the road under your character, which the camera
-keeps centered. Everything behind your character is cut out over its body with a capsule mask, so
-your character appears in front of the road and obstacles.
+The game is drawn full screen around your character: the road, obstacles and coins sit under the
+rest of the UI, and changing lanes slides the road under your character, which the camera keeps
+centered. A twin (a copy of your character with your gear) runs exactly where your real character
+stands and covers it, in front of the road. It mirrors how you move (running, walking, strafing,
+backpedalling, jumping), and jumping or running on a platform lifts it with the road dropping
+away beneath it. Coins near you are spinning 3D models from the game files.
 
 The road imitates WoW's follow camera and has to be calibrated once: in **/surfer options**, adjust
-camera pitch and focus height until the gold bar sits under your feet. Zooming or tilting the camera
-mid-run changes the fit (unless the client reports the zoom). The window view below is still
-available under **View**.
+camera pitch, focus height, field of view and twin size until the see-through twin (shown before
+a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
+the client reports the zoom. **Hide your real character** zooms into first person while the game is
+open, where WoW does not draw your character, and back out after.
 
-## Window view
-
-A native ModelScene copies your current character and equipment and plays run/jump animations.
-The fixed camera projects a segmented track that curves away toward the horizon. Native scene projection keeps the track aligned with actors; an analytic projection is the fallback.
-Ground, obstacles, barriers and platforms are colored UI geometry (the same faces as the
-full-screen view), not imported terrain.
-There are no bundled custom models, tree assets, or dependency on Spyglass.
-
-Model origin, race size, animation appearance, and native camera projection need visual verification
-in the Forever client. The same jump input reaches both WoW and Surfer; their jump physics remain independent.
-Projected ground does not write to the ModelScene depth buffer.
+`/surfer profile` (twice) reports the addon's milliseconds per frame; `/surfer debug` prints the
+twin's camera.
 
 ## Development
 

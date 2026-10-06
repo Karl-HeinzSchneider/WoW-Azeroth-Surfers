@@ -4,27 +4,15 @@ local sim = app.simulation
 local shapes = app.shapes
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- Opaque except for a soft capsule; CLAMP stretches the opaque border over the whole screen.
-local CUTOUT = "Interface\\AddOns\\Surfer\\assets\\game\\cutout"
--- Share of the cutout texture the capsule fills: 4 opaque texels on each side of 64 x 128.
-local CUTOUT_WIDTH, CUTOUT_HEIGHT, CUTOUT_BOTTOM = 56 / 64, 120 / 128, 4 / 128
--- The character seen from behind as head, torso and legs: bottom and top as shares of its
--- height; width as a share of its cutout width, or of its height for the head. Parts overlap
--- so no seam shows between them. Strides per second of the run cycle the cutout follows.
-local HEAD, TORSO, LEGS = { 0.8, 1.04 }, { 0.42, 0.88 }, { 0, 0.5 }
-local HEAD_WIDTH, LEGS_WIDTH, RUN_CYCLE = 0.16, 0.55, 1.5
 local EDGES = { -3.7, -1.2, 1.2, 3.7 }
 -- Where the road's strips start and end: a yard deep near the runner, then 2 and 4 yards
 -- where they are only a few pixels tall. Fewer strips to place on every lane change and jump.
--- Lane lines are thin and need no bands: segments twice as long. Both split at the runner (0).
+-- Lane lines are thin and need no bands: segments twice as long.
 local function edges(scale)
     local list = { -3 }
     while list[#list] < 87 do
         local d = list[#list]
         list[#list + 1] = d + scale * (d < 20 and 1 or d < 44 and 2 or 4)
-        if d < 0 and list[#list] > 0 then
-            list[#list] = 0
-        end
     end
     return list
 end
@@ -45,27 +33,11 @@ local AIR_LOOP = 1.1
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
--- Full-screen view: the road, obstacles and coins are drawn around the real character. Either a
--- twin (a copy of the character in a full-screen scene with the road's camera) stands on the
--- real character and covers it, or everything behind the real character is masked by capsules
--- over its head, torso and legs, so it appears in front of the UI.
+-- The game, full screen: the road, obstacles and coins are drawn around the real character,
+-- and a twin (a copy of the character, seen through the road's camera) runs on top of it.
+-- This file draws; controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
--- Input, movement sampling, the per-frame step, scoring and toggling only need `state`, `frame`
--- and `Create`.
-for _, name in ipairs({
-    "SaveBest",
-    "Restart",
-    "Action",
-    "IsMovingForward",
-    "ForgetPosition",
-    "ShowStatus",
-    "OnMovementKey",
-    "Step",
-    "Toggle",
-}) do
-    overlay[name] = app.runner[name]
-end
 
 local ground = shapes.Ground
 
@@ -109,12 +81,9 @@ function overlay:UpdateCamera()
     same = unchanged(last, "w", w) and same
     same = unchanged(last, "h", h) and same
     same = unchanged(last, "height", self.height) and same
-    same = unchanged(last, "width", self.width) and same
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
-    same = unchanged(last, "cutout", settings.cutout) and same
-    same = unchanged(last, "character", settings.character) and same
     same = unchanged(last, "opacity", settings.opacity) and same
     return not same
 end
@@ -146,22 +115,6 @@ local function face(t, left, right, d1, z1, d2, z2)
     shapes.Show(t)
 end
 
--- Only what lies behind the character gets the cutout; what passed it stays in front. The twin
--- covers what lies behind it on its own.
-function overlay:SetBehind(t, behind)
-    behind = behind and app.db.profile.overlay.character == "cutout"
-    if t.surferBehind ~= behind then
-        for _, mask in ipairs(self.cutouts) do
-            if behind then
-                t:AddMaskTexture(mask)
-            else
-                t:RemoveMaskTexture(mask)
-            end
-        end
-        t.surferBehind = behind
-    end
-end
-
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
 local function extents(actor)
     if not actor:IsLoaded() then
@@ -177,17 +130,16 @@ local function extents(actor)
     return a, b, c, d, e, f
 end
 
--- Character size in yards from a model copy; a human-sized guess until it has loaded.
+-- Character height in yards from a copy without weapons; a human-sized guess until it loads.
 function overlay:Measure()
     if self.measured then
         return
     end
-    local _, minY, low, _, maxY, high = extents(self.probe)
+    local _, _, low, _, _, high = extents(self.probe)
     if not low or high - low < 0.1 then
         return
     end
     self.height = math.min(math.max(high - low, 0.8), 4)
-    self.width = math.min(math.max(maxY - minY, 0.4), 1.5)
     self.measured = true
     -- Every shown scene costs a render pass, even an empty one.
     shapes.Hide(self.probeScene)
@@ -217,9 +169,8 @@ function overlay:HideRealCharacter(hide)
 end
 
 function overlay:ApplyHideReal()
-    local settings = app.db.profile.overlay
     local shown = self.frame and self.frame:IsShown()
-    self:HideRealCharacter(shown and settings.hideReal and settings.character == "twin" or false)
+    self:HideRealCharacter(shown and app.db.profile.overlay.hideReal or false)
 end
 
 function overlay:LoadCoinModel(index)
@@ -274,38 +225,28 @@ end
 
 function overlay:Create()
     self.state = sim.New()
-    self.height, self.width = 2, 0.8
+    self.height, self.lastRoad = 2, {}
     local f = CreateFrame("Frame", "SurferOverlay", UIParent)
     self.frame = f
     f:SetAllPoints(UIParent)
     -- Above the 3D world, below the rest of the UI; clicks go through to the world.
     f:SetFrameStrata("BACKGROUND")
     f:EnableMouse(false)
-    -- Each part's screen box, reused every frame; `valid` is false while it is off screen.
-    self.cutouts, self.holes, self.lastRoad = {}, { {}, {}, {} }, {}
-    for i = 1, 3 do
-        self.cutouts[i] = f:CreateMaskTexture()
-        self.cutouts[i]:SetTexture(CUTOUT, "CLAMP", "CLAMP")
-    end
     -- The road: surface strips, and lane lines just above them; the boxes on it draw on BORDER.
     self.strips, self.lines = {}, {}
     for i = 1, #STRIP_EDGES - 1 do
         local strip = f:CreateTexture(nil, "BACKGROUND", nil, 0)
         strip.near, strip.far = STRIP_EDGES[i], STRIP_EDGES[i + 1]
-        self:SetBehind(strip, strip.near >= 0)
         self.strips[i] = strip
     end
     for i = 1, #LINE_EDGES - 1 do
         for j = 1, 4 do
             local line = f:CreateTexture(nil, "BACKGROUND", nil, 1)
             line.near, line.far, line.edge = LINE_EDGES[i], LINE_EDGES[i + 1], j
-            self:SetBehind(line, line.near >= 0)
             self.lines[#self.lines + 1] = line
         end
     end
     self.faces = shapes.Pool(f, "BORDER")
-    self.feet = f:CreateTexture(nil, "OVERLAY")
-    self.feet:SetColorTexture(1, 0.82, 0.2, 0.9)
     local probe = CreateFrame("ModelScene", nil, f)
     probe:SetSize(1, 1)
     probe:SetPoint("TOPLEFT")
@@ -420,13 +361,10 @@ function overlay:Create()
         end
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
-        self.clock = (self.clock or 0) + elapsed
         local lap = self.timing and debugprofilestop()
         self:Step(elapsed)
         lap = self:Lap("simulation", lap)
-        if app.db.profile.overlay.character == "twin" then
-            self:AnimateTwin(elapsed)
-        end
+        self:AnimateTwin(elapsed)
         self:Measure()
         self:UpdateCoinModel(elapsed)
         lap = self:Lap("twin animation, models", lap)
@@ -444,12 +382,6 @@ end
 function overlay:PlaceTwin()
     local s, settings = self.state, app.db.profile.overlay
     local scene, actor = self.twin, self.twinActor
-    if settings.character ~= "twin" then
-        shapes.Hide(scene)
-        return
-    end
-    -- Shown while the model loads, the actor hidden until it is placed.
-    shapes.Show(scene)
     if not actor:IsLoaded() then
         actor:Hide()
         return
@@ -532,64 +464,12 @@ function overlay:AnimateTwin(elapsed)
     end
 end
 
--- Cutout part i spans `bottom` to `top` yards above the feet, `width` yards wide, `x` yards to
--- the right of the character's center. Its screen box is kept for the 3D coins.
-function overlay:PlacePart(i, x, bottom, top, width)
-    local mask = self.cutouts[i]
-    local sx, y1, scale = project(0, x - cam.offset, cam.feet + bottom)
-    local _, y2 = project(0, x - cam.offset, cam.feet + top)
-    if not sx or not y2 or y2 <= y1 then
-        self.holes[i].valid = false
-        mask:SetSize(0.01, 0.01)
-        return
-    end
-    local half = width * scale / 2
-    local hole = self.holes[i]
-    hole.valid, hole.left, hole.right, hole.bottom, hole.top = true, sx - half, sx + half, y1, y2
-    local w, h = 2 * half / CUTOUT_WIDTH, (y2 - y1) / CUTOUT_HEIGHT
-    mask:ClearAllPoints()
-    mask:SetPoint("BOTTOMLEFT", sx - w / 2, y1 - h * CUTOUT_BOTTOM)
-    mask:SetSize(w, h)
-end
-
--- Head, torso and legs follow a generic run cycle: the body bobs and sways with each stride,
--- and a jump tucks the legs in. The real animation's phase is unknown, so this only
--- approximates it.
-function overlay:PlaceCutout()
-    local s = self.state
-    local h, w = self.height, self.width * app.db.profile.overlay.cutout
-    local airborne = s.height - s.floor
-    local running = s.status == "running" and s.forward and airborne == 0
-    local phase = running and (self.clock or 0) * RUN_CYCLE * 2 * math.pi or 0
-    local bob = 0.03 * h * math.abs(math.sin(phase))
-    local sway = 0.06 * w * math.sin(phase)
-    local tuck = 0.12 * h * math.min(1, airborne / 0.3)
-    self:PlacePart(1, sway / 2, HEAD[1] * h + bob, HEAD[2] * h + bob, HEAD_WIDTH * h)
-    self:PlacePart(2, sway / 2, TORSO[1] * h + bob, TORSO[2] * h + bob, w)
-    self:PlacePart(3, sway, LEGS[1] * h + tuck, LEGS[2] * h + bob, LEGS_WIDTH * w)
-    local x, feet, scale = project(0, -cam.offset, cam.feet)
-    if x then
-        self.feet:ClearAllPoints()
-        self.feet:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, feet)
-        self.feet:SetSize(self.width * scale * 1.6, 3)
-    end
-end
-
 -- A 3D coin: its scene is centered on the projected coin and sized to COIN_FRAME yards there.
+-- The twin's scene is a strata above, so a coin behind the twin is covered by it.
 function overlay:PlaceCoin(coin, o)
     local d = o.at + o.length / 2 - self.state.distance
     local cx, cy, scale = project(d, -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d))
-    local hidden = not cx
-    if cx and d - o.length / 2 > 0 and app.db.profile.overlay.character == "cutout" then
-        -- 3D coins cannot be masked; one behind the body hides while its center is inside a part.
-        for i = 1, #self.cutouts do
-            local hole = self.holes[i]
-            if hole.valid and cx > hole.left and cx < hole.right and cy > hole.bottom and cy < hole.top then
-                hidden = true
-            end
-        end
-    end
-    if hidden then
+    if not cx then
         shapes.Hide(coin.scene)
         return
     end
@@ -603,20 +483,16 @@ end
 
 function overlay:Render(lap)
     local s = self.state
-    local settings = app.db.profile.overlay
-    local opacity = settings.opacity
+    local opacity = app.db.profile.overlay.opacity
     if self:UpdateCamera() then
-        -- The character setting decides whether the road behind it is masked.
         for _, strip in ipairs(self.strips) do
             local near, far = strip.near, strip.far
             face(strip, EDGES[1], EDGES[4], near, ground(near), far, ground(far))
-            self:SetBehind(strip, near >= 0)
             strip.shade = nil
         end
         for _, line in ipairs(self.lines) do
             local near, far, x = line.near, line.far, EDGES[line.edge]
             face(line, x - 0.025, x + 0.025, near, ground(near), far, ground(far))
-            self:SetBehind(line, near >= 0)
             -- Only the opacity changes their color.
             if line.opacity ~= opacity then
                 local edge = line.edge == 1 or line.edge == 4
@@ -627,11 +503,8 @@ function overlay:Render(lap)
         self:AimCoinCameras()
     end
     lap = self:Lap("road placement", lap)
-    self:PlaceCutout()
-    if self.twin then
-        self:PlaceTwin()
-    end
-    lap = self:Lap("twin, cutout", lap)
+    self:PlaceTwin()
+    lap = self:Lap("twin", lap)
     -- 4-yard bands scroll past; a strip is recolored only when its band changes.
     for _, strip in ipairs(self.strips) do
         local shade = math.floor((strip.near + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
@@ -640,7 +513,7 @@ function overlay:Render(lap)
             strip.shade = shade
         end
     end
-    -- Boxes and flat coins from the shared faces; coins become 3D once their model loaded.
+    -- Boxes and flat coins from the shared faces; near coins become 3D once their model loaded.
     local faces, count = shapes.Collect(s, -cam.offset)
     local coinIndex = 0
     for i = 1, count do
@@ -650,9 +523,7 @@ function overlay:Render(lap)
             coinIndex = coinIndex + 1
             self:PlaceCoin(coin, f.object)
         else
-            local t = shapes.Acquire(self.faces, shapes.Sublevel(f))
-            shapes.Draw(t, project, f)
-            self:SetBehind(t, f.behind)
+            shapes.Draw(shapes.Acquire(self.faces, shapes.Sublevel(f)), project, f)
         end
     end
     self.faceCount, self.coinCount = self.faces.used, coinIndex
@@ -663,14 +534,35 @@ function overlay:Render(lap)
         end
     end
     lap = self:Lap("road colors, boxes, coins", lap)
-    local twin = settings.character == "twin"
-    self.feet:SetShown(s.status ~= "running" and not twin)
     self:ShowStatus()
-    self:ShowHint(twin)
+    self:ShowHint()
     self:Lap("texts", lap)
     if self.timing then
         self.timing.frames = self.timing.frames + 1
     end
+end
+
+-- The hint under the status message, rebuilt only when something it shows changes.
+function overlay:ShowHint()
+    local hint, running = self.lastHint or {}, self.state.status == "running"
+    self.lastHint = hint
+    local distance = math.floor(cam.distance * 10 + 0.5)
+    local same = unchanged(hint, "running", running)
+    same = unchanged(hint, "zoomRead", cam.zoomRead) and same
+    same = unchanged(hint, "distance", distance) and same
+    if same then
+        return
+    end
+    self.hint:SetText(
+        running and ""
+            or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
+                .. "Line the see-through copy up with your character in /surfer options.\n"
+                .. string.format(
+                    cam.zoomRead and "Camera zoom %.1f, read from the game."
+                        or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
+                    distance / 10
+                )
+    )
 end
 
 -- /surfer profile: the first call starts timing each part of a frame, the second reports the
@@ -680,7 +572,7 @@ local PARTS = {
     "simulation",
     "twin animation, models",
     "road placement",
-    "twin, cutout",
+    "twin",
     "road colors, boxes, coins",
     "texts",
 }
@@ -698,7 +590,7 @@ end
 function overlay:Profile()
     local log = app.logger
     if not self.frame or not self.frame:IsShown() then
-        log:chat("Open the full-screen game first (/surfer).")
+        log:chat("Open the game first (/surfer).")
         return
     end
     local timing = self.timing
@@ -725,7 +617,7 @@ function overlay:Profile()
     for _, part in ipairs(PARTS) do
         log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
     end
-    local scenes = (self.twin and self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
+    local scenes = (self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
     for _, coin in ipairs(self.coins) do
         scenes = scenes + (coin.scene:IsShown() and 1 or 0)
     end
@@ -738,36 +630,11 @@ function overlay:Profile()
     )
 end
 
--- The hint under the status message, rebuilt only when something it shows changes.
-function overlay:ShowHint(twin)
-    local hint, running = self.lastHint or {}, self.state.status == "running"
-    self.lastHint = hint
-    local distance = math.floor(cam.distance * 10 + 0.5)
-    local same = unchanged(hint, "running", running)
-    same = unchanged(hint, "twin", twin) and same
-    same = unchanged(hint, "zoomRead", cam.zoomRead) and same
-    same = unchanged(hint, "distance", distance) and same
-    if same then
-        return
-    end
-    self.hint:SetText(
-        running and ""
-            or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
-                .. (twin and "Line the see-through copy up with your character in /surfer options." or "The gold bar should sit under your feet; adjust it in /surfer options.")
-                .. "\n"
-                .. string.format(
-                    cam.zoomRead and "Camera zoom %.1f, read from the game."
-                        or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
-                    distance / 10
-                )
-    )
-end
-
 -- /surfer debug: what the twin's camera and scene do, to compare with the game's camera.
 function overlay:Report()
     local log = app.logger
     if not self.frame or not self.frame:IsShown() then
-        log:chat("Open the full-screen game first (/surfer).")
+        log:chat("Open the game first (/surfer).")
         return
     end
     local settings, scene = app.db.profile.overlay, self.twin
@@ -787,31 +654,12 @@ function overlay:Report()
         scene:GetWidth(),
         scene:GetHeight()
     )
-    local _, feet = project(0, -cam.offset, cam.feet)
-    local _, head = project(0, -cam.offset, cam.feet + 1)
-    local y1, y2
-    if scene.Transform3DPointTo2D then
-        _, y1 = scene:Transform3DPointTo2D(0, 0, cam.feet)
-        _, y2 = scene:Transform3DPointTo2D(0, 0, cam.feet + 1)
-    end
-    log:chat("feet / 1 yd up: road %s / %s, scene %s / %s", tostring(feet), tostring(head), tostring(y1), tostring(y2))
     local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
     log:chat(
-        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f, width %.2f",
+        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f",
         tostring(self.twinActor:IsLoaded()),
         low and string.format("%.2f x %.2f x %.2f", maxX - minX, maxY - minY, high - low) or "none",
         self.twinActor:GetScale(),
-        self.height,
-        self.width
+        self.height
     )
-end
-
--- /surfer and the minimap button open the view chosen in the options and close the other one.
-function app.ToggleGame()
-    local view = app.db.profile.view == "window" and app.runner or overlay
-    local other = view == overlay and app.runner or overlay
-    if other.frame and other.frame:IsShown() then
-        other.frame:Hide()
-    end
-    view:Toggle()
 end
