@@ -43,6 +43,7 @@ o.height, o.width = 2, 0.8
 o.strips = { { texture(), texture(), texture(), texture(), texture() } }
 o.markers = { { texture = texture(), top = texture() } }
 o.cutout, o.feet = texture(), texture()
+o.coins = {}
 o.score, o.message, o.hint = texture(), texture(), texture()
 
 o.state = g.New()
@@ -76,3 +77,32 @@ o:Render()
 assert(o.markers[1].texture.x > centered, "moving left slides the world to the right")
 assert(o.feet.x == W / 2, "the character stays centered while changing lanes")
 print("PASS road follows the character's lane")
+
+-- 3D coins cannot be masked: one behind the body hides, one beside it or passed stays visible.
+function GetTime()
+    return 0
+end
+local function stub()
+    local t = texture()
+    t.SetYaw = function() end
+    t.SetCameraPosition = function() end
+    t.SetCameraOrientationByYawPitchRoll = function() end
+    return t
+end
+o.coins = { { scene = stub(), actor = stub() } }
+o.coinReady = true
+o.state.lateral = 0
+for _, case in ipairs({
+    { lane = 0, at = 1, shown = false },
+    { lane = 1, at = 1, shown = true },
+    { lane = 0, at = -1, shown = true },
+}) do
+    o.state.objects = { { kind = "coin", lane = case.lane, at = case.at } }
+    o:Render()
+    assert(o.coins[1].actor.shown == case.shown, "3D coin visibility around the character")
+    assert(not o.markers[1].texture.shown, "a loaded coin model replaces the flat coin")
+end
+o.state.objects = {}
+o:Render()
+assert(not o.coins[1].actor.shown, "unused coin scenes hide their model")
+print("PASS 3D coins hide behind the character and replace flat coins")

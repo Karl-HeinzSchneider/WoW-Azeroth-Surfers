@@ -71,6 +71,8 @@ src/game/simulation.lua is the pure fixed-step simulation. Two views render it, 
   follow camera (focus point at screen center; pitch, focus height, FOV and, without
   `GetCameraZoom`, distance from `profile.overlay`). Everything behind the character gets the
   `assets/game/cutout.tga` mask (opaque, transparent capsule, CLAMP-wrapped) over its body.
+  Coins are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene each at the
+  projected position; models cannot be masked, so a coin hides while behind the body.
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game. See the root README for controls and rendering limitations.
