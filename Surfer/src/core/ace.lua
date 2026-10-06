@@ -69,10 +69,12 @@ function addon:OnSlashCommand(input)
         end
     elseif cmd == "debug" then
         app.overlay:Report()
+    elseif cmd == "profile" then
+        app.overlay:Profile()
     elseif cmd == "reset" then
         self.db:ResetProfile()
         log:chat("Profile reset")
     else
-        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer debug, /surfer reset")
+        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer debug, /surfer profile, /surfer reset")
     end
 end

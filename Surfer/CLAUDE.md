@@ -30,7 +30,7 @@ be listed**. The order follows these rules:
   `char` = per-character data, `global.dbVersion` for future migrations.
 - `ace.lua` â€” `app.addon`, the AceAddon object (AceConsole, AceEvent). `OnInitialize` opens
   `app.db`, wires the profile callbacks to `OnProfileRefresh` (log level, then every module's
-  `OnProfileRefresh`) and registers `/surfer`; `OnSlashCommand` opens the runner by default and handles `options`, `loglevel <level>` and `reset`. Register game events in `OnEnable`.
+  `OnProfileRefresh`) and registers `/surfer`; `OnSlashCommand` opens the runner by default and handles `options`, `loglevel <level>`, `debug` (twin camera report), `profile` (time per frame part, start/stop) and `reset`. Register game events in `OnEnable`.
 - `options.lua` â€” `app.options`: the user options as **one** AceConfig table (plus the AceDBOptions
   profiles tab), registered in the game's Settings panel (`AddToBlizOptions`) and opened in a
   standalone AceConfigDialog window by `Open()`. A new option goes only here. `Refresh()` redraws

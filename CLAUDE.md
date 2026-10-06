@@ -25,7 +25,8 @@ declare `## Dependencies: Surfer` (`npm run check:addons` enforces it).
 WoW addons are plain Lua/XML files loaded by the game; there is no build step. To try a change:
 `npm run dev:link -- "<WoW>/Interface/AddOns"` (once; links every addon directory, also honors
 `WOW_ADDONS_DIR`) and `/reload` in-game. `/surfer` opens the runner; `/surfer options` opens settings,
-`/surfer loglevel debug` shows the debug log.
+`/surfer loglevel debug` shows the debug log. `/surfer profile` (twice) reports the addon's
+milliseconds per frame by part; `npm run bench:overlay` counts its WoW API calls per frame offline.
 
 ## Commands (Node 20+, run from the root after `npm install` once)
 

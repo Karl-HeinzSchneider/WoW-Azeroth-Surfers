@@ -14,11 +14,28 @@ local CUTOUT_WIDTH, CUTOUT_HEIGHT, CUTOUT_BOTTOM = 56 / 64, 120 / 128, 4 / 128
 local HEAD, TORSO, LEGS = { 0.8, 1.04 }, { 0.42, 0.88 }, { 0, 0.5 }
 local HEAD_WIDTH, LEGS_WIDTH, RUN_CYCLE = 0.16, 0.55, 1.5
 local EDGES = { -3.7, -1.2, 1.2, 3.7 }
+-- Where the road's strips start and end: a yard deep near the runner, then 2 and 4 yards
+-- where they are only a few pixels tall. Fewer strips to place on every lane change and jump.
+-- Lane lines are thin and need no bands: segments twice as long. Both split at the runner (0).
+local function edges(scale)
+    local list = { -3 }
+    while list[#list] < 87 do
+        local d = list[#list]
+        list[#list + 1] = d + scale * (d < 20 and 1 or d < 44 and 2 or 4)
+        if d < 0 and list[#list] > 0 then
+            list[#list] = 0
+        end
+    end
+    return list
+end
+local STRIP_EDGES, LINE_EDGES = edges(1), edges(2)
 -- Coin models from the game files, tried in order until one loads (community listfile ids:
 -- 11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01). The flat coin stands in until then.
 local COIN_MODELS = { 5737987, 2313815, 200137 }
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
+-- Farther coins are a few pixels tall: drawn flat, without a scene of their own.
+local COIN_3D_DISTANCE = 40
 -- The twin's animations, and the speeds (yards per second) walking, running and walking
 -- backwards are animated for. A normal jump plays JUMP_START throughout; JUMP is the loop of a
 -- long fall, after AIR_LOOP seconds in the air (a normal jump lasts about 0.83).
@@ -98,6 +115,7 @@ function overlay:UpdateCamera()
     same = unchanged(last, "fov", settings.fov) and same
     same = unchanged(last, "cutout", settings.cutout) and same
     same = unchanged(last, "character", settings.character) and same
+    same = unchanged(last, "opacity", settings.opacity) and same
     return not same
 end
 
@@ -117,16 +135,15 @@ local function face(t, left, right, d1, z1, d2, z2)
     local bl, by = project(d1, left, z1)
     local tl, ty = project(d2, left, z2)
     if not bl or not tl or ty <= by then
-        t:Hide()
+        shapes.Hide(t)
         return
     end
     local br, tr = project(d1, right, z1), project(d2, right, z2)
-    t:ClearAllPoints()
     t:SetPoint("BOTTOMLEFT", bl, by)
     t:SetSize(math.max(br - bl, 0.01), ty - by)
     t:SetVertexOffset(1, tl - bl, 0)
     t:SetVertexOffset(3, tr - br, 0)
-    t:Show()
+    shapes.Show(t)
 end
 
 -- Only what lies behind the character gets the cutout; what passed it stays in front. The twin
@@ -172,10 +189,13 @@ function overlay:Measure()
     self.height = math.min(math.max(high - low, 0.8), 4)
     self.width = math.min(math.max(maxY - minY, 0.4), 1.5)
     self.measured = true
+    -- Every shown scene costs a render pass, even an empty one.
+    shapes.Hide(self.probeScene)
 end
 
 function overlay:LoadPlayer()
     self.measured = false
+    shapes.Show(self.probeScene)
     self.probe:SetModelByUnit("player", true, true, true, true)
     self.twinActor:SetModelByUnit("player", true, true, false, true)
     self.twinLow, self.twinAnimation = nil, nil
@@ -267,16 +287,21 @@ function overlay:Create()
         self.cutouts[i] = f:CreateMaskTexture()
         self.cutouts[i]:SetTexture(CUTOUT, "CLAMP", "CLAMP")
     end
-    self.strips = {}
-    for i = 90, 1, -1 do
-        local strip = {}
-        for j = 1, 5 do
-            -- Lane lines just above the road; the boxes on it draw on BORDER.
-            strip[j] = f:CreateTexture(nil, "BACKGROUND", nil, j == 1 and 0 or 1)
-            strip[j]:SetColorTexture(1, 1, 1)
-            self:SetBehind(strip[j], i >= 4)
-        end
+    -- The road: surface strips, and lane lines just above them; the boxes on it draw on BORDER.
+    self.strips, self.lines = {}, {}
+    for i = 1, #STRIP_EDGES - 1 do
+        local strip = f:CreateTexture(nil, "BACKGROUND", nil, 0)
+        strip.near, strip.far = STRIP_EDGES[i], STRIP_EDGES[i + 1]
+        self:SetBehind(strip, strip.near >= 0)
         self.strips[i] = strip
+    end
+    for i = 1, #LINE_EDGES - 1 do
+        for j = 1, 4 do
+            local line = f:CreateTexture(nil, "BACKGROUND", nil, 1)
+            line.near, line.far, line.edge = LINE_EDGES[i], LINE_EDGES[i + 1], j
+            self:SetBehind(line, line.near >= 0)
+            self.lines[#self.lines + 1] = line
+        end
     end
     self.faces = shapes.Pool(f, "BORDER")
     self.feet = f:CreateTexture(nil, "OVERLAY")
@@ -285,7 +310,7 @@ function overlay:Create()
     probe:SetSize(1, 1)
     probe:SetPoint("TOPLEFT")
     probe:SetAlpha(0)
-    self.probe = probe:CreateActor()
+    self.probeScene, self.probe = probe, probe:CreateActor()
     -- The twin draws over everything else of the addon, the 3D coins included: a strata above.
     local twin = CreateFrame("ModelScene", nil, f)
     twin:SetSize(1, 1)
@@ -301,8 +326,8 @@ function overlay:Create()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
     self.twinActor:SetYaw(0)
     self:LoadPlayer()
-    -- One small scene per coin, placed at its projected position. The scenes stay shown so
-    -- models load; unused ones only hide their actor.
+    -- One small scene per coin, placed at its projected position. A scene without a coin is
+    -- hidden: every shown scene costs a render pass. The first stays shown while the model loads.
     self.coins = {}
     for i = 1, 24 do
         local scene = CreateFrame("ModelScene", nil, f)
@@ -316,7 +341,6 @@ function overlay:Create()
         scene:SetLightDiffuseColor(0.8, 0.75, 0.6)
         local actor = scene:CreateActor()
         actor:SetUseCenterForOrigin(true, true, true)
-        actor:Hide()
         self.coins[i] = { scene = scene, actor = actor }
     end
     self:LoadCoinModel(1)
@@ -397,13 +421,16 @@ function overlay:Create()
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
         self.clock = (self.clock or 0) + elapsed
+        local lap = self.timing and debugprofilestop()
         self:Step(elapsed)
+        lap = self:Lap("simulation", lap)
         if app.db.profile.overlay.character == "twin" then
             self:AnimateTwin(elapsed)
         end
         self:Measure()
         self:UpdateCoinModel(elapsed)
-        self:Render()
+        lap = self:Lap("twin animation, models", lap)
+        self:Render(lap)
     end)
     self:ApplyHideReal()
     self:Render()
@@ -417,7 +444,13 @@ end
 function overlay:PlaceTwin()
     local s, settings = self.state, app.db.profile.overlay
     local scene, actor = self.twin, self.twinActor
-    if settings.character ~= "twin" or not actor:IsLoaded() then
+    if settings.character ~= "twin" then
+        shapes.Hide(scene)
+        return
+    end
+    -- Shown while the model loads, the actor hidden until it is placed.
+    shapes.Show(scene)
+    if not actor:IsLoaded() then
         actor:Hide()
         return
     end
@@ -557,7 +590,7 @@ function overlay:PlaceCoin(coin, o)
         end
     end
     if hidden then
-        coin.actor:Hide()
+        shapes.Hide(coin.scene)
         return
     end
     coin.scene:ClearAllPoints()
@@ -565,36 +598,46 @@ function overlay:PlaceCoin(coin, o)
     coin.scene:SetSize(scale * COIN_FRAME, scale * COIN_FRAME)
     -- Each coin spins with its own phase.
     coin.actor:SetYaw(GetTime() * 3 + o.at)
-    coin.actor:Show()
+    shapes.Show(coin.scene)
 end
 
-function overlay:Render()
+function overlay:Render(lap)
     local s = self.state
     local settings = app.db.profile.overlay
+    local opacity = settings.opacity
     if self:UpdateCamera() then
-        for i, strip in ipairs(self.strips) do
-            local near, far = i - 4, i - 3
-            face(strip[1], EDGES[1], EDGES[4], near, ground(near), far, ground(far))
-            for j = 1, 4 do
-                face(strip[j + 1], EDGES[j] - 0.025, EDGES[j] + 0.025, near, ground(near), far, ground(far))
-            end
-            -- The character setting decides whether the road behind it is masked.
-            for j = 1, 5 do
-                self:SetBehind(strip[j], i >= 4)
+        -- The character setting decides whether the road behind it is masked.
+        for _, strip in ipairs(self.strips) do
+            local near, far = strip.near, strip.far
+            face(strip, EDGES[1], EDGES[4], near, ground(near), far, ground(far))
+            self:SetBehind(strip, near >= 0)
+            strip.shade = nil
+        end
+        for _, line in ipairs(self.lines) do
+            local near, far, x = line.near, line.far, EDGES[line.edge]
+            face(line, x - 0.025, x + 0.025, near, ground(near), far, ground(far))
+            self:SetBehind(line, near >= 0)
+            -- Only the opacity changes their color.
+            if line.opacity ~= opacity then
+                local edge = line.edge == 1 or line.edge == 4
+                line:SetColorTexture(0.35, 0.75, 0.71, opacity * (edge and 1 or 0.55))
+                line.opacity = opacity
             end
         end
         self:AimCoinCameras()
     end
+    lap = self:Lap("road placement", lap)
     self:PlaceCutout()
     if self.twin then
         self:PlaceTwin()
     end
-    local opacity = settings.opacity
-    for i, strip in ipairs(self.strips) do
-        local shade = math.floor((i - 4 + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
-        strip[1]:SetColorTexture(shade, shade + 0.05, shade + 0.065, opacity)
-        for j = 1, 4 do
-            strip[j + 1]:SetColorTexture(0.35, 0.75, 0.71, opacity * ((j == 1 or j == 4) and 1 or 0.55))
+    lap = self:Lap("twin, cutout", lap)
+    -- 4-yard bands scroll past; a strip is recolored only when its band changes.
+    for _, strip in ipairs(self.strips) do
+        local shade = math.floor((strip.near + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
+        if strip.shade ~= shade then
+            strip:SetColorTexture(shade, shade + 0.05, shade + 0.065, opacity)
+            strip.shade = shade
         end
     end
     -- Boxes and flat coins from the shared faces; coins become 3D once their model loaded.
@@ -602,7 +645,7 @@ function overlay:Render()
     local coinIndex = 0
     for i = 1, count do
         local f = faces[i]
-        local coin = f.kind == "coin" and self.coinReady and self.coins[coinIndex + 1]
+        local coin = f.kind == "coin" and f.depth < COIN_3D_DISTANCE and self.coinReady and self.coins[coinIndex + 1]
         if coin then
             coinIndex = coinIndex + 1
             self:PlaceCoin(coin, f.object)
@@ -612,14 +655,87 @@ function overlay:Render()
             self:SetBehind(t, f.behind)
         end
     end
+    self.faceCount, self.coinCount = self.faces.used, coinIndex
     shapes.Release(self.faces)
     for i = coinIndex + 1, #self.coins do
-        self.coins[i].actor:Hide()
+        if self.coinReady or i > 1 then
+            shapes.Hide(self.coins[i].scene)
+        end
     end
+    lap = self:Lap("road colors, boxes, coins", lap)
     local twin = settings.character == "twin"
     self.feet:SetShown(s.status ~= "running" and not twin)
     self:ShowStatus()
     self:ShowHint(twin)
+    self:Lap("texts", lap)
+    if self.timing then
+        self.timing.frames = self.timing.frames + 1
+    end
+end
+
+-- /surfer profile: the first call starts timing each part of a frame, the second reports the
+-- milliseconds per frame each took. Only the addon's own work: the cost of drawing what it
+-- shows lands in the game's frame time, which the report sets beside it.
+local PARTS = {
+    "simulation",
+    "twin animation, models",
+    "road placement",
+    "twin, cutout",
+    "road colors, boxes, coins",
+    "texts",
+}
+
+-- Adds the time since `since` to `part` and starts the next lap; nothing while not profiling.
+function overlay:Lap(part, since)
+    if not since then
+        return nil
+    end
+    local now = debugprofilestop()
+    self.timing[part] = (self.timing[part] or 0) + now - since
+    return now
+end
+
+function overlay:Profile()
+    local log = app.logger
+    if not self.frame or not self.frame:IsShown() then
+        log:chat("Open the full-screen game first (/surfer).")
+        return
+    end
+    local timing = self.timing
+    if not timing then
+        self.timing = { frames = 0, started = debugprofilestop() }
+        log:chat("Profiling: play for a while, then /surfer profile again.")
+        return
+    end
+    self.timing = nil
+    local frames = math.max(timing.frames, 1)
+    local seconds = (debugprofilestop() - timing.started) / 1000
+    local total = 0
+    for _, part in ipairs(PARTS) do
+        total = total + (timing[part] or 0)
+    end
+    log:chat(
+        "%d frames in %.1f s: %.0f fps, %.2f ms per frame, of which the addon's Lua %.3f ms",
+        frames,
+        seconds,
+        frames / seconds,
+        seconds * 1000 / frames,
+        total / frames
+    )
+    for _, part in ipairs(PARTS) do
+        log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
+    end
+    local scenes = (self.twin and self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
+    for _, coin in ipairs(self.coins) do
+        scenes = scenes + (coin.scene:IsShown() and 1 or 0)
+    end
+    log:chat(
+        "Last frame: %d faces, %d 3D coins, %d model scenes shown, %d road textures",
+        self.faceCount or 0,
+        self.coinCount or 0,
+        scenes,
+        #self.strips + #self.lines
+    )
 end
 
 -- The hint under the status message, rebuilt only when something it shows changes.

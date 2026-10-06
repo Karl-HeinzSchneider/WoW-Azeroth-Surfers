@@ -142,7 +142,24 @@ function shapes.Sublevel(f)
     return 7 - math.min(14, math.floor(math.max(f.depth, 0) / 6))
 end
 
+-- Show and hide only on a change: every call into the client costs, even one that changes
+-- nothing. Textures shown and hidden here keep their state in `surferShown`.
+function shapes.Show(t)
+    if not t.surferShown then
+        t:Show()
+        t.surferShown = true
+    end
+end
+
+function shapes.Hide(t)
+    if t.surferShown ~= false then
+        t:Hide()
+        t.surferShown = false
+    end
+end
+
 -- Fits texture `t` to the face's projected corners; hidden when a corner cannot be projected.
+-- Its only anchor is BOTTOMLEFT, which SetPoint replaces, so no ClearAllPoints.
 -- `project(d, x, z)` returns screen x, y in the texture parent's coordinates.
 function shapes.Draw(t, project, f)
     local x1, y1 = project(f[1], f[2], f[3])
@@ -150,12 +167,11 @@ function shapes.Draw(t, project, f)
     local x3, y3 = project(f[7], f[8], f[9])
     local x4, y4 = project(f[10], f[11], f[12])
     if not (x1 and x2 and x3 and x4) then
-        t:Hide()
+        shapes.Hide(t)
         return false
     end
     local left, right = math.min(x1, x2, x3, x4), math.max(x1, x2, x3, x4)
     local bottom, top = math.min(y1, y2, y3, y4), math.max(y1, y2, y3, y4)
-    t:ClearAllPoints()
     t:SetPoint("BOTTOMLEFT", left, bottom)
     t:SetSize(math.max(right - left, 0.01), math.max(top - bottom, 0.01))
     t:SetVertexOffset(1, x1 - left, y1 - top)
@@ -163,8 +179,11 @@ function shapes.Draw(t, project, f)
     t:SetVertexOffset(3, x3 - right, y3 - top)
     t:SetVertexOffset(4, x4 - right, y4 - bottom)
     local color = shapes.colors[f.kind][f.part]
-    t:SetColorTexture(color[1], color[2], color[3], 0.95)
-    t:Show()
+    if t.surferColor ~= color then
+        t:SetColorTexture(color[1], color[2], color[3], 0.95)
+        t.surferColor = color
+    end
+    shapes.Show(t)
     return true
 end
 
@@ -180,13 +199,16 @@ function shapes.Acquire(pool, sublevel)
         t = pool.parent:CreateTexture(nil, pool.layer)
         pool[pool.used] = t
     end
-    t:SetDrawLayer(pool.layer, sublevel)
+    if t.surferSublevel ~= sublevel then
+        t:SetDrawLayer(pool.layer, sublevel)
+        t.surferSublevel = sublevel
+    end
     return t
 end
 
 function shapes.Release(pool)
     for i = pool.used + 1, #pool do
-        pool[i]:Hide()
+        shapes.Hide(pool[i])
     end
     pool.used = 0
 end

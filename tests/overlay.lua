@@ -53,7 +53,7 @@ o.frame = {
     end,
 }
 o.height, o.width = 2, 0.8
-o.strips = { { texture(), texture(), texture(), texture(), texture() } }
+o.strips, o.lines = {}, {}
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
@@ -139,13 +139,16 @@ for _, case in ipairs({
 }) do
     o.state.objects = { coin(case.lane, case.at) }
     o:Render()
-    assert(o.coins[1].actor.shown == case.shown, "3D coin visibility around the character")
+    assert(o.coins[1].scene.shown == case.shown, "3D coin visibility around the character")
     assert(not first().shown, "a loaded coin model replaces the flat coin")
 end
 o.state.objects = {}
 o:Render()
-assert(not o.coins[1].actor.shown, "unused coin scenes hide their model")
-print("PASS 3D coins hide behind the character and replace flat coins")
+assert(not o.coins[1].scene.shown, "a scene without a coin is hidden")
+o.state.objects = { coin(1, 50) }
+o:Render()
+assert(not o.coins[1].scene.shown and first().shown, "a distant coin is drawn flat, without a scene")
+print("PASS 3D coins hide behind the character, near ones only, and replace flat coins")
 
 -- Jumping: the camera rises with the character, so it keeps its place and the road drops.
 o.coinReady = false
@@ -253,7 +256,7 @@ o:Render()
 assert(not first().surferBehind, "with the twin the road needs no cutout")
 settings.character = "cutout"
 o:Render()
-assert(not actor.shown, "the cutout mode hides the twin")
+assert(not scene.shown, "the cutout mode hides the twin's scene")
 print("PASS twin stands on the real character, on the sim's arc, and replaces the cutout")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
