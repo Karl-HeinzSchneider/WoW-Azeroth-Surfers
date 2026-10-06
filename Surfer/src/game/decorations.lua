@@ -165,6 +165,7 @@ local function place(self, group, item, at, side)
     end
     d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
     d.side, d.x, d.overhang, d.fitted = side, value(item.x, 6), item.overhang, false
+    d.shiftX, d.shiftY = 0, 0
     d.y = -side * d.x
     -- Built for the right side; the left side's are turned round to face the road too.
     d.yaw, d.scale = math.rad(value(item.yaw, 0)) + (side < 0 and math.pi or 0), value(item.scale, 1)
@@ -188,11 +189,16 @@ function overlay:FitDecoration(d, clear)
         self.decorBounds[d.model] = bounds
     end
     d.fitted = true
+    -- The client turns a model about its bounds' center, not its origin: offset by how far the
+    -- turn moves the origin around that center, (turn - 1) * center, so it turns about its
+    -- origin. In the actor's own units, as its position is scaled with it.
+    local sin, cos = math.sin(d.yaw), math.cos(d.yaw)
+    local cx, cy = (bounds[1] + bounds[3]) / 2, (bounds[2] + bounds[4]) / 2
+    d.shiftX, d.shiftY = cx * (cos - 1) - cy * sin, cx * sin + cy * (cos - 1)
     if d.overhang then
         return
     end
     -- The scene's y (left) of the turned bounds' corners: x sin + y cos.
-    local sin, cos = math.sin(d.yaw), math.cos(d.yaw)
     local low, high = math.huge, -math.huge
     for i = 1, 3, 2 do
         for j = 2, 4, 2 do
@@ -248,7 +254,7 @@ function overlay:UpdateDecorations()
             end
             -- An actor's position is scaled with it: divided out, so every size stands in place.
             local scale = d.scale
-            d.actor:SetPosition(ahead / scale, d.y / scale, ground(ahead) / scale)
+            d.actor:SetPosition(ahead / scale + d.shiftX, d.y / scale + d.shiftY, ground(ahead) / scale)
             local alpha = math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
             if not d.alpha or math.abs(alpha - d.alpha) > 0.02 then
                 d.actor:SetAlpha(alpha)
