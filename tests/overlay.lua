@@ -93,6 +93,7 @@ function scene:SetCameraPosition(x, y, z)
     self.camera[1], self.camera[2], self.camera[3] = x, y, z
 end
 function scene:SetCameraOrientationByYawPitchRoll() end
+function scene:SetCameraNearClip() end
 function scene:SetCameraFieldOfView(fov)
     self.fov = fov
 end

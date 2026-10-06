@@ -7,6 +7,7 @@
 
 ---@class Surfer
 ---@field simulation table
+---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfer subcommands of Surfer_Dev
 ---@field biomes table  # the registered biomes (src/biomes/*.lua) and the current one
 ---@field light table  # the world's day/night light, shared by the ground and every 3D model
 ---@field shapes table  # the faces of the track's boxes and coins, and their texture pool

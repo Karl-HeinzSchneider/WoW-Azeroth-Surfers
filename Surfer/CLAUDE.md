@@ -102,3 +102,7 @@ be listed**. The order follows these rules:
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.
+
+Development tools (previews, animation checks, `/surfer profile` and `/surfer debug`) live in
+the separate `Surfer_Dev` addon ([../Surfer_Dev/CLAUDE.md](../Surfer_Dev/CLAUDE.md)); this addon
+only keeps the hooks they use.

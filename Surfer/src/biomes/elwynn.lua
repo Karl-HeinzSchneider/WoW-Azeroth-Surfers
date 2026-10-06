@@ -50,6 +50,110 @@ app.biomes.Register("elwynn", {
         },
     },
 
+    -- The track: crates, kegs and hay to jump, a beam of lumber on two fence posts to run under,
+    -- long piles of lumber to run on. Models from world/generic/human/passive doodads/
+    -- (crates, beerkegs, lumberpiles) and world/azeroth/elwynn/passivedoodads/.
+    obstacles = {
+        obstacle = {
+            -- crates/replacecrate01 or 03 (0.63 yards tall), haystacks/haystack01 (0.7).
+            -- Drawn taller than their 0.6-yard box, which looks tiny beside a character: any jump
+            -- clears them by far.
+            {
+                layers = 1,
+                weight = 2,
+                items = { { model = { 198165, 198167 }, height = 0.85, yaw = { -12, 12 } } },
+            },
+            { layers = 1, items = { { model = 189810, height = 0.85, yaw = { -12, 12 } } } },
+            -- crates/stormwindcrate01 (1.24), or two small crates.
+            { layers = 2, weight = 2, items = { { model = 198168, yaw = { -8, 8 } } } },
+            {
+                layers = 2,
+                items = {
+                    { model = 198165, height = 0.6, yaw = { -6, 6 } },
+                    { model = { 198165, 198167 }, z = 0.6, height = 0.6, yaw = { -25, 25 } },
+                },
+            },
+            -- The tall wall, too high to jump: two big crates stacked.
+            {
+                layers = 4,
+                items = {
+                    { model = 198168, height = 1.2, yaw = { -5, 5 } },
+                    { model = 198168, z = 1.2, height = 1.2, yaw = { -15, 15 } },
+                },
+            },
+            -- Or one big beerkegs/beerkeg01, scaled to the wall's height.
+            { layers = 4, items = { { model = 198004, yaw = { 0, 360 } } } },
+        },
+        -- Elwynn's creatures facing the runner, display ids of the NPCs. Those that have it wait
+        -- in their ready stance (animation 25), and all attack (16) when the runner comes close
+        -- (/surfer animations in Surfer_Dev lists what each has).
+        enemy = {
+            -- Low enough to jump: a Timber Wolf (604) or a Stonetusk Boar (503, no ready stance).
+            { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16 } } },
+            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16 } } },
+            -- Too tall: the Defias Thug (5035), Bandit (2357), Footpad (2333) and Cutpurse
+            -- (2361), and Morgaine the Sly (3320).
+            {
+                layers = 4,
+                weight = 2,
+                items = {
+                    {
+                        creature = { 5035, 2357, 2333, 2361, 3320 },
+                        height = 2,
+                        yaw = 180,
+                        animation = 25,
+                        attack = 16,
+                    },
+                },
+            },
+            -- Riverpaw gnolls: the Outrunner (512), Taskmaster (376) and Runt (10791).
+            {
+                layers = 4,
+                items = { { creature = { 512, 376, 10791 }, height = 2.1, yaw = 180, animation = 25, attack = 16 } },
+            },
+            -- Hogger (384), bigger and rarer.
+            {
+                layers = 4,
+                weight = 0.4,
+                items = { { creature = 384, height = 2.6, yaw = 180, animation = 25, attack = 16 } },
+            },
+            -- A cow (1060), just standing there.
+            { layers = 4, weight = 0.6, items = { { creature = 1060, height = 1.9, yaw = { 150, 210 } } } },
+        },
+        -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).
+        barrier = {
+            {
+                items = {
+                    { model = 189796, x = -1, ground = true, scale = 1 },
+                    { model = 189796, x = 1, ground = true, scale = 1 },
+                    { model = 198340, yaw = 90, z = 0.1, scale = 0.65 },
+                },
+            },
+        },
+        -- Rows of lumber piles: deadminelumberpilesmall (0.56 tall) for one layer,
+        -- deadminelumberpilelarge (1.67 tall) scaled for two and three. Ramps of planks
+        -- (world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01, 21.6 yards
+        -- long, scaled to the slope): the shorter the ramp, the narrower its planks, so more
+        -- side by side.
+        platform = {
+            {
+                layers = 1,
+                items = { { model = 198340, every = 3.4 } },
+                ramp = { { model = 190091, across = 4 } },
+            },
+            {
+                layers = 2,
+                items = { { model = 198339, every = 2.3 } },
+                ramp = { { model = 190091, across = 2 } },
+            },
+            {
+                layers = 3,
+                items = { { model = 198339, every = 3.4 } },
+                ramp = { { model = 190091, across = 2 } },
+            },
+        },
+    },
+
     -- The roadside: fences in four variants with open stretches between them, bushes, thorn
     -- bushes by the road and pines farther back.
     decorations = {

@@ -34,6 +34,11 @@ local ORDER = {
     twin = { "LOW", 10 },
     controls = { "MEDIUM", 1 },
 }
+-- The clip planes of every 3D scene, in yards. The scenes share the depth buffer, so with the
+-- same planes and the road's camera position their depths compare as in one scene: the twin
+-- covers what is behind it, and what is in front of it (a bar it runs under, once past) covers
+-- the twin.
+local CLIP_NEAR, CLIP_FAR = 0.2, 250
 -- Yards: a coin model's largest side.
 local COIN_SIZE = 0.5
 -- The twin's animations, and the speeds (yards per second) walking, running and walking
@@ -50,6 +55,7 @@ local TWIN_FRAME = 1.6
 -- This file draws; controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
+overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
 
 local ground = shapes.Ground
 
@@ -332,6 +338,7 @@ function overlay:ApplyBiome()
     if self.worldScene then
         self:LoadCoinModel(1)
         self:ApplyDecorations(biome)
+        self:ResetObstacles()
     end
     self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
 end
@@ -427,8 +434,8 @@ function overlay:Create()
     twin:EnableMouse(false)
     self:Stack(twin, "twin")
     twin:SetDrawLayer("OVERLAY")
-    twin:SetCameraNearClip(0.1)
-    twin:SetCameraFarClip(200)
+    twin:SetCameraNearClip(CLIP_NEAR)
+    twin:SetCameraFarClip(CLIP_FAR)
     light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
     self.twin = twin
     self.twinActor = twin:CreateActor()
@@ -437,7 +444,7 @@ function overlay:Create()
     self:LoadPlayer()
     -- The world scene: 3D decorations and coins, one render pass for all of them.
     self:CreateDecorations(f)
-    self.coinActors = {}
+    self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
@@ -657,8 +664,9 @@ function overlay:Render(lap)
     self:ScrollGround()
     if self.worldScene then
         self:UpdateDecorations()
+        self:UpdateObstacles()
     end
-    lap = self:Lap("ground scroll, decorations", lap)
+    lap = self:Lap("ground scroll, decorations, obstacles", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
     local faces, count = shapes.Collect(s, -cam.offset)
@@ -669,7 +677,7 @@ function overlay:Render(lap)
         if f.kind == "coin" and real then
             coins = coins + 1
             self:PlaceCoin(coins, f.object)
-        else
+        elseif not (self.worldScene and self:Modelled(f)) then
             shapes.Draw(shapes.Acquire(self.faces, shapes.Sublevel(f)), project, f)
         end
     end
@@ -683,7 +691,7 @@ function overlay:Render(lap)
             end
         end
         -- Every shown scene costs a render pass, even an empty one.
-        if #self.decor > 0 or coins > 0 or not self.coinReady then
+        if #self.decor > 0 or coins > 0 or not self.coinReady or self.keepWorldScene then
             shapes.Show(self.worldScene)
         else
             shapes.Hide(self.worldScene)
@@ -721,20 +729,8 @@ function overlay:ShowHint()
     )
 end
 
--- /surfer profile: the first call starts timing each part of a frame, the second reports the
--- milliseconds per frame each took. Only the addon's own work: the cost of drawing what it
--- shows lands in the game's frame time, which the report sets beside it.
-local PARTS = {
-    "simulation",
-    "twin animation, models",
-    "road placement",
-    "twin",
-    "ground scroll, decorations",
-    "boxes, coins",
-    "texts",
-}
-
--- Adds the time since `since` to `part` and starts the next lap; nothing while not profiling.
+-- Adds the time since `since` to `part` of a frame and starts the next lap, into `timing` while
+-- Surfer_Dev's /surfer profile runs; nothing otherwise.
 function overlay:Lap(part, since)
     if not since then
         return nil
@@ -742,107 +738,4 @@ function overlay:Lap(part, since)
     local now = debugprofilestop()
     self.timing[part] = (self.timing[part] or 0) + now - since
     return now
-end
-
-function overlay:Profile()
-    local log = app.logger
-    if not self.frame or not self.frame:IsShown() then
-        log:chat("Open the game first (/surfer).")
-        return
-    end
-    local timing = self.timing
-    if not timing then
-        self.timing = { frames = 0, started = debugprofilestop() }
-        log:chat("Profiling: play for a while, then /surfer profile again.")
-        return
-    end
-    self.timing = nil
-    local frames = math.max(timing.frames, 1)
-    local seconds = (debugprofilestop() - timing.started) / 1000
-    local total = 0
-    for _, part in ipairs(PARTS) do
-        total = total + (timing[part] or 0)
-    end
-    log:chat(
-        "%d frames in %.1f s: %.0f fps, %.2f ms per frame, of which the addon's Lua %.3f ms",
-        frames,
-        seconds,
-        frames / seconds,
-        seconds * 1000 / frames,
-        total / frames
-    )
-    for _, part in ipairs(PARTS) do
-        log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
-    end
-    local scenes = (self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
-    scenes = scenes + (self.worldScene:IsShown() and 1 or 0)
-    log:chat(
-        "Last frame: %d faces, %d 3D coins, %d decorations, %d model scenes shown, %d road textures",
-        self.faceCount or 0,
-        self.coinCount or 0,
-        #self.decor,
-        scenes,
-        #self.ground
-    )
-end
-
--- /surfer debug: what the twin's camera and scene do, to compare with the game's camera.
-function overlay:Report()
-    local log = app.logger
-    if not self.frame or not self.frame:IsShown() then
-        log:chat("Open the game first (/surfer).")
-        return
-    end
-    local settings, scene = app.db.profile.overlay, self.twin
-    log:chat(
-        "zoom %s (used %.2f), cameraFov %s, fov setting %d",
-        tostring(GetCameraZoom and GetCameraZoom()),
-        cam.distance or -1,
-        tostring(GetCVar("cameraFov")),
-        settings.fov
-    )
-    log:chat(
-        "UI scale %.3f, scene scale %.3f, screen %.0f x %.0f, scene %.0f x %.0f",
-        UIParent:GetEffectiveScale(),
-        scene:GetEffectiveScale(),
-        self.frame:GetWidth(),
-        self.frame:GetHeight(),
-        scene:GetWidth(),
-        scene:GetHeight()
-    )
-    -- The decorations' scene against the road: a point on the road's edge 20 yards ahead, the
-    -- scene's in its own units.
-    local lens = self.decorLens
-    local x, y = project(20, 4.3, ground(20))
-    local px, py = self.worldScene:Project3DPointTo2D(20, -4.3, ground(20))
-    log:chat(
-        "decorations: span %s, calibrated %s, last ratio %s, scene scale %.3f, middle %s, %s",
-        tostring(lens.span),
-        tostring(lens.calibrated),
-        tostring(lens.ratio),
-        self.worldScene:GetEffectiveScale(),
-        tostring(self.decorMiddleX),
-        tostring(self.decorMiddleY)
-    )
-    log:chat(
-        "road edge at 20 yd: road %.0f, %.0f (middle %.0f, %.0f), scene %s, %s",
-        x or -1,
-        y or -1,
-        cam.cx,
-        cam.cy,
-        tostring(px),
-        tostring(py)
-    )
-    -- Each decoration model's bounds as the client measured them: which way a model extends.
-    for model, b in pairs(self.decorBounds) do
-        log:chat("model %d: x %.2f to %.2f, y %.2f to %.2f", model, b[1], b[3], b[2], b[4])
-    end
-    local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
-    log:chat(
-        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f",
-        tostring(self.twinActor:IsLoaded()),
-        low and string.format("%.2f x %.2f x %.2f", maxX - minX, maxY - minY, high - low) or "none",
-        self.twinActor:GetScale(),
-        self.height
-    )
 end

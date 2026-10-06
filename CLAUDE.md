@@ -9,24 +9,30 @@ Surfer is a World of Warcraft addon (Lua 5.1 on top of Ace3) for the client set 
 TOC's `## Interface` (`16001` = WoW Forever), plus the Node/TypeScript tooling that checks,
 links and packages it.
 
-| Part       | What it is                                                                                                                          | Details                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `Surfer/`  | The addon: everything in it ships. Settings in `SurferDB`.                                                                          | [Surfer/CLAUDE.md](Surfer/CLAUDE.md) |
-| `src/`     | Root tooling (Node 20+, TypeScript run by `tsx`, no build): check the addons, link them into a client, package them. Never shipped. | see "Tooling" below                  |
-| `.github/` | The release workflows (BigWigs packager).                                                                                           | see "Releases" below                 |
+| Part          | What it is                                                                                                                          | Details                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `Surfer/`     | The addon: everything in it ships. Settings in `SurferDB`.                                                                          | [Surfer/CLAUDE.md](Surfer/CLAUDE.md)         |
+| `Surfer_Dev/` | Development tools (previews, animation checks, playtest helpers, diagnostics). Linked into a client, never released.                | [Surfer_Dev/CLAUDE.md](Surfer_Dev/CLAUDE.md) |
+| `src/`        | Root tooling (Node 20+, TypeScript run by `tsx`, no build): check the addons, link them into a client, package them. Never shipped. | see "Tooling" below                          |
+| `.github/`    | The release workflows (BigWigs packager).                                                                                           | see "Releases" below                         |
 
 A direct child directory with a same-named `.toc` is an addon; the tooling discovers addons that
 way, so a second addon (e.g. an `Surfer_Options` companion) needs no registration in the
 tooling — only a `move-folders` line in `.pkgmeta`. A companion named `Surfer_*` must
-declare `## Dependencies: Surfer` (`npm run check:addons` enforces it).
+declare `## Dependencies: Surfer` (`npm run check:addons` enforces it). A development addon
+(`## X-Surfer-Dev:` in its TOC, like `Surfer_Dev`) is skipped by `npm run package:addons` and
+listed in `.pkgmeta`'s `ignore`, so it never ships; debugging and biome-building tools go there,
+not into `Surfer/`.
 
 ## Working on the code
 
 WoW addons are plain Lua/XML files loaded by the game; there is no build step. To try a change:
 `npm run dev:link -- "<WoW>/Interface/AddOns"` (once; links every addon directory, also honors
 `WOW_ADDONS_DIR`) and `/reload` in-game. `/surfer` opens the runner; `/surfer options` opens settings,
-`/surfer loglevel debug` shows the debug log. `/surfer profile` (twice) reports the addon's
-milliseconds per frame by part; `npm run bench:overlay` counts its WoW API calls per frame offline.
+`/surfer loglevel debug` shows the debug log. With `Surfer_Dev` enabled, `/surfer help` lists its
+tools: `/surfer profile` (twice) reports the addon's milliseconds per frame by part,
+`/surfer preview creature|model <id>` shows a model on the road, `/surfer animations` lists the
+enemies' animations. `npm run bench:overlay` counts the WoW API calls per frame offline.
 
 ## Commands (Node 20+, run from the root after `npm install` once)
 
@@ -39,7 +45,7 @@ milliseconds per frame by part; `npm run bench:overlay` counts its WoW API calls
 | `npm run check:xml`                | Validates every addon XML against Blizzard's `UI.xsd` via python + lxml; skipped when `../_data/BlizzardInterfaceCode` is absent.                                                                                                   |
 | `npm run typecheck`                | `tsc --noEmit` on `src/`.                                                                                                                                                                                                           |
 | `npm run dev:link -- <AddOns dir>` | Symlink (junction on Windows) every addon into a client; refuses to replace a path that isn't already our link.                                                                                                                     |
-| `npm run package:addons`           | Deterministic `dist/Surfer-<version>.zip` of all addons (gitignored), without `CLAUDE.md` files.                                                                                                                                    |
+| `npm run package:addons`           | Deterministic `dist/Surfer-<version>.zip` of all addons but development ones (gitignored), without `CLAUDE.md` files.                                                                                                               |
 | `npm run package:local`            | The BigWigs packager the release workflows use (`.pkgmeta`), run locally without uploading: addon folders and zip in `.release/` (gitignored). Extra `release.sh` options go after `--`. On Windows it needs Git for Windows' bash. |
 
 Static checks also used ad hoc: `lua-language-server --check` (config in `.luarc.json`; `lib/` is

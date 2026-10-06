@@ -45,18 +45,76 @@ local function pick(groups)
     end
     return groups[#groups]
 end
+-- Shared with obstacles.lua.
+overlay.Value, overlay.Choose, overlay.Pick = value, choose, pick
 
 function overlay:CreateDecorations(f)
     local scene = CreateFrame("ModelScene", nil, f)
     scene:EnableMouse(false)
     self:Stack(scene, "world")
     scene:SetAllPoints(f)
-    scene:SetCameraNearClip(0.2)
-    scene:SetCameraFarClip(250)
+    scene:SetCameraNearClip(overlay.CLIP_NEAR)
+    scene:SetCameraFarClip(overlay.CLIP_FAR)
     self.worldScene = scene
     -- Placed decorations, and spare ones: their tables and, by model, their actors.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}
-    self.decorNext, self.decorLens, self.decorBounds = {}, {}, {}
+    self.decorNext, self.decorLens, self.modelBounds = {}, {}, {}
+end
+
+-- An actor of the world scene showing `model`: a spare one that showed it before, or a new one.
+-- `model` is a file id, or minus a creature display id (a creature with its skin). Placed by
+-- the model's own origin, the point it stands on in the world. Not its bounds' center: an
+-- animated model's bounds change as it moves, so it would drift.
+function overlay:AcquireActor(model)
+    local spare = self.spareActors[model]
+    if not spare then
+        spare = {}
+        self.spareActors[model] = spare
+    end
+    local actor = spare[#spare]
+    if actor then
+        spare[#spare] = nil
+    else
+        actor = self.worldScene:CreateActor()
+        actor:SetUseCenterForOrigin(false, false, false)
+        if model < 0 then
+            actor:SetModelByCreatureDisplayID(-model)
+        else
+            actor:SetModelByFileID(model)
+        end
+    end
+    actor:Show()
+    return actor
+end
+
+function overlay:ReleaseActor(model, actor)
+    actor:Hide()
+    local spare = self.spareActors[model]
+    spare[#spare + 1] = actor
+end
+
+-- A model's bounds once it has loaded, { minX, minY, minZ, maxX, maxY, maxZ } around its
+-- origin, measured once per model; nothing before.
+function overlay:ModelBounds(actor, model)
+    local bounds = self.modelBounds[model]
+    if not bounds then
+        local minX, minY, minZ, maxX, maxY, maxZ = self.Extents(actor)
+        if not minX then
+            return nil
+        end
+        bounds = { minX, minY, minZ, maxX, maxY, maxZ }
+        self.modelBounds[model] = bounds
+    end
+    return bounds
+end
+
+-- The client turns a model about its bounds' center, not its origin: the offset that makes it
+-- turn about its origin, (turn - 1) * center, in the actor's own units (its position is scaled
+-- with it).
+function overlay.TurnShift(bounds, yaw)
+    local sin, cos = math.sin(yaw), math.cos(yaw)
+    local cx, cy = (bounds[1] + bounds[4]) / 2, (bounds[2] + bounds[5]) / 2
+    return cx * (cos - 1) - cy * sin, cx * sin + cy * (cos - 1)
 end
 
 -- How the scene spreads its field of view is not documented (over its height, its width, or
@@ -121,9 +179,7 @@ end
 
 local function release(self, i)
     local list, d = self.decor, self.decor[i]
-    d.actor:Hide()
-    local spare = self.spareActors[d.model]
-    spare[#spare + 1] = d.actor
+    self:ReleaseActor(d.model, d.actor)
     d.actor = nil
     self.spareDecor[#self.spareDecor + 1] = d
     list[i] = list[#list]
@@ -143,21 +199,7 @@ end
 -- round, and its place along the group reversed, so parts that join up on the right still do.
 local function place(self, length, item, at, side)
     local model = choose(item.model)
-    local spare = self.spareActors[model]
-    if not spare then
-        spare = {}
-        self.spareActors[model] = spare
-    end
-    local actor = spare[#spare]
-    if actor then
-        spare[#spare] = nil
-    else
-        actor = self.worldScene:CreateActor()
-        -- Placed by the model's own origin, the point it stands on in the world. Not its
-        -- bounds' center: an animated model's bounds change as it moves, so it would drift.
-        actor:SetUseCenterForOrigin(false, false, false)
-        actor:SetModelByFileID(model)
-    end
+    local actor = self:AcquireActor(model)
     local d = self.spareDecor[#self.spareDecor] or {}
     self.spareDecor[#self.spareDecor] = nil
     local along = value(item.d, 0)
@@ -172,7 +214,6 @@ local function place(self, length, item, at, side)
     d.yaw, d.scale = math.rad(value(item.yaw, 0)) + (side < 0 and math.pi or 0), value(item.scale, 1)
     actor:SetYaw(d.yaw)
     actor:SetScale(d.scale)
-    actor:Show()
     self.decor[#self.decor + 1] = d
 end
 
@@ -180,29 +221,20 @@ end
 -- once its model has loaded: how far its bounds, turned, reach toward the road. Models are
 -- measured once. Not for `overhang` items, which are meant to reach over the road.
 function overlay:FitDecoration(d, clear)
-    local bounds = self.decorBounds[d.model]
+    local bounds = self:ModelBounds(d.actor, d.model)
     if not bounds then
-        local minX, minY, _, maxX, maxY = self.Extents(d.actor)
-        if not minX then
-            return
-        end
-        bounds = { minX, minY, maxX, maxY }
-        self.decorBounds[d.model] = bounds
+        return
     end
     d.fitted = true
-    -- The client turns a model about its bounds' center, not its origin: offset by how far the
-    -- turn moves the origin around that center, (turn - 1) * center, so it turns about its
-    -- origin. In the actor's own units, as its position is scaled with it.
-    local sin, cos = math.sin(d.yaw), math.cos(d.yaw)
-    local cx, cy = (bounds[1] + bounds[3]) / 2, (bounds[2] + bounds[4]) / 2
-    d.shiftX, d.shiftY = cx * (cos - 1) - cy * sin, cx * sin + cy * (cos - 1)
+    d.shiftX, d.shiftY = self.TurnShift(bounds, d.yaw)
     if d.overhang then
         return
     end
     -- The scene's y (left) of the turned bounds' corners: x sin + y cos.
+    local sin, cos = math.sin(d.yaw), math.cos(d.yaw)
     local low, high = math.huge, -math.huge
-    for i = 1, 3, 2 do
-        for j = 2, 4, 2 do
+    for i = 1, 4, 3 do
+        for j = 2, 5, 3 do
             local y = bounds[i] * sin + bounds[j] * cos
             low, high = math.min(low, y), math.max(high, y)
         end

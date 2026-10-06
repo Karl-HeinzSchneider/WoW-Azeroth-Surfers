@@ -1,10 +1,11 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
-import { addonVersion, requireAddons } from "./addons.js";
+import { addonVersion, isDevAddon, requireAddons } from "./addons.js";
 import { packageName, ROOT } from "./config.js";
 import { createZip, directoryEntries, fileNamePart } from "./zip.js";
 
-const addons = requireAddons();
+// Development addons (Surfer_Dev) are never released.
+const addons = requireAddons().filter((addon) => !isDevAddon(addon));
 const versions = [...new Set(addons.map(addonVersion))];
 const version = versions.length === 1 ? versions[0]! : "mixed";
 const outputDir = resolve(ROOT, "dist");

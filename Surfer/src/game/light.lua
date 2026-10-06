@@ -8,8 +8,11 @@ local _, app = ...
 local light = { r = 1, g = 1, b = 1, scenes = {} }
 app.light = light
 
--- 1 by day, 0 at night, in between at dawn and dusk.
+-- 1 by day, 0 at night, in between at dawn and dusk; `override` fixes it (Surfer_Dev).
 local function daylight()
+    if light.override then
+        return light.override
+    end
     if not app.db.profile.overlay.dayNight or not GetGameTime then
         return 1
     end
