@@ -53,8 +53,8 @@ function overlay:CreateDecorations(f)
     scene:EnableMouse(false)
     self:Stack(scene, "world")
     scene:SetAllPoints(f)
-    scene:SetCameraNearClip(0.2)
-    scene:SetCameraFarClip(250)
+    scene:SetCameraNearClip(overlay.CLIP_NEAR)
+    scene:SetCameraFarClip(overlay.CLIP_FAR)
     self.worldScene = scene
     -- Placed decorations, and spare ones: their tables and, by model, their actors.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}

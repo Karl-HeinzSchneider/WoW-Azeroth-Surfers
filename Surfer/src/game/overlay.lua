@@ -34,6 +34,11 @@ local ORDER = {
     twin = { "LOW", 10 },
     controls = { "MEDIUM", 1 },
 }
+-- The clip planes of every 3D scene, in yards. The scenes share the depth buffer, so with the
+-- same planes and the road's camera position their depths compare as in one scene: the twin
+-- covers what is behind it, and what is in front of it (a bar it runs under, once past) covers
+-- the twin.
+local CLIP_NEAR, CLIP_FAR = 0.2, 250
 -- Yards: a coin model's largest side.
 local COIN_SIZE = 0.5
 -- The twin's animations, and the speeds (yards per second) walking, running and walking
@@ -50,6 +55,7 @@ local TWIN_FRAME = 1.6
 -- This file draws; controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
+overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
 
 local ground = shapes.Ground
 
@@ -428,8 +434,8 @@ function overlay:Create()
     twin:EnableMouse(false)
     self:Stack(twin, "twin")
     twin:SetDrawLayer("OVERLAY")
-    twin:SetCameraNearClip(0.1)
-    twin:SetCameraFarClip(200)
+    twin:SetCameraNearClip(CLIP_NEAR)
+    twin:SetCameraFarClip(CLIP_FAR)
     light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
     self.twin = twin
     self.twinActor = twin:CreateActor()
@@ -565,13 +571,6 @@ function overlay:PlaceTwin()
     scene:SetCameraPosition(cam.x, 0, cam.z)
     scene:SetCameraOrientationByYawPitchRoll(0, math.atan2(down, ahead), 0)
     scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
-    -- 3D scenes share the depth buffer, each with its own clip planes: the world scene's models
-    -- would hide the twin. Clipping from half its distance on keeps all of it in view and makes
-    -- its depth nearer than anything of the world scene's, so it stays on top.
-    if self.twinNear ~= distance then
-        scene:SetCameraNearClip(distance / 2)
-        self.twinNear = distance
-    end
     actor:SetScale(settings.twinScale)
     actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
     actor:SetAlpha(s.status == "running" and 1 or 0.5)
