@@ -84,6 +84,25 @@ app.biomes.Register("elwynn", {
             -- Or one big beerkegs/beerkeg01, scaled to the wall's height.
             { layers = 4, items = { { model = 198004, yaw = { 0, 360 } } } },
         },
+        -- Elwynn's creatures, facing the runner and attacking (animation 16) when it comes close;
+        -- display ids of the NPCs.
+        enemy = {
+            -- Low enough to jump: a Timber Wolf (604) or a Stonetusk Boar (503).
+            { layers = 2, items = { { creature = { 604, 503 }, yaw = 180, attack = 16 } } },
+            -- Too tall: the Defias Thug (5035), Bandit (2357), Footpad (2333) and Cutpurse
+            -- (2361), and Morgaine the Sly (3320).
+            {
+                layers = 4,
+                weight = 2,
+                items = { { creature = { 5035, 2357, 2333, 2361, 3320 }, height = 2, yaw = 180, attack = 16 } },
+            },
+            -- Riverpaw gnolls: the Outrunner (512), Taskmaster (376) and Runt (10791).
+            { layers = 4, items = { { creature = { 512, 376, 10791 }, height = 2.1, yaw = 180, attack = 16 } } },
+            -- Hogger (384), bigger and rarer.
+            { layers = 4, weight = 0.4, items = { { creature = 384, height = 2.6, yaw = 180, attack = 16 } } },
+            -- A cow (1060), just standing there.
+            { layers = 4, weight = 0.6, items = { { creature = 1060, height = 1.9, yaw = { 150, 210 } } } },
+        },
         -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).
         barrier = {
             {

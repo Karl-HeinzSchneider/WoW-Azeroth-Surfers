@@ -15,7 +15,7 @@ game.geometry = {
     -- The runner's body is three layers tall: a barrier on layer 3 can be run under.
     playerHeight = 1.8,
     -- Half widths by kind: obstacles leave room to squeeze past, platforms fill their lane.
-    halfWidth = { obstacle = 0.65, barrier = 1.1, platform = 1.05, coin = 0.16 },
+    halfWidth = { obstacle = 0.65, enemy = 0.6, barrier = 1.1, platform = 1.05, coin = 0.16 },
     -- The drawn size of a coin; it collects anywhere in its layer.
     coinSize = 0.5,
 }
@@ -196,11 +196,29 @@ local patterns = {
         end
         return length
     end,
+    -- An enemy standing in one lane, low enough to jump (2 layers) or too tall (4), coins in
+    -- another.
+    function(s, at, r)
+        local lane, tall = r(-1, 1), r(0, 1) == 1
+        add(s, "enemy", lane, at, tall and 0.8 or 1.2, 0, tall and 4 or 2)
+        coins(s, (lane + 2) % 3 - 1, at - 4, 5, 0)
+        return 4 * COIN_SPACING - 4
+    end,
 }
+-- How often each pattern comes up: enemies are rare.
+local WEIGHTS = { 3, 3, 3, 3, 3, 1 }
+local TOTAL = 0
+for _, weight in ipairs(WEIGHTS) do
+    TOTAL = TOTAL + weight
+end
 
 local function spawn(s)
     local r = s.random
-    s.nextRow = s.nextRow + patterns[r(1, #patterns)](s, s.nextRow, r) + r(10, 16)
+    local roll, i = r(1, TOTAL), 1
+    while roll > WEIGHTS[i] do
+        roll, i = roll - WEIGHTS[i], i + 1
+    end
+    s.nextRow = s.nextRow + patterns[i](s, s.nextRow, r) + r(10, 16)
 end
 
 local function tick(s)

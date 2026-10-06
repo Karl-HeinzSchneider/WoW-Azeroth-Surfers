@@ -73,9 +73,10 @@ app.biomes.Register("default", {
     },
 
     -- The track's boxes as 3D models in the same scene, by kind: obstacles to jump over (1, 2 or
-    -- 4 layers of 0.6 yards tall, 1.3 wide), barriers to run under (a bar 1.8 to 2.4 yards up,
-    -- 2.2 wide) and platforms to run on (1 to 3 layers tall, 2.1 wide, 24 to 40 yards long,
-    -- sometimes with a ramp). Each kind is a list of variants; a box picks one whose `layers` is
+    -- 4 layers of 0.6 yards tall, 1.3 wide), enemies standing in a lane (2 layers, jumpable, or
+    -- 4, 1.2 wide, rare), barriers to run under (a bar 1.8 to 2.4 yards up, 2.2 wide) and
+    -- platforms to run on (1 to 3 layers tall, 2.1 wide, 24 to 40 yards long, sometimes with a
+    -- ramp). Each kind is a list of variants; a box picks one whose `layers` is
     -- its own (any if left out) by `weight`, once. A variant's `items` are its models:
     --   model   a file id, or a list to pick one from at random
     --   x       yards to the screen's right of the lane's middle, 0 if left out
@@ -87,7 +88,10 @@ app.biomes.Register("default", {
     --   height  yards the model's top above its origin is scaled to, the box's height if left
     --           out (one of two stacked models: half of it)
     --   scale   its size instead of `height`
-    --   yaw     degrees it turns, 0 if left out
+    --   yaw     degrees it turns, 0 if left out (180 faces the runner)
+    --   creature  instead of `model`: a creature display id (or a list), the creature with its
+    --           skin, playing animation `animation` (0, standing, if left out) and `attack` once
+    --           the runner is close
     -- Any number may instead be a { min, max } range. A platform variant's `ramp` items cover
     -- its ramp (4 yards long per layer of height, about 8.5 degrees): each model is scaled to
     -- the slope's length, turned up to it with its top on it, and laid `across` times side by
@@ -114,6 +118,7 @@ app.biomes.Register("default", {
         barrier = { front = { 0.95, 0.72, 0.18 }, top = { 1, 0.85, 0.4 }, side = { 0.7, 0.5, 0.1 } },
         post = { front = { 0.55, 0.58, 0.6 } },
         platform = { front = { 0.2, 0.42, 0.72 }, top = { 0.32, 0.58, 0.88 }, side = { 0.14, 0.32, 0.58 } },
+        enemy = { front = { 0.62, 0.15, 0.4 }, top = { 0.8, 0.25, 0.55 }, side = { 0.45, 0.1, 0.3 } },
         coin = { front = { 1, 0.77, 0.2 } },
     },
 })

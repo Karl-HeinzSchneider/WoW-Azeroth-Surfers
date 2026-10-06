@@ -196,7 +196,7 @@ test("generated patterns always leave a way through", function()
             for lane = -1, 1 do
                 local blocked = false
                 for _, o in ipairs(objects) do
-                    local solid = o.kind == "obstacle" or (o.kind == "platform" and not o.ramp)
+                    local solid = o.kind == "obstacle" or o.kind == "enemy" or (o.kind == "platform" and not o.ramp)
                     if solid and o.lane == lane and at >= o.at and at <= o.at + o.length then
                         -- Taller than a jump from the ground, starting below the body's top.
                         if g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight then

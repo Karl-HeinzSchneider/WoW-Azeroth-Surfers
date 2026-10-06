@@ -62,8 +62,9 @@ function overlay:CreateDecorations(f)
 end
 
 -- An actor of the world scene showing `model`: a spare one that showed it before, or a new one.
--- Placed by the model's own origin, the point it stands on in the world. Not its bounds'
--- center: an animated model's bounds change as it moves, so it would drift.
+-- `model` is a file id, or minus a creature display id (a creature with its skin). Placed by
+-- the model's own origin, the point it stands on in the world. Not its bounds' center: an
+-- animated model's bounds change as it moves, so it would drift.
 function overlay:AcquireActor(model)
     local spare = self.spareActors[model]
     if not spare then
@@ -76,7 +77,11 @@ function overlay:AcquireActor(model)
     else
         actor = self.worldScene:CreateActor()
         actor:SetUseCenterForOrigin(false, false, false)
-        actor:SetModelByFileID(model)
+        if model < 0 then
+            actor:SetModelByCreatureDisplayID(-model)
+        else
+            actor:SetModelByFileID(model)
+        end
     end
     actor:Show()
     return actor

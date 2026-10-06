@@ -10,6 +10,8 @@ local cam = overlay.camera
 local ground = shapes.Ground
 local LANE, LAYER = sim.geometry.laneWidth, sim.LAYER
 local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
+-- A creature switches to its item's `attack` animation once the runner is this many yards away.
+local ATTACK_RANGE = 7
 
 -- Reused while picking a variant.
 local fitting = {}
@@ -41,8 +43,12 @@ end
 
 -- One actor of a box: `along` yards along the track, its item's other values picked.
 local function attach(self, o, item, along)
-    local model = choose(item.model)
+    -- A creature by its display id, kept as minus the id (AcquireActor).
+    local model = item.creature and -choose(item.creature) or choose(item.model)
     local actor = self:AcquireActor(model)
+    if item.creature then
+        actor:SetAnimation(item.animation or 0, 0, 1, 0)
+    end
     -- Invisible until its model has loaded and been fitted; by its own origin, upright (a ramp's
     -- model may have been this actor before).
     actor:SetAlpha(0)
@@ -61,6 +67,7 @@ local function attach(self, o, item, along)
         x = value(item.x, 0),
         z = (item.ground and 0 or o.layer * LAYER) + value(item.z, 0),
         alpha = false,
+        attacking = false,
     }
 end
 
@@ -195,6 +202,11 @@ function overlay:UpdateObstacles()
                         if not entry.alpha or math.abs(alpha - entry.alpha) > 0.02 then
                             entry.actor:SetAlpha(alpha)
                             entry.alpha = alpha
+                        end
+                        local attack = entry.item.attack
+                        if attack and not entry.attacking and d < ATTACK_RANGE then
+                            entry.actor:SetAnimation(attack, 0, 1, 0)
+                            entry.attacking = true
                         end
                     end
                 end
