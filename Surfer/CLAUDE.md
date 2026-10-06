@@ -101,14 +101,22 @@ be listed**. The order follows these rules:
   or in the side window (a movable, resizable, clipped frame whose place `profile.side` saves;
   its camera uses the calibration distance, not the real zoom, and a sky/land backdrop from the
   biome's `sky` fills it). The window frame (`profile.frame.full/side`) is a
-  DefaultPanelBaseTemplate sibling of the view, so the clipping does not cut it; full screen it
+  PortraitFrameTemplate (built like the spell book's: its CloseButton, a
+  MaximizeMinimizeButtonFrameTemplate left of it, no background, no portrait) sibling of the view, so the clipping does not cut it; full screen it
   covers the screen's edges, since the road must stay centered on the real character.
-  `Layout()` places texts and buttons for the mode and size. Call `ApplyMode()` after any mode
+  The frame's minimize/maximize button (and, without the frame, the row's Minimize/Close
+  buttons) switch modes through `SetMode(mode)`. `Layout()` places texts and buttons for the
+  mode and size. Call `ApplyMode()` after any mode
   setting changes (the options and `OnProfileRefresh` do).
+- `src/game/menu.lua` — the start dialog (classic dialog box: best score, how to play, Start game
+  and Close; options go between the buttons) shown while a run is `ready`, and the restart bar
+  shown while the restart key is held.
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
   `Step`, score texts and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
-  runs by itself (`AutoRun`) instead of following the sampled movement.
+  runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
+  is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds
+  restarts a running or paused one.
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.

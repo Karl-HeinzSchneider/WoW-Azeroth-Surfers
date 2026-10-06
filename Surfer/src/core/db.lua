@@ -20,7 +20,7 @@ local profile = {
     -- "full": the game covers the screen around the real character; "side": a window of its own.
     mode = "full",
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
-    capture = false,
+    capture = true,
     -- The window frame (border, title bar, close button) in each mode.
     frame = { full = false, side = true },
     -- The side window's place and size, set by dragging and sizing it.

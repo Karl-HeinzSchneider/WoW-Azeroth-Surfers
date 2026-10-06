@@ -20,6 +20,9 @@ local MOVEMENT = {
 }
 -- Yards per second the twin runs at while captured, the character's normal running speed.
 local RUN_SPEED = 7
+-- The game's own key: pressed once after a run, or held this many seconds during one, it starts
+-- a new run.
+local RESTART_KEY, RESTART_HOLD = "R", 0.75
 
 function overlay:SaveBest()
     app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))
@@ -145,7 +148,8 @@ function overlay:ForgetPosition()
     end
 end
 
-local MESSAGES = { ready = "READY TO RUN?", paused = "PAUSED", over = "RUN COMPLETE" }
+-- A ready run has the start dialog instead (menu.lua).
+local MESSAGES = { paused = "PAUSED", over = "RUN COMPLETE" }
 
 -- The score line and status message, rewritten only when they change, so a running game does
 -- not build new strings every frame.
@@ -185,16 +189,30 @@ function overlay:ShowStatus()
     end
 end
 
-function overlay:OnMovementKey(key)
+function overlay:OnKey(key)
     -- In combat the view is closed, and whether a key reaches WoW cannot be changed.
     if InCombatLockdown() then
+        return
+    end
+    if GetCurrentKeyBoardFocus() then
+        self.frame:SetPropagateKeyboardInput(true)
+        return
+    end
+    if key == RESTART_KEY and not IsModifierKeyDown() then
+        self.frame:SetPropagateKeyboardInput(false)
+        local status = self.state.status
+        if status == "over" then
+            self:Restart()
+        elseif status ~= "ready" then
+            self.holding = self.holding or 0
+        end
         return
     end
     local chord = (IsAltKeyDown() and "ALT-" or "")
         .. (IsControlKeyDown() and "CTRL-" or "")
         .. (IsShiftKeyDown() and "SHIFT-" or "")
         .. key
-    local binding = not GetCurrentKeyBoardFocus() and GetBindingAction(chord, true)
+    local binding = GetBindingAction(chord, true)
     self.frame:SetPropagateKeyboardInput(not (self.capture and binding and MOVEMENT[binding]))
     if not binding then
         return
@@ -208,6 +226,24 @@ function overlay:OnMovementKey(key)
     elseif binding == "MOVEFORWARD" and self.state.status == "ready" then
         sim.Start(self.state)
     end
+end
+
+function overlay:OnKeyRelease(key)
+    if key == RESTART_KEY then
+        self.holding = nil
+    end
+end
+
+-- Counts how long the restart key is held, and restarts once it was held long enough.
+function overlay:UpdateHold(elapsed)
+    if self.holding then
+        self.holding = self.holding + elapsed
+        if self.holding >= RESTART_HOLD then
+            self.holding = nil
+            self:Restart()
+        end
+    end
+    self:ShowHold(self.holding and self.holding / RESTART_HOLD)
 end
 
 -- /surfer and the minimap button: the game is created on first use, then shown and hidden.

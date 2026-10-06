@@ -59,9 +59,13 @@ In **/surfer options**, under Mode:
 - **Side window** puts the game in a window of its own, out of the way: drag it by its title, size
   it from its corner. It has its own camera (the calibration's pitch, focus, distance and field of
   view) and a sky behind the road. Its frame can be turned off too, which fixes it in place.
-- **Capture movement keys** works in both: while the game is open it takes your move, strafe, turn
-  and jump keys, so your character stays where it is and the runner runs on its own. Steering with
-  the mouse buttons still moves your character.
+- **Capture movement keys** (on by default) works in both: while the game is open it takes your
+  move, strafe, turn and jump keys, so your character stays where it is and the runner runs on
+  its own. Steering with the mouse buttons still moves your character.
+
+The window frame's minimize button switches from full screen to the side window, its maximize
+button back. The game opens on a start dialog with your best score. **R** starts over: press it
+once after a run, or hold it for a moment during one.
 
 The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
 `/surfer help` lists them.

@@ -26,6 +26,7 @@ src\game\overlay.lua
 src\game\decorations.lua
 src\game\obstacles.lua
 src\game\window.lua
+src\game\menu.lua
 src\game\controls.lua
 
 Surfer.lua

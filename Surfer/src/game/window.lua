@@ -6,16 +6,24 @@ local light = app.light
 -- lies around the real character. In the side window ("side") it is a window of its own,
 -- dragged by its title and sized from its corner: its camera is the calibration's (not the real
 -- zoom), with a sky and land behind the road, as there is no world to show through. Either mode
--- can have a window frame (`profile.frame`): border, title bar and close button.
+-- can have a window frame (`profile.frame`): the classic portrait frame (as the spell book's)
+-- without its portrait, with a title bar, close and minimize / maximize buttons.
 local overlay = app.overlay
 local cam = overlay.camera
 
--- The frame's border and title bar around the view, in pixels: DefaultPanelBaseTemplate's
--- content area.
-local INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM = 6, 21, 2, 2
+-- The frame's border and title bar around the view, in pixels: PortraitFrameTemplate's content
+-- area.
+local INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM = 2, 21, 2, 2
+-- How far the frame's corners reach out of it: the top left and bottom corners, and the close
+-- button above the top right one. Full screen, the frame sits this far inside the screen's
+-- edges; the side window keeps them on the screen when clamped. Fitted by eye in the game, not
+-- the textures' own offsets.
+local OUT_LEFT, OUT_TOP, OUT_RIGHT, OUT_BOTTOM = -1, 5, 3, 5
 -- The smallest side window: room for the buttons and the score line.
 local MIN_WIDTH, MIN_HEIGHT = 360, 300
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
+-- The buttons' row under the score: its buttons' width and spacing.
+local BUTTON_STEP = 88
 
 -- The frame (a sibling of the view, so the side window's clipping does not cut it off), its
 -- drag handle and size grip, and the backdrop. Shown and hidden with the view.
@@ -29,27 +37,37 @@ function overlay:CreateWindow(f)
     self.land:SetPoint("BOTTOMLEFT")
     self.land:SetPoint("BOTTOMRIGHT")
 
-    local chrome = CreateFrame("Frame", nil, UIParent, "DefaultPanelBaseTemplate")
+    -- Built like the spell book's frame: the portrait frame with its close button, and the
+    -- maximize / minimize buttons left of it. Its background and portrait are left out: the
+    -- game shows through, and the client's own helper turns the portrait into a plain corner.
+    local chrome = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
     self:Stack(chrome, "window")
     chrome:EnableMouse(false)
     chrome:Hide()
     self.chrome = chrome
-    local title = chrome.TitleContainer and chrome.TitleContainer.TitleText
-    if title then
-        title:SetText(appName)
-    end
-    local close = CreateFrame("Button", nil, chrome, "UIPanelCloseButton")
-    close:SetPoint("TOPRIGHT", 4, 4)
-    if chrome.TitleContainer then
-        close:SetFrameLevel(chrome.TitleContainer:GetFrameLevel() + 1)
-    end
+    chrome.Bg:Hide()
+    chrome.TopTileStreaks:Hide()
+    ButtonFrameTemplate_HidePortrait(chrome)
+    chrome:GetTitleText():SetText(appName)
+    local close = chrome.CloseButton
     close:SetScript("OnClick", function()
         f:Hide()
     end)
+    local resize = CreateFrame("Frame", nil, chrome, "MaximizeMinimizeButtonFrameTemplate")
+    resize:SetPoint("RIGHT", close, "LEFT")
+    resize:SetFrameLevel(close:GetFrameLevel())
+    resize:SetOnMinimizedCallback(function()
+        self:SetMode("side")
+    end)
+    resize:SetOnMaximizedCallback(function()
+        self:SetMode("full")
+    end)
+    self.resizeButton = resize
 
     local handle = CreateFrame("Frame", nil, chrome)
     handle:SetPoint("TOPLEFT")
-    handle:SetPoint("BOTTOMRIGHT", chrome, "TOPRIGHT", -28, -INSET_TOP)
+    -- The title bar, up to the minimize / maximize and close buttons.
+    handle:SetPoint("BOTTOMRIGHT", chrome, "TOPRIGHT", -60, -INSET_TOP)
     handle:RegisterForDrag("LeftButton")
     handle:SetScript("OnDragStart", function()
         f:StartMoving()
@@ -73,9 +91,7 @@ function overlay:CreateWindow(f)
         f:StopMovingOrSizing()
         self:SaveWindow()
     end)
-    if chrome.TitleContainer then
-        grip:SetFrameLevel(chrome.TitleContainer:GetFrameLevel() + 1)
-    end
+    grip:SetFrameLevel(close:GetFrameLevel())
     self.grip = grip
 
     if f.SetResizeBounds then
@@ -104,12 +120,20 @@ function overlay:SaveWindow()
     saved.width, saved.height = f:GetSize()
 end
 
+-- Switches to full screen ("full") or the side window ("side").
+function overlay:SetMode(mode)
+    app.db.profile.mode = mode
+    self:ApplyMode()
+    app.options:Refresh()
+end
+
 -- Puts the view where the mode wants it, with its frame and capture setting; on Create and when
 -- a mode setting or the profile changes.
 function overlay:ApplyMode()
     local profile, f = app.db.profile, self.frame
     local side = profile.mode == "side"
     self.side, self.capture = side, profile.capture
+    self:Restack()
     self.framed = profile.frame[side and "side" or "full"]
     f:ClearAllPoints()
     local chrome = self.chrome
@@ -121,14 +145,21 @@ function overlay:ApplyMode()
         chrome:SetPoint("TOPLEFT", f, "TOPLEFT", -INSET_LEFT, INSET_TOP)
         chrome:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", INSET_RIGHT, -INSET_BOTTOM)
         if self.framed then
-            f:SetClampRectInsets(-INSET_LEFT, INSET_RIGHT, INSET_TOP, -INSET_BOTTOM)
+            f:SetClampRectInsets(
+                -INSET_LEFT - OUT_LEFT,
+                INSET_RIGHT + OUT_RIGHT,
+                INSET_TOP + OUT_TOP,
+                -INSET_BOTTOM - OUT_BOTTOM
+            )
         else
             f:SetClampRectInsets(0, 0, 0, 0)
         end
     else
         f:SetAllPoints(UIParent)
-        -- Over the screen's edges: the road must stay centered on the real character.
-        chrome:SetAllPoints(f)
+        -- Over the screen's edges (the road must stay centered on the real character), the
+        -- parts reaching out of it on the screen.
+        chrome:SetPoint("TOPLEFT", f, "TOPLEFT", OUT_LEFT, -OUT_TOP)
+        chrome:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -OUT_RIGHT, OUT_BOTTOM)
     end
     f:SetMovable(side)
     f:SetResizable(side)
@@ -141,6 +172,12 @@ function overlay:ApplyMode()
     self.land:SetShown(side)
     self.dragHandle:EnableMouse(side)
     self.grip:SetShown(side)
+    -- Minimized to the side window, it offers to maximize, and the other way round.
+    if side then
+        self.resizeButton:SetMaximizedLook()
+    else
+        self.resizeButton:SetMinimizedLook()
+    end
     chrome:SetShown(self.framed and f:IsShown())
     -- Everything is placed, shaded and written again.
     self.lastRoad, self.groundLight, self.lastHint, self.shown = {}, nil, nil, nil
@@ -152,12 +189,23 @@ end
 function overlay:Layout()
     local side, w, h = self.side, self.frame:GetSize()
     -- Full screen, a frame's title bar covers the top of the screen.
-    local top = (not side and self.framed) and -INSET_TOP or 0
+    local top = (not side and self.framed) and -(OUT_TOP + INSET_TOP) or 0
     self.score:SetFontObject(side and GameFontNormal or GameFontNormalLarge)
     self.score:ClearAllPoints()
     self.score:SetPoint("TOP", 0, top - (side and 8 or 14))
     self.controls:ClearAllPoints()
     self.controls:SetPoint("TOP", 0, top - (side and 26 or 38))
+    -- Restart and Pause; Minimize (or Maximize) and Close too without the frame's buttons.
+    local buttons, count = self.controlButtons, self.framed and 2 or 4
+    buttons[3]:SetText(side and "Maximize" or "Minimize")
+    for i, b in ipairs(buttons) do
+        b:SetShown(i <= count)
+        b:ClearAllPoints()
+        b:SetPoint("LEFT", (i - 1) * BUTTON_STEP, 0)
+    end
+    self.controls:SetWidth(count * BUTTON_STEP - 4)
+    self.holdBar:ClearAllPoints()
+    self.holdBar:SetPoint("TOP", self.controls, "BOTTOM", 0, -12)
     self.message:ClearAllPoints()
     self.hint:ClearAllPoints()
     if side then

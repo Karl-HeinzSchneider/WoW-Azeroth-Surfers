@@ -26,6 +26,10 @@ end
 local function count(name)
     counts[name] = (counts[name] or 0) + 1
 end
+function special.GetStringHeight()
+    count("GetStringHeight")
+    return 12
+end
 function special.GetSize()
     count("GetSize")
     return 1920, 1080
@@ -105,13 +109,18 @@ function CreateFrame(kind, _, _, template)
     if kind == "ModelScene" then
         shownScenes[#shownScenes + 1] = frame
     end
-    if template == "DefaultPanelBaseTemplate" then
-        frame.TitleContainer = stub("Frame")
-        frame.TitleContainer.TitleText = stub("FontString")
+    if template == "PortraitFrameTemplate" then
+        frame.Bg, frame.TopTileStreaks = stub("Texture"), stub("Texture")
+        frame.CloseButton = stub("Button")
+        local title = stub("FontString")
+        function frame.GetTitleText()
+            return title
+        end
     end
     return frame
 end
 UIParent = stub("Frame")
+function ButtonFrameTemplate_HidePortrait() end
 function CreateColor()
     return stub("Color")
 end
@@ -165,11 +174,14 @@ for _, file in ipairs({
     "game/decorations",
     "game/obstacles",
     "game/window",
+    "game/menu",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
 end
 local profile = app.dbDefaults.profile
+-- The runner follows the character's sampled movement, as without capturing the keys.
+profile.capture = false
 app.db = { profile = profile, global = { bestScore = 0 } }
 math.randomseed(1)
 
