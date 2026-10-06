@@ -15,8 +15,7 @@ Install the **Surfer** subfolder in Interface/AddOns, reload, and type **/surfer
 
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
-control the runner. Forward movement no longer triggers a jump. The track still auto-runs
-once started; it is not driven by your character's world position or speed.
+control the runner. Forward movement no longer triggers a jump. The track advances only while your character actually moves forward relative to its facing. Stopping, moving backward, pure strafing, and pushing against a wall do not advance it. Autorun and mouse movement work too. Jumping and lane transitions still update while stopped.
 **/surfer options** opens addon settings. The game closes and pauses on combat entry
 and pauses when hidden. No real-player movement or camera commands are issued by the addon.
 

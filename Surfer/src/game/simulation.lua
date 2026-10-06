@@ -38,6 +38,7 @@ function game.New(random)
         height = 0,
         velocity = 0,
         distance = 0,
+        forward = false,
         coins = 0,
         speed = 12,
         accumulator = 0,
@@ -74,7 +75,9 @@ function game.Pause(s)
 end
 local function tick(s)
     s.speed = math.min(24, 12 + s.distance / 180)
-    s.distance = s.distance + s.speed * STEP
+    if s.forward then
+        s.distance = s.distance + s.speed * STEP
+    end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
     if s.velocity ~= 0 or s.height > 0 then

@@ -12,6 +12,7 @@ local function fresh()
         return -1
     end)
     g.Start(s)
+    s.forward = true
     return s
 end
 local function advance(s, seconds, fps)
@@ -122,3 +123,17 @@ s.height = 0
 s.lateral = 0.2
 assert(not g.Overlaps(s, { kind = "coin", lane = 0, at = 0 }))
 print("PASS visible obstacle depth, lateral near misses, jump clearance and coin bounds")
+
+local stopped = fresh()
+stopped.forward = false
+g.Jump(stopped)
+advance(stopped, 0.9, 60)
+assert(stopped.distance == 0 and stopped.height == 0)
+stopped.forward = true
+advance(stopped, 0.2, 60)
+assert(stopped.distance > 0)
+local distance = stopped.distance
+stopped.forward = false
+advance(stopped, 0.2, 60)
+assert(stopped.distance == distance)
+print("PASS track advances only with forward movement; jumps still land while stopped")

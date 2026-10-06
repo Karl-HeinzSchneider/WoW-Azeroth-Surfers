@@ -119,6 +119,32 @@ function runner:Action(key)
         end
     end
 end
+-- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
+function runner:IsMovingForward(elapsed)
+    local x, y, _, map = UnitPosition("player")
+    local facing = GetPlayerFacing()
+    local previous = self.previousPosition
+    if type(x) ~= "number" or type(y) ~= "number" or type(facing) ~= "number" then
+        self.previousPosition = nil
+        return false
+    end
+    self.previousPosition = { x = x, y = y, map = map }
+    if not previous or previous.map ~= map or elapsed <= 0 then
+        return false
+    end
+    local speed = GetUnitSpeed("player") or 0
+    if speed <= 0 then
+        return false
+    end
+    local dx, dy = x - previous.x, y - previous.y
+    -- Reject teleports and large discontinuities instead of advancing the track.
+    local limit = math.max(1, speed * elapsed * 3)
+    if dx * dx + dy * dy > limit * limit then
+        return false
+    end
+    local forward = dx * math.cos(facing) + dy * math.sin(facing)
+    return forward > 0.05 * elapsed
+end
 function runner:OnMovementKey(key)
     if InCombatLockdown() or GetCurrentKeyBoardFocus() then
         return
@@ -289,6 +315,8 @@ function runner:Create()
         self:OnMovementKey(key)
     end)
     f:SetScript("OnHide", function()
+        self.previousPosition = nil
+        self.state.forward = false
         if self.state.status == "running" then
             sim.Pause(self.state)
         end
@@ -320,6 +348,10 @@ function runner:Create()
         end
     end)
     f:SetScript("OnUpdate", function(_, elapsed)
+        self.state.forward = self:IsMovingForward(elapsed)
+        if self.state.forward and self.state.status == "ready" then
+            sim.Start(self.state)
+        end
         local before = self.state.status
         sim.Update(self.state, elapsed)
         if before == "running" and self.state.status == "over" then
@@ -417,7 +449,8 @@ function runner:Render()
     end
     position(self.player, 0, laneY(s.lateral * LANE), s.height + (self.playerOffset or 0))
     -- Keep the impact pose visible rather than snapping to standing on a crash.
-    local animation = (s.status == "running" or s.status == "over") and (s.height > 0 and 38 or 5) or 0
+    local animation = (s.status == "running" or s.status == "over") and (s.height > 0 and 38 or (s.forward and 5 or 0))
+        or 0
     if animation ~= self.animation then
         self.player:SetAnimation(animation, 0, 1, 0)
         self.animation = animation

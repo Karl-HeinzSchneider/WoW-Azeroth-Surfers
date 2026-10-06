@@ -59,3 +59,33 @@ for _, direction in ipairs({ -1, 1 }) do
     assert(r.scene:Transform3DPointTo2D(0, r.laneSign) > 450)
 end
 print("PASS lane orientation for both native camera directions")
+
+local x, y, map, facing, speed = 0, 0, 1, 0, 7
+function UnitPosition()
+    return x, y, 0, map
+end
+function GetPlayerFacing()
+    return facing
+end
+function GetUnitSpeed()
+    return speed
+end
+assert(not r:IsMovingForward(0.1))
+x = 0.7
+assert(r:IsMovingForward(0.1))
+x = 0
+assert(not r:IsMovingForward(0.1))
+y = 0.7
+assert(not r:IsMovingForward(0.1))
+assert(not r:IsMovingForward(0.1))
+facing = math.pi
+x = -0.7
+assert(r:IsMovingForward(0.1))
+x = 100
+assert(not r:IsMovingForward(0.1))
+map = 2
+assert(not r:IsMovingForward(0.1))
+speed = 0
+x = 99.9
+assert(not r:IsMovingForward(0.1))
+print("PASS forward/backward/strafe/standing movement, facing, teleports and map changes")
