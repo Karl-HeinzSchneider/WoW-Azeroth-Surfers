@@ -17,6 +17,7 @@ src\core\options.lua
 src\core\minimapbutton.lua
 
 src\game\simulation.lua
+src\game\light.lua
 src\game\shapes.lua
 src\game\overlay.lua
 src\game\controls.lua

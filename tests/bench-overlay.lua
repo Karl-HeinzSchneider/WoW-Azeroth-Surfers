@@ -144,7 +144,7 @@ local app = {
         end,
     },
 }
-for _, file in ipairs({ "core/db", "game/simulation", "game/shapes", "game/overlay", "game/controls" }) do
+for _, file in ipairs({ "core/db", "game/simulation", "game/light", "game/shapes", "game/overlay", "game/controls" }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
 end
 local profile = app.dbDefaults.profile

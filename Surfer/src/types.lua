@@ -7,6 +7,7 @@
 
 ---@class Surfer
 ---@field simulation table
+---@field light table  # the world's day/night light, shared by the ground and every 3D model
 ---@field shapes table  # the faces of the track's boxes and coins, and their texture pool
 ---@field overlay table  # the game: full-screen view (overlay.lua) and its controls (controls.lua)
 ---@field logger Surfer.Logger

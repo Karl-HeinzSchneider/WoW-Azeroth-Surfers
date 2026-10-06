@@ -1,6 +1,6 @@
 -- Exercise the full-screen projection, the twin and the coins without creating client UI frames.
 local app = {}
-for _, file in ipairs({ "simulation", "shapes", "overlay", "controls" }) do
+for _, file in ipairs({ "simulation", "light", "shapes", "overlay", "controls" }) do
     assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
 end
 app.db = {
@@ -266,9 +266,21 @@ function GetGameTime()
 end
 o:Render()
 assert(math.abs(road.red - 0.75) < 1e-9 and road.red == road.blue, "by day: the brightness setting, white")
+local model = {
+    SetLightAmbientColor = function(self, r, _, b)
+        self.ambient = { r, b }
+    end,
+    SetLightDiffuseColor = function(self, r)
+        self.diffuse = r
+    end,
+}
+app.light.AddScene(model, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
+assert(model.ambient[1] == 0.8 and model.diffuse == 0.6, "a model scene by day: its own colors")
 hour = 23
 o:Render()
 assert(road.red < 0.4 and road.blue > road.red, "at night: dimmer and moonlit blue")
+assert(model.ambient[1] < 0.4 and model.ambient[2] > model.ambient[1], "models are relit at night")
+assert(math.abs(model.ambient[1] / 0.8 - road.red / 0.75) < 1e-9, "models and ground share one light")
 hour = 6
 o:Render()
 assert(road.red > 0.45 and road.red < 0.7, "at dawn: in between")
@@ -277,7 +289,7 @@ o:Render()
 assert(math.abs(road.red - 0.75) < 1e-9, "without the clock: always day")
 settings.dayNight, GetGameTime = true, nil
 o:Render()
-print("PASS the ground's light follows the game's clock and the brightness setting")
+print("PASS the ground and 3D models share a light that follows the game's clock")
 
 -- A texture that does not load leaves a plain color.
 local fallback = {}
@@ -294,7 +306,7 @@ o:CreateGround({
 assert(#fallback > 0 and not fallback[1].tile, "a missing texture is drawn as a plain color")
 missing = 187113
 o:CreateGround({ CreateTexture = texture })
-o.light, o.lastRoad = nil, {}
+o.groundLight, o.lastRoad = nil, {}
 print("PASS a missing ground texture falls back to a color")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.

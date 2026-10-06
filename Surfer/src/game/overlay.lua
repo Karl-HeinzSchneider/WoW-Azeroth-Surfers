@@ -2,6 +2,7 @@
 local _, app = ...
 local sim = app.simulation
 local shapes = app.shapes
+local light = app.light
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
 -- Where the ground's pieces start and end: a yard deep near the runner, then 2 and 4 yards
@@ -170,39 +171,25 @@ function overlay:CreateGround(f)
     self.groundColors = { CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1) }
 end
 
--- The ground's light: the brightness setting, by night dimmed to a moonlit blue. The world's
--- own light cannot be read, so it follows the game's clock: dawn from 5 to 7, dusk 19 to 21.
--- Tells whether it changed since the last call, at most once a game minute.
-local NIGHT = { 0.45, 0.5, 0.7 }
-function overlay:UpdateLight()
+-- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
+-- or the opacity, changed since the last call.
+function overlay:UpdateGroundLight()
     local settings = app.db.profile.overlay
-    local day = 1
-    if settings.dayNight and GetGameTime then
-        local hour, minute = GetGameTime()
-        local t = hour + minute / 60
-        day = math.min(1, math.max(0, (t - 5) / 2)) - math.min(1, math.max(0, (t - 19) / 2))
-    end
-    local light = self.light or {}
-    self.light = light
-    local same = unchanged(light, "day", day)
-    same = unchanged(light, "brightness", settings.brightness) and same
-    same = unchanged(light, "opacity", settings.opacity) and same
-    if same then
-        return false
-    end
-    light.r = settings.brightness * (NIGHT[1] + (1 - NIGHT[1]) * day)
-    light.g = settings.brightness * (NIGHT[2] + (1 - NIGHT[2]) * day)
-    light.b = settings.brightness * (NIGHT[3] + (1 - NIGHT[3]) * day)
-    return true
+    local last = self.groundLight or {}
+    self.groundLight = last
+    local same = unchanged(last, "day", light.day)
+    same = unchanged(last, "brightness", settings.brightness) and same
+    same = unchanged(last, "opacity", settings.opacity) and same
+    return not same
 end
 
 -- The pieces' light and see-through: the opacity setting, the far fade and the soft edges.
 function overlay:ShadeGround()
     local left, right = self.groundColors[1], self.groundColors[2]
-    local light = self.light
-    local r, g, b = light.r, light.g, light.b
+    local brightness, opacity = self.groundLight.brightness, self.groundLight.opacity
+    local r, g, b = light.r * brightness, light.g * brightness, light.b * brightness
     for _, t in ipairs(self.ground) do
-        local alpha = light.opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
+        local alpha = opacity * math.min(1, math.max(0, (FADE_END - t.near) / (FADE_END - FADE_START)))
         if t.alphaLeft == t.alphaRight then
             t:SetVertexColor(r, g, b, alpha * t.alphaLeft)
         else
@@ -363,8 +350,7 @@ function overlay:Create()
     twin:SetFrameStrata("LOW")
     twin:SetCameraNearClip(0.1)
     twin:SetCameraFarClip(200)
-    twin:SetLightAmbientColor(0.8, 0.8, 0.8)
-    twin:SetLightDiffuseColor(0.6, 0.6, 0.6)
+    light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
     self.twin = twin
     self.twinActor = twin:CreateActor()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
@@ -381,8 +367,7 @@ function overlay:Create()
         scene:SetCameraFieldOfView(2 * math.atan(COIN_FRAME / 2 / COIN_VIEW))
         scene:SetCameraNearClip(0.1)
         scene:SetCameraFarClip(10)
-        scene:SetLightAmbientColor(0.9, 0.85, 0.7)
-        scene:SetLightDiffuseColor(0.8, 0.75, 0.6)
+        light.AddScene(scene, { 0.9, 0.85, 0.7 }, { 0.8, 0.75, 0.6 })
         local actor = scene:CreateActor()
         actor:SetUseCenterForOrigin(true, true, true)
         self.coins[i] = { scene = scene, actor = actor }
@@ -593,7 +578,8 @@ function overlay:Render(lap)
         end
         self:AimCoinCameras()
     end
-    if self:UpdateLight() then
+    light.Update()
+    if self:UpdateGroundLight() then
         self:ShadeGround()
     end
     lap = self:Lap("road placement", lap)

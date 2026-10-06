@@ -140,7 +140,7 @@ local options = {
                     type = "toggle",
                     order = 75,
                     name = "Darker at night",
-                    desc = "The ground follows the game's clock: dimmed and moonlit blue at night, brightening at dawn (5 to 7) and darkening at dusk (19 to 21).",
+                    desc = "The ground, your twin and the coins follow the game's clock: dimmed and moonlit blue at night, brightening at dawn (5 to 7) and darkening at dusk (19 to 21).",
                     get = function()
                         return app.db.profile.overlay.dayNight
                     end,

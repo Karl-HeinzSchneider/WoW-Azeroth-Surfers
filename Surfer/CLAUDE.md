@@ -64,6 +64,10 @@ be listed**. The order follows these rules:
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
   collide or are collected.
+- `src/game/light.lua` — `app.light`, the day/night light by the game's clock (`GetGameTime`; the
+  world's own light cannot be read). Every 3D model's ModelScene registers with
+  `light.AddScene(scene, ambient, diffuse)` (its colors by day) instead of setting its lights;
+  the ground multiplies its vertex colors by `light.r/g/b`.
 - `src/game/shapes.lua` — turns boxes and coins into the faces to draw, and pools their textures
   (show, color and draw layer only set on a change).
 - `src/game/overlay.lua` — `app.overlay`, the full-screen view: road, boxes and coins as UI
