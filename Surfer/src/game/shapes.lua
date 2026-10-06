@@ -12,9 +12,15 @@ app.shapes = shapes
 -- Faces closer than this are not drawn; farther than DRAW_DISTANCE neither.
 local NEAR, DRAW_DISTANCE = -3, 85
 
--- The track curves down and away toward the horizon.
+-- The track curves down and away toward the horizon: it drops `curve` times the distance
+-- squared, in yards. The overlay sets it (the biome's `ground.curve`, or the fixed one).
+local curve = 0.0005
 function shapes.Ground(d)
-    return -0.0005 * math.max(d, 0) ^ 2
+    return -curve * math.max(d, 0) ^ 2
+end
+
+function shapes.SetCurve(value)
+    curve = value
 end
 local ground = shapes.Ground
 

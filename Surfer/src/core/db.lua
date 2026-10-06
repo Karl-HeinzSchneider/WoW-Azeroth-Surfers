@@ -36,6 +36,8 @@ local profile = {
         opacity = 1,
         brightness = 0.75, -- the ground's light by day
         dayNight = true, -- the ground darkens at night, by the game's clock
+        fixedCurve = false, -- `curve` instead of the biome's ground curve
+        curve = 0.0005, -- the ground's drop: this times the distance ahead squared, in yards
     },
 }
 

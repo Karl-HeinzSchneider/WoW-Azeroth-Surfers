@@ -253,6 +253,37 @@ local options = {
                     1,
                     0.05
                 ),
+                fixedCurve = {
+                    type = "toggle",
+                    order = 80,
+                    name = "Fixed ground curve",
+                    desc = "Use the curve below instead of the biome's: how the ground bends down toward the horizon.",
+                    get = function()
+                        return app.db.profile.overlay.fixedCurve
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.fixedCurve = value
+                    end,
+                },
+                curve = {
+                    type = "range",
+                    order = 81,
+                    name = "Ground curve",
+                    desc = "How many yards the ground drops 50 yards ahead. 0 is flat.",
+                    min = 0,
+                    max = 6,
+                    step = 0.05,
+                    disabled = function()
+                        return not app.db.profile.overlay.fixedCurve
+                    end,
+                    -- Stored as the drop per yard squared.
+                    get = function()
+                        return app.db.profile.overlay.curve * 2500
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.curve = value / 2500
+                    end,
+                },
                 dayNight = {
                     type = "toggle",
                     order = 75,

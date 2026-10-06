@@ -42,6 +42,10 @@ app.biomes.Register("default", {
         -- The far ground fades out between these distances ahead instead of ending at a hard
         -- edge.
         fade = { from = 60, to = 88 },
+        -- How the ground curves down and away toward the horizon: it drops `curve` times the
+        -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85).
+        -- 0 is flat. Everything on the road follows it. The options can fix it instead.
+        curve = 0.0005,
     },
 
     -- 3D models along both sides of the road, as actors of one scene. Along each side a group

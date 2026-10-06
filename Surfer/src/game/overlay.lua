@@ -121,6 +121,12 @@ function overlay:UpdateCamera()
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
+    -- The biome's curve, or the fixed one of the options.
+    local curve = settings.fixedCurve and settings.curve or self.biome.ground.curve
+    if not unchanged(last, "curve", curve) then
+        shapes.SetCurve(curve)
+        same = false
+    end
     return not same
 end
 
