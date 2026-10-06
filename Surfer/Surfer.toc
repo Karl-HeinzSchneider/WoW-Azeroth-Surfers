@@ -16,9 +16,14 @@ src\core\ace.lua
 src\core\options.lua
 src\core\minimapbutton.lua
 
+src\game\biomes.lua
+src\biomes\default.lua
+src\biomes\elwynn.lua
 src\game\simulation.lua
+src\game\light.lua
 src\game\shapes.lua
 src\game\overlay.lua
+src\game\decorations.lua
 src\game\controls.lua
 
 Surfer.lua

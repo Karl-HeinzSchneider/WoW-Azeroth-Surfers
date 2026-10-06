@@ -18,14 +18,8 @@ function shapes.Ground(d)
 end
 local ground = shapes.Ground
 
--- Colors by kind and part.
-shapes.colors = {
-    obstacle = { front = { 0.9, 0.29, 0.17 }, top = { 1, 0.48, 0.25 }, side = { 0.68, 0.2, 0.12 } },
-    barrier = { front = { 0.95, 0.72, 0.18 }, top = { 1, 0.85, 0.4 }, side = { 0.7, 0.5, 0.1 } },
-    post = { front = { 0.55, 0.58, 0.6 } },
-    platform = { front = { 0.2, 0.42, 0.72 }, top = { 0.32, 0.58, 0.88 }, side = { 0.14, 0.32, 0.58 } },
-    coin = { front = { 1, 0.77, 0.2 } },
-}
+-- Colors by kind and part: the biome's `shapes` (biomes/default.lua), set by the overlay.
+shapes.colors = nil
 
 local out, count = {}, 0
 local function add(object, kind, part, depth, ...)

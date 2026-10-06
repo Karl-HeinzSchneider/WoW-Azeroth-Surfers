@@ -56,6 +56,24 @@ local options = {
                 app.db.profile.coinSound = value
             end,
         },
+        biome = {
+            type = "select",
+            order = 7,
+            name = "Biome",
+            desc = "How the game looks: its ground, obstacles and coins.",
+            values = function()
+                return app.biomes.Names()
+            end,
+            get = function()
+                return app.db.profile.biome
+            end,
+            set = function(_, value)
+                app.db.profile.biome = value
+                if app.overlay.frame then
+                    app.overlay:ApplyBiome()
+                end
+            end,
+        },
         overlay = {
             type = "group",
             order = 30,
@@ -127,6 +145,27 @@ local options = {
                     0.01
                 ),
                 opacity = calibration(60, "opacity", "Road opacity", nil, 0.1, 1, 0.05),
+                brightness = calibration(
+                    70,
+                    "brightness",
+                    "Ground brightness",
+                    "How bright the road and grass are by day.",
+                    0.2,
+                    1,
+                    0.05
+                ),
+                dayNight = {
+                    type = "toggle",
+                    order = 75,
+                    name = "Darker at night",
+                    desc = "The ground, your twin and the coins follow the game's clock: dimmed and moonlit blue at night, brightening at dawn (5 to 7) and darkening at dusk (19 to 21).",
+                    get = function()
+                        return app.db.profile.overlay.dayNight
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.dayNight = value
+                    end,
+                },
             },
         },
         minimap = {

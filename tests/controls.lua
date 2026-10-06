@@ -1,5 +1,5 @@
 local app = {}
-for _, file in ipairs({ "simulation", "shapes", "overlay", "controls" }) do
+for _, file in ipairs({ "simulation", "light", "shapes", "overlay", "controls" }) do
     assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
 end
 local r = app.overlay

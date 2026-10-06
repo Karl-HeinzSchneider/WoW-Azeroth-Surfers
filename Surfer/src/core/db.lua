@@ -16,6 +16,7 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
+    biome = "elwynn", -- how the game looks: a file in src/biomes/
     -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
         hideReal = false, -- first-person camera while the view is open, so only the twin shows
@@ -24,7 +25,9 @@ local profile = {
         focus = 0.9, -- camera focus height, as a share of the character's height
         distance = 12, -- camera distance in yards, when the client cannot report its zoom
         fov = 55, -- vertical field of view in degrees
-        opacity = 0.85,
+        opacity = 1,
+        brightness = 0.75, -- the ground's light by day
+        dayNight = true, -- the ground darkens at night, by the game's clock
     },
 }
 

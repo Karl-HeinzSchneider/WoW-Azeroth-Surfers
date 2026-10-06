@@ -2,12 +2,12 @@
 local _, app = ...
 local sim = app.simulation
 local shapes = app.shapes
+local light = app.light
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
-local EDGES = { -3.7, -1.2, 1.2, 3.7 }
--- Where the road's strips start and end: a yard deep near the runner, then 2 and 4 yards
--- where they are only a few pixels tall. Fewer strips to place on every lane change and jump.
--- Lane lines are thin and need no bands: segments twice as long.
+-- Where the ground's pieces start and end: a yard deep near the runner, then 2 and 4 yards
+-- where they are only a few pixels tall. Fewer pieces to place on every lane change and jump,
+-- and short enough near the runner that a texture keeps its perspective on them.
 local function edges(scale)
     local list = { -3 }
     while list[#list] < 87 do
@@ -16,10 +16,8 @@ local function edges(scale)
     end
     return list
 end
-local STRIP_EDGES, LINE_EDGES = edges(1), edges(2)
--- Coin models from the game files, tried in order until one loads (community listfile ids:
--- 11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01). The flat coin stands in until then.
-local COIN_MODELS = { 5737987, 2313815, 200137 }
+-- A band's pieces by its `segments` (biomes/default.lua).
+local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- Yards: the model's largest side, the square each coin's scene shows, its camera distance.
 local COIN_SIZE, COIN_FRAME, COIN_VIEW = 0.5, 0.8, 3
 -- Farther coins are a few pixels tall: drawn flat, without a scene of their own.
@@ -53,6 +51,7 @@ local function unchanged(last, name, value)
     last[name] = value
     return false
 end
+overlay.Unchanged = unchanged
 function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
@@ -84,7 +83,6 @@ function overlay:UpdateCamera()
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
-    same = unchanged(last, "opacity", settings.opacity) and same
     return not same
 end
 
@@ -97,6 +95,11 @@ local function project(d, x, z)
     end
     local scale = cam.f / depth
     return cam.cx + (x + cam.offset) * scale, cam.cy + (vd * cam.sin + vz * cam.cos) * scale, scale
+end
+
+-- The road's projection of a point, for decorations.lua and tests.
+function overlay:Project(d, x, z)
+    return project(d, x, z)
 end
 
 -- The quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left and right.
@@ -115,6 +118,117 @@ local function face(t, left, right, d1, z1, d2, z2)
     shapes.Show(t)
 end
 
+-- The ground's pieces: textures fixed to a stretch of the ground, `left` to `right` across
+-- it and `near` to `far` ahead of the runner, on BACKGROUND under the boxes. Textures are
+-- reused when the biome changes; spare ones stay hidden.
+function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
+    local look = self.biome.ground
+    local surface = look.surfaces[band.surface]
+    local segments = SEGMENTS[band.segments]
+    assert(surface, "Surfer biome: unknown ground surface " .. tostring(band.surface))
+    assert(segments, "Surfer biome: a band's segments are 1, 2 or 4")
+    local list, pool = self.ground, self.groundPool
+    for i = 1, #segments - 1 do
+        local n = #list + 1
+        local t = pool[n]
+        if not t then
+            t = self.groundParent:CreateTexture(nil, "BACKGROUND", nil, band.layer)
+            t.groundLayer = band.layer
+            pool[n] = t
+        end
+        if t.groundLayer ~= band.layer then
+            t:SetDrawLayer("BACKGROUND", band.layer)
+            t.groundLayer = band.layer
+        end
+        t.kind, t.near, t.far, t.left, t.right = band.surface, segments[i], segments[i + 1], left, right
+        t.alphaLeft, t.alphaRight = alphaLeft, alphaRight
+        if surface.texture and t:SetTexture(surface.texture, "REPEAT", "REPEAT", "TRILINEAR") then
+            t.tile = surface.tile or look.tile
+        else
+            local color = surface.color
+            t:SetColorTexture(color[1], color[2], color[3], 1)
+            t.tile = false
+        end
+        list[n] = t
+    end
+end
+
+-- The biome's bands, mirrored to both sides of the road.
+function overlay:BuildGround()
+    local list = self.ground
+    for i = #list, 1, -1 do
+        list[i] = nil
+    end
+    for _, band in ipairs(self.biome.ground.bands) do
+        local from, to, inner, outer = band.from, band.to, band.opacity[1], band.opacity[2]
+        if from == 0 then
+            self:AddGroundPieces(band, -to, to, outer, outer)
+        else
+            self:AddGroundPieces(band, -to, -from, outer, inner)
+            self:AddGroundPieces(band, from, to, inner, outer)
+        end
+    end
+    for i = #list + 1, #self.groundPool do
+        shapes.Hide(self.groundPool[i])
+    end
+end
+
+function overlay:CreateGround(f)
+    self.groundParent, self.groundPool, self.ground = f, {}, {}
+    -- Reused for the gradients: colors are only read during the call.
+    self.groundColors = { CreateColor(1, 1, 1, 1), CreateColor(1, 1, 1, 1) }
+    if self.biome then
+        self:BuildGround()
+    end
+end
+
+-- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
+-- or the opacity, changed since the last call.
+function overlay:UpdateGroundLight()
+    local settings = app.db.profile.overlay
+    local last = self.groundLight or {}
+    self.groundLight = last
+    local same = unchanged(last, "day", light.day)
+    same = unchanged(last, "brightness", settings.brightness) and same
+    same = unchanged(last, "opacity", settings.opacity) and same
+    return not same
+end
+
+-- The pieces' light and see-through: the opacity setting, the far fade and the soft edges.
+function overlay:ShadeGround()
+    local left, right = self.groundColors[1], self.groundColors[2]
+    local brightness, opacity = self.groundLight.brightness, self.groundLight.opacity
+    local r, g, b = light.r * brightness, light.g * brightness, light.b * brightness
+    local fade = self.biome.ground.fade
+    for _, t in ipairs(self.ground) do
+        local alpha = opacity * math.min(1, math.max(0, (fade.to - t.near) / (fade.to - fade.from)))
+        if t.alphaLeft == t.alphaRight then
+            t:SetVertexColor(r, g, b, alpha * t.alphaLeft)
+        else
+            left:SetRGBA(r, g, b, alpha * t.alphaLeft)
+            right:SetRGBA(r, g, b, alpha * t.alphaRight)
+            t:SetGradient("HORIZONTAL", left, right)
+        end
+    end
+end
+
+-- The textures slide toward the runner as it runs; their place across the road is fixed, so
+-- they move with the road on lane changes. Offsets wrap at a tile, which looks the same.
+function overlay:ScrollGround()
+    local distance = self.state.distance
+    if self.scrolled == distance then
+        return
+    end
+    self.scrolled = distance
+    for _, t in ipairs(self.ground) do
+        local tile = t.tile
+        if tile then
+            local base = distance % tile
+            t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
+        end
+    end
+end
+
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
 local function extents(actor)
     if not actor:IsLoaded() then
@@ -129,6 +243,7 @@ local function extents(actor)
     end
     return a, b, c, d, e, f
 end
+overlay.Extents = extents
 
 -- Character height in yards from a copy without weapons; a human-sized guess until it loads.
 function overlay:Measure()
@@ -173,9 +288,29 @@ function overlay:ApplyHideReal()
     self:HideRealCharacter(shown and app.db.profile.overlay.hideReal or false)
 end
 
+-- The biome's look: ground, coins, box colors and night light. On a change while playing,
+-- everything is redrawn with the new one.
+function overlay:ApplyBiome()
+    local biome = app.biomes.Current()
+    self.biome = biome
+    shapes.colors = biome.shapes
+    light.SetNight(biome.light.night)
+    if self.groundParent then
+        self:BuildGround()
+    end
+    for _, coin in ipairs(self.coins) do
+        light.AddScene(coin.scene, biome.coin.ambient, biome.coin.diffuse)
+    end
+    self:LoadCoinModel(1)
+    if self.decorScene then
+        self:ApplyDecorations(biome)
+    end
+    self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
+end
+
 function overlay:LoadCoinModel(index)
     self.coinModel, self.coinWait, self.coinReady = index, 0, false
-    local id = COIN_MODELS[index]
+    local id = self.biome.coin.models[index]
     for _, coin in ipairs(self.coins) do
         if id and not coin.actor:SetModelByFileID(id) then
             return self:LoadCoinModel(index + 1)
@@ -185,7 +320,8 @@ end
 
 -- Fits the coin model into COIN_SIZE once it has loaded, or moves on to the next candidate.
 function overlay:UpdateCoinModel(elapsed)
-    if self.coinReady or not COIN_MODELS[self.coinModel] then
+    local models = self.biome.coin.models
+    if self.coinReady or not models[self.coinModel] then
         return
     end
     local minX, minY, minZ, maxX, maxY, maxZ = extents(self.coins[1].actor)
@@ -198,12 +334,12 @@ function overlay:UpdateCoinModel(elapsed)
             coin.actor:SetPitch(flat and math.pi / 2 or 0)
         end
         self.coinReady = true
-        app.logger:debug("Coin model %d loaded", COIN_MODELS[self.coinModel])
+        app.logger:debug("Coin model %d loaded", models[self.coinModel])
         return
     end
     self.coinWait = self.coinWait + elapsed
     if self.coinWait > 3 then
-        app.logger:debug("Coin model %d did not load", COIN_MODELS[self.coinModel])
+        app.logger:debug("Coin model %d did not load", models[self.coinModel])
         self:LoadCoinModel(self.coinModel + 1)
     end
 end
@@ -232,20 +368,8 @@ function overlay:Create()
     -- Above the 3D world, below the rest of the UI; clicks go through to the world.
     f:SetFrameStrata("BACKGROUND")
     f:EnableMouse(false)
-    -- The road: surface strips, and lane lines just above them; the boxes on it draw on BORDER.
-    self.strips, self.lines = {}, {}
-    for i = 1, #STRIP_EDGES - 1 do
-        local strip = f:CreateTexture(nil, "BACKGROUND", nil, 0)
-        strip.near, strip.far = STRIP_EDGES[i], STRIP_EDGES[i + 1]
-        self.strips[i] = strip
-    end
-    for i = 1, #LINE_EDGES - 1 do
-        for j = 1, 4 do
-            local line = f:CreateTexture(nil, "BACKGROUND", nil, 1)
-            line.near, line.far, line.edge = LINE_EDGES[i], LINE_EDGES[i + 1], j
-            self.lines[#self.lines + 1] = line
-        end
-    end
+    -- The ground; the boxes on it draw on BORDER.
+    self:CreateGround(f)
     self.faces = shapes.Pool(f, "BORDER")
     local probe = CreateFrame("ModelScene", nil, f)
     probe:SetSize(1, 1)
@@ -260,8 +384,7 @@ function overlay:Create()
     twin:SetFrameStrata("LOW")
     twin:SetCameraNearClip(0.1)
     twin:SetCameraFarClip(200)
-    twin:SetLightAmbientColor(0.8, 0.8, 0.8)
-    twin:SetLightDiffuseColor(0.6, 0.6, 0.6)
+    light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
     self.twin = twin
     self.twinActor = twin:CreateActor()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
@@ -278,13 +401,12 @@ function overlay:Create()
         scene:SetCameraFieldOfView(2 * math.atan(COIN_FRAME / 2 / COIN_VIEW))
         scene:SetCameraNearClip(0.1)
         scene:SetCameraFarClip(10)
-        scene:SetLightAmbientColor(0.9, 0.85, 0.7)
-        scene:SetLightDiffuseColor(0.8, 0.75, 0.6)
         local actor = scene:CreateActor()
         actor:SetUseCenterForOrigin(true, true, true)
         self.coins[i] = { scene = scene, actor = actor }
     end
-    self:LoadCoinModel(1)
+    self:CreateDecorations(f)
+    self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
     self.message = label(f, "GameFontNormalHuge", "CENTER", 220)
@@ -483,36 +605,28 @@ end
 
 function overlay:Render(lap)
     local s = self.state
-    local opacity = app.db.profile.overlay.opacity
     if self:UpdateCamera() then
-        for _, strip in ipairs(self.strips) do
-            local near, far = strip.near, strip.far
-            face(strip, EDGES[1], EDGES[4], near, ground(near), far, ground(far))
-            strip.shade = nil
-        end
-        for _, line in ipairs(self.lines) do
-            local near, far, x = line.near, line.far, EDGES[line.edge]
-            face(line, x - 0.025, x + 0.025, near, ground(near), far, ground(far))
-            -- Only the opacity changes their color.
-            if line.opacity ~= opacity then
-                local edge = line.edge == 1 or line.edge == 4
-                line:SetColorTexture(0.35, 0.75, 0.71, opacity * (edge and 1 or 0.55))
-                line.opacity = opacity
-            end
+        for _, t in ipairs(self.ground) do
+            local near, far = t.near, t.far
+            face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
         self:AimCoinCameras()
+        if self.decorScene then
+            self:AimDecorations()
+        end
+    end
+    light.Update()
+    if self:UpdateGroundLight() then
+        self:ShadeGround()
     end
     lap = self:Lap("road placement", lap)
     self:PlaceTwin()
     lap = self:Lap("twin", lap)
-    -- 4-yard bands scroll past; a strip is recolored only when its band changes.
-    for _, strip in ipairs(self.strips) do
-        local shade = math.floor((strip.near + s.distance) / 4) % 2 == 0 and 0.19 or 0.22
-        if strip.shade ~= shade then
-            strip:SetColorTexture(shade, shade + 0.05, shade + 0.065, opacity)
-            strip.shade = shade
-        end
+    self:ScrollGround()
+    if self.decorScene then
+        self:UpdateDecorations()
     end
+    lap = self:Lap("ground scroll, decorations", lap)
     -- Boxes and flat coins from the shared faces; near coins become 3D once their model loaded.
     local faces, count = shapes.Collect(s, -cam.offset)
     local coinIndex = 0
@@ -533,7 +647,7 @@ function overlay:Render(lap)
             shapes.Hide(self.coins[i].scene)
         end
     end
-    lap = self:Lap("road colors, boxes, coins", lap)
+    lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
     self:ShowHint()
     self:Lap("texts", lap)
@@ -573,7 +687,8 @@ local PARTS = {
     "twin animation, models",
     "road placement",
     "twin",
-    "road colors, boxes, coins",
+    "ground scroll, decorations",
+    "boxes, coins",
     "texts",
 }
 
@@ -618,15 +733,17 @@ function overlay:Profile()
         log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
     end
     local scenes = (self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
+    scenes = scenes + (self.decorScene:IsShown() and 1 or 0)
     for _, coin in ipairs(self.coins) do
         scenes = scenes + (coin.scene:IsShown() and 1 or 0)
     end
     log:chat(
-        "Last frame: %d faces, %d 3D coins, %d model scenes shown, %d road textures",
+        "Last frame: %d faces, %d 3D coins, %d decorations, %d model scenes shown, %d road textures",
         self.faceCount or 0,
         self.coinCount or 0,
+        #self.decor,
         scenes,
-        #self.strips + #self.lines
+        #self.ground
     )
 end
 
@@ -654,6 +771,33 @@ function overlay:Report()
         scene:GetWidth(),
         scene:GetHeight()
     )
+    -- The decorations' scene against the road: a point on the road's edge 20 yards ahead, the
+    -- scene's in its own units.
+    local lens = self.decorLens
+    local x, y = project(20, 4.3, ground(20))
+    local px, py = self.decorScene:Project3DPointTo2D(20, -4.3, ground(20))
+    log:chat(
+        "decorations: span %s, calibrated %s, last ratio %s, scene scale %.3f, middle %s, %s",
+        tostring(lens.span),
+        tostring(lens.calibrated),
+        tostring(lens.ratio),
+        self.decorScene:GetEffectiveScale(),
+        tostring(self.decorMiddleX),
+        tostring(self.decorMiddleY)
+    )
+    log:chat(
+        "road edge at 20 yd: road %.0f, %.0f (middle %.0f, %.0f), scene %s, %s",
+        x or -1,
+        y or -1,
+        cam.cx,
+        cam.cy,
+        tostring(px),
+        tostring(py)
+    )
+    -- Each decoration model's bounds as the client measured them: which way a model extends.
+    for model, b in pairs(self.decorBounds) do
+        log:chat("model %d: x %.2f to %.2f, y %.2f to %.2f", model, b[1], b[3], b[2], b[4])
+    end
     local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
     log:chat(
         "twin loaded %s, bounds %s, scale %.2f; measured height %.2f",

@@ -64,6 +64,19 @@ be listed**. The order follows these rules:
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
   collide or are collected.
+- `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
+  `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
+  biome each and override only what they change; `default.lua` holds every field, documented, and
+  is the reference for writing one. Tables merge field by field, lists (colors, bands, models)
+  are replaced whole. **Anything visual a region could change (ground, obstacles, coins,
+  decorations, light) belongs in the biome, not as a constant in the game code**: add the field
+  with its current value to `default.lua`, read it from `overlay.biome`, and re-apply it in
+  `overlay:ApplyBiome()` (called on Create and when the setting changes). New biome files go in
+  the TOC after `default.lua`. Only classic-era game files.
+- `src/game/light.lua` — `app.light`, the day/night light by the game's clock (`GetGameTime`; the
+  world's own light cannot be read). Every 3D model's ModelScene registers with
+  `light.AddScene(scene, ambient, diffuse)` (its colors by day) instead of setting its lights;
+  the ground multiplies its vertex colors by `light.r/g/b`.
 - `src/game/shapes.lua` — turns boxes and coins into the faces to draw, and pools their textures
   (show, color and draw layer only set on a change).
 - `src/game/overlay.lua` — `app.overlay`, the full-screen view: road, boxes and coins as UI
@@ -77,6 +90,13 @@ be listed**. The order follows these rules:
   within 40 yards are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene
   each; every shown ModelScene costs a render pass, so unused ones are hidden. A running frame
   allocates nothing (`tests/overlay.lua` checks it).
+- `src/game/decorations.lua` — the biome's roadside models (`decorations.groups`, weighted
+  groups of items, any number a `{ min, max }` range): all actors of one full-screen square
+  ModelScene whose camera is the road's camera (one render pass for all; the square makes the FOV
+  axis irrelevant). Placed up to the ground's far fade, moved every frame, dropped behind the
+  camera; actors are pooled by model and instance tables reused. Models are placed by their own
+  origin (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
+  biome's `clear` by their measured, turned bounds unless an item is `overhang`.
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
   `Step`, score texts and `Toggle`, added to `app.overlay`.
 

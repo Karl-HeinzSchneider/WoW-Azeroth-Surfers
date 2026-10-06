@@ -1,17 +1,39 @@
 -- Exercise the full-screen projection, the twin and the coins without creating client UI frames.
 local app = {}
-for _, file in ipairs({ "simulation", "shapes", "overlay", "controls" }) do
-    assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
+for _, file in ipairs({
+    "game/biomes",
+    "biomes/default",
+    "biomes/elwynn",
+    "game/simulation",
+    "game/light",
+    "game/shapes",
+    "game/overlay",
+    "game/decorations",
+    "game/controls",
+}) do
+    assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
 end
 app.db = {
     global = { bestScore = 0 },
     profile = {
-        overlay = { twinScale = 1, pitch = 20, focus = 0.9, distance = 12, fov = 55, opacity = 0.85 },
+        biome = "elwynn",
+        overlay = {
+            twinScale = 1,
+            pitch = 20,
+            focus = 0.9,
+            distance = 12,
+            fov = 55,
+            opacity = 0.85,
+            brightness = 0.75,
+            dayNight = true,
+        },
     },
 }
 local settings = app.db.profile.overlay
 local o, g = app.overlay, app.simulation
 local W, H = 1600, 900
+-- A texture the client does not have: SetTexture fails for it.
+local missing = 187113
 local function texture()
     return {
         ClearAllPoints = function() end,
@@ -31,10 +53,36 @@ local function texture()
         SetVertexOffset = function() end,
         SetText = function() end,
         SetDrawLayer = function() end,
+        SetTexture = function(self, id)
+            self.texture = id
+            return id ~= missing
+        end,
+        SetTexCoord = function(self, left, right, top, bottom)
+            self.coords = self.coords or {}
+            self.coords[1], self.coords[2], self.coords[3], self.coords[4] = left, right, top, bottom
+        end,
+        SetVertexColor = function(self, r, _, b, a)
+            self.red, self.blue, self.alpha = r, b, a
+        end,
+        SetGradient = function(self, _, min, max)
+            self.gradient = { min.a, max.a }
+        end,
     }
 end
 function GetTime()
     return 0
+end
+local function noop() end
+function CreateColor(r, g, b, a)
+    return {
+        r = r,
+        g = g,
+        b = b,
+        a = a,
+        SetRGBA = function(self, ...)
+            self.r, self.g, self.b, self.a = ...
+        end,
+    }
 end
 
 -- The twin's scene and actor. Stubs reuse their tables, so the allocation check at the end
@@ -80,6 +128,11 @@ local function coinScene()
     t.SetYaw = function() end
     t.SetCameraPosition = function() end
     t.SetCameraOrientationByYawPitchRoll = function() end
+    t.SetLightAmbientColor = function() end
+    t.SetLightDiffuseColor = function() end
+    t.SetModelByFileID = function()
+        return true
+    end
     return t
 end
 
@@ -89,7 +142,9 @@ o.frame = {
     end,
 }
 o.height, o.lastRoad = 2, {}
-o.strips, o.lines, o.coins = {}, {}, {}
+o.coins = {}
+o:ApplyBiome()
+o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
 o.twin, o.twinActor = scene, actor
 o.score, o.message, o.hint = texture(), texture(), texture()
@@ -188,6 +243,126 @@ for i = 1, count do
 end
 assert(sides > 0, "the neighbouring platform shows the side facing the runner")
 print("PASS platforms show the side facing the runner")
+
+-- The ground: Elwynn's textures, sliding toward the runner.
+local function piece(kind, x, near)
+    for _, t in ipairs(o.ground) do
+        if t.kind == kind and t.left <= x and x < t.right and t.near <= near and near < t.far then
+            return t
+        end
+    end
+end
+local road = piece("road", 0, 5)
+assert(road.texture == 187099 and road.tile, "cobbles")
+assert(piece("grass", 6, 5).texture == 187126 and piece("dirt", 4, 5).texture == 187114, "grass and dirt")
+assert(piece("dirt", 1.2, 5) and piece("dirt", -1.2, 5), "ruts between the lanes")
+o.state.distance = 0
+o:Render()
+local top, bottom = road.coords[3], road.coords[4]
+assert(top < bottom, "the texture's top is ahead")
+o.state.distance = 1
+o:Render()
+assert(math.abs(road.coords[4] - (bottom - 1 / road.tile)) < 1e-9, "running a yard slides the texture a yard closer")
+o.state.distance = 1000 * road.tile + 0.25
+o:Render()
+assert(road.coords[4] > -2, "far runs keep the coordinates small")
+assert(road.alpha == settings.opacity and piece("road", 0, 85).alpha < 0.2 * settings.opacity, "the far road fades out")
+local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -7, 5)
+assert(cobbleEdge.gradient[1] > 0 and cobbleEdge.gradient[2] == 0, "the cobbles fade out toward the side")
+assert(grassLeft.gradient[1] == 0 and grassLeft.gradient[2] > 0, "the grass fades into the world on the left")
+assert(
+    road.gradient == nil and math.abs(piece("dirt", 1.2, 5).alpha - 0.3 * settings.opacity) < 1e-9,
+    "solid road, faint ruts"
+)
+o.state.distance = 0
+print("PASS ground textures scroll toward the runner and fade out at their edges and far ahead")
+
+-- The ground's light follows the game's clock: bright by day, dim and blue at night.
+local hour = 12
+function GetGameTime()
+    return hour, 0
+end
+o:Render()
+assert(math.abs(road.red - 0.75) < 1e-9 and road.red == road.blue, "by day: the brightness setting, white")
+local model = {
+    SetLightAmbientColor = function(self, r, _, b)
+        self.ambient = { r, b }
+    end,
+    SetLightDiffuseColor = function(self, r)
+        self.diffuse = r
+    end,
+}
+app.light.AddScene(model, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
+assert(model.ambient[1] == 0.8 and model.diffuse == 0.6, "a model scene by day: its own colors")
+hour = 23
+o:Render()
+assert(road.red < 0.4 and road.blue > road.red, "at night: dimmer and moonlit blue")
+assert(model.ambient[1] < 0.4 and model.ambient[2] > model.ambient[1], "models are relit at night")
+assert(math.abs(model.ambient[1] / 0.8 - road.red / 0.75) < 1e-9, "models and ground share one light")
+hour = 6
+o:Render()
+assert(road.red > 0.45 and road.red < 0.7, "at dawn: in between")
+settings.dayNight = false
+o:Render()
+assert(math.abs(road.red - 0.75) < 1e-9, "without the clock: always day")
+settings.dayNight, GetGameTime = true, nil
+o:Render()
+print("PASS the ground and 3D models share a light that follows the game's clock")
+
+-- A texture that does not load leaves a plain color.
+local fallback = {}
+o.ground, missing = nil, 187099
+o:CreateGround({
+    CreateTexture = function()
+        local t = texture()
+        t.SetColorTexture = function()
+            fallback[#fallback + 1] = t
+        end
+        return t
+    end,
+})
+assert(#fallback > 0 and not fallback[1].tile, "a missing texture is drawn as a plain color")
+missing = 187113
+o:CreateGround({ CreateTexture = texture })
+o.groundLight, o.lastRoad = nil, {}
+print("PASS a missing ground texture falls back to a color")
+
+-- Biomes override the default field by field; lists are replaced whole.
+local biomes = app.biomes
+local elwynn, plain = biomes.Get("elwynn"), biomes.Get("default")
+assert(elwynn.ground.surfaces.road.texture == 187099, "a biome's own field")
+assert(elwynn.ground.surfaces.road.color == plain.ground.surfaces.road.color, "the default's field beside it")
+assert(elwynn.ground.bands == plain.ground.bands and elwynn.coin == plain.coin, "untouched parts are the default's")
+assert(plain.ground.surfaces.road.texture == nil, "the default is not changed by a biome")
+assert(biomes.Get("nowhere") == plain, "an unknown biome is the default")
+biomes.Register(
+    "test",
+    { name = "Test", ground = { bands = { plain.ground.bands[4] } }, light = { night = { 0, 0, 0 } } }
+)
+local test = biomes.Get("test")
+assert(#test.ground.bands == 1 and test.light.night[3] == 0 and test.coin == plain.coin, "lists are replaced whole")
+assert(biomes.Names().elwynn == "Elwynn Forest" and biomes.Names().test == "Test", "names for the options")
+-- Every biome builds its ground.
+for id in pairs(biomes.list) do
+    app.db.profile.biome = id
+    o:ApplyBiome()
+    assert(#o.ground > 0, id .. " builds its ground")
+end
+-- Switching while playing re-skins the same textures: spare ones are hidden.
+app.db.profile.biome = "test"
+o:ApplyBiome()
+o:Render()
+local used = #o.ground
+assert(o.groundPool[used + 1].shown == false, "a band fewer hides its pieces")
+app.db.profile.biome = "default"
+o:ApplyBiome()
+o:Render()
+assert(piece("road", 0, 5).tile == false and app.shapes.colors == plain.shapes, "the plain biome: colors")
+biomes.list.test, biomes.merged = nil, {}
+app.db.profile.biome = "elwynn"
+o:ApplyBiome()
+assert(piece("road", 0, 5).texture == 187099, "back to Elwynn's cobbles")
+print("PASS biomes override the default, and switching re-skins the running game")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
 local falling = false
