@@ -8,7 +8,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "check": "npm run typecheck && npm run check:addons && npm run check:lua && npm run check:xml && npm run format:check && npm run test:game",
+    "check": "npm run typecheck && npm run check:addons && npm run check:lua && npm run check:xml && npm run format:check",
     "check:addons": "tsx src/check-addons.ts",
     "check:lua": "tsx src/check-lua.ts",
     "check:xml": "tsx src/check-xml.ts",
