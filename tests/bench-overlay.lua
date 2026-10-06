@@ -78,6 +78,11 @@ end
 function special.GetActiveBoundingBox()
     return -0.3, -0.4, 0, 0.3, 0.4, 2
 end
+local projected = 0
+function special.Project3DPointTo2D()
+    projected = projected + 1
+    return 960, 540 + projected % 2 * 100, 10
+end
 function special.SetTexture()
     count("SetTexture")
     return true
@@ -153,6 +158,7 @@ for _, file in ipairs({
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/decorations",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

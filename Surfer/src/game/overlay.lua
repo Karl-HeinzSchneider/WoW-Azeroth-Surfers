@@ -51,6 +51,7 @@ local function unchanged(last, name, value)
     last[name] = value
     return false
 end
+overlay.Unchanged = unchanged
 function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
@@ -94,6 +95,11 @@ local function project(d, x, z)
     end
     local scale = cam.f / depth
     return cam.cx + (x + cam.offset) * scale, cam.cy + (vd * cam.sin + vz * cam.cos) * scale, scale
+end
+
+-- The road's projection of a point, for decorations.lua and tests.
+function overlay:Project(d, x, z)
+    return project(d, x, z)
 end
 
 -- The quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left and right.
@@ -237,6 +243,7 @@ local function extents(actor)
     end
     return a, b, c, d, e, f
 end
+overlay.Extents = extents
 
 -- Character height in yards from a copy without weapons; a human-sized guess until it loads.
 function overlay:Measure()
@@ -295,6 +302,9 @@ function overlay:ApplyBiome()
         light.AddScene(coin.scene, biome.coin.ambient, biome.coin.diffuse)
     end
     self:LoadCoinModel(1)
+    if self.decorScene then
+        self:ApplyDecorations(biome)
+    end
     self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
 end
 
@@ -395,6 +405,7 @@ function overlay:Create()
         actor:SetUseCenterForOrigin(true, true, true)
         self.coins[i] = { scene = scene, actor = actor }
     end
+    self:CreateDecorations(f)
     self:ApplyBiome()
 
     self.score = label(f, "GameFontNormalLarge", "TOP", -14)
@@ -600,6 +611,9 @@ function overlay:Render(lap)
             face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
         self:AimCoinCameras()
+        if self.decorScene then
+            self:AimDecorations()
+        end
     end
     light.Update()
     if self:UpdateGroundLight() then
@@ -609,6 +623,10 @@ function overlay:Render(lap)
     self:PlaceTwin()
     lap = self:Lap("twin", lap)
     self:ScrollGround()
+    if self.decorScene then
+        self:UpdateDecorations()
+    end
+    lap = self:Lap("ground scroll, decorations", lap)
     -- Boxes and flat coins from the shared faces; near coins become 3D once their model loaded.
     local faces, count = shapes.Collect(s, -cam.offset)
     local coinIndex = 0
@@ -629,7 +647,7 @@ function overlay:Render(lap)
             shapes.Hide(self.coins[i].scene)
         end
     end
-    lap = self:Lap("road scroll, boxes, coins", lap)
+    lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
     self:ShowHint()
     self:Lap("texts", lap)
@@ -669,7 +687,8 @@ local PARTS = {
     "twin animation, models",
     "road placement",
     "twin",
-    "road scroll, boxes, coins",
+    "ground scroll, decorations",
+    "boxes, coins",
     "texts",
 }
 
@@ -714,13 +733,15 @@ function overlay:Profile()
         log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
     end
     local scenes = (self.twin:IsShown() and 1 or 0) + (self.probeScene:IsShown() and 1 or 0)
+    scenes = scenes + (self.decorScene:IsShown() and 1 or 0)
     for _, coin in ipairs(self.coins) do
         scenes = scenes + (coin.scene:IsShown() and 1 or 0)
     end
     log:chat(
-        "Last frame: %d faces, %d 3D coins, %d model scenes shown, %d road textures",
+        "Last frame: %d faces, %d 3D coins, %d decorations, %d model scenes shown, %d road textures",
         self.faceCount or 0,
         self.coinCount or 0,
+        #self.decor,
         scenes,
         #self.ground
     )
@@ -749,6 +770,29 @@ function overlay:Report()
         self.frame:GetHeight(),
         scene:GetWidth(),
         scene:GetHeight()
+    )
+    -- The decorations' scene against the road: a point on the road's edge 20 yards ahead, the
+    -- scene's in its own units.
+    local lens = self.decorLens
+    local x, y = project(20, 4.3, ground(20))
+    local px, py = self.decorScene:Project3DPointTo2D(20, -4.3, ground(20))
+    log:chat(
+        "decorations: span %s, calibrated %s, last ratio %s, scene scale %.3f, middle %s, %s",
+        tostring(lens.span),
+        tostring(lens.calibrated),
+        tostring(lens.ratio),
+        self.decorScene:GetEffectiveScale(),
+        tostring(self.decorMiddleX),
+        tostring(self.decorMiddleY)
+    )
+    log:chat(
+        "road edge at 20 yd: road %.0f, %.0f (middle %.0f, %.0f), scene %s, %s",
+        x or -1,
+        y or -1,
+        cam.cx,
+        cam.cy,
+        tostring(px),
+        tostring(py)
     )
     local minX, minY, low, maxX, maxY, high = extents(self.twinActor)
     log:chat(

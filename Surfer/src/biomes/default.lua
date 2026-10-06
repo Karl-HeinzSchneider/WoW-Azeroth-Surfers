@@ -44,6 +44,28 @@ app.biomes.Register("default", {
         fade = { from = 60, to = 88 },
     },
 
+    -- 3D models along both sides of the road, as actors of one scene. Along each side a group
+    -- follows the last one after `spacing` yards; groups are picked at random by `weight`, and
+    -- each takes `length` yards of the roadside. A group's `items` are placed together:
+    --   model  a file id, or a list to pick one from at random
+    --   x      yards from the road's middle to the model's origin, the point it stands on in the
+    --          world (the road's edge is at 4.3, the grass ends at 8.5). Moved farther out if
+    --          the model would reach closer to the middle than `clear`.
+    --   overhang  true: may reach over the road (a lamp's arm), `clear` does not apply
+    --   d      yards along the road from the group's start, 0 if left out
+    --   yaw    degrees the model turns (0 if left out), as built for the right side; the left
+    --          side's turn round to face the road too
+    --   scale  its size, 1 if left out
+    -- Any number may instead be a { min, max } range, picked at random for each one placed.
+    -- `ambient` and `diffuse` light them by day. None by default.
+    decorations = {
+        clear = 4.4,
+        spacing = { 1, 6 },
+        groups = {},
+        ambient = { 0.75, 0.75, 0.75 },
+        diffuse = { 0.6, 0.6, 0.6 },
+    },
+
     -- The light at midnight; day is white. light.lua blends between them by the game's clock.
     light = {
         night = { 0.45, 0.5, 0.7 },

@@ -8,6 +8,7 @@ for _, file in ipairs({
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/decorations",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
@@ -71,6 +72,7 @@ end
 function GetTime()
     return 0
 end
+local function noop() end
 function CreateColor(r, g, b, a)
     return {
         r = r,
@@ -361,6 +363,126 @@ app.db.profile.biome = "elwynn"
 o:ApplyBiome()
 assert(piece("road", 0, 5).texture == 187099, "back to Elwynn's cobbles")
 print("PASS biomes override the default, and switching re-skins the running game")
+
+-- Decorations: the biome's models along both sides, actors of one scene seen through the road's
+-- camera, reused as the run goes on.
+local created, decorScene = 0, coinScene()
+decorScene.camera = {}
+function decorScene:SetCameraPosition(x, y, z)
+    self.camera[1], self.camera[2], self.camera[3] = x, y, z
+end
+function decorScene:SetCameraFieldOfView(fov)
+    self.fov = fov
+end
+decorScene.SetCameraNearClip, decorScene.SetCameraFarClip, decorScene.EnableMouse = noop, noop, noop
+decorScene.SetAllPoints = noop
+function decorScene:SetCameraOrientationByYawPitchRoll(_, pitch)
+    self.pitch = pitch
+end
+-- A pinhole camera whose field of view spans `span` of the screen (which length, the client does
+-- not document), returning frame coordinates from the bottom left in its own units: UI units
+-- times its effective scale.
+decorScene.span, decorScene.scale = H, 0.64
+function decorScene:GetEffectiveScale()
+    return self.scale
+end
+function decorScene:Project3DPointTo2D(x, y, z)
+    local c, s = math.cos(self.pitch), math.sin(self.pitch)
+    local dx, dy, dz = x - self.camera[1], y - self.camera[2], z - self.camera[3]
+    local depth = dx * c - dz * s
+    local focal = self.span / 2 / math.tan(self.fov / 2)
+    local k = self.scale
+    return k * (W / 2 - dy * focal / depth), k * (H / 2 + (dx * s + dz * c) * focal / depth), depth
+end
+function decorScene:CreateActor()
+    created = created + 1
+    local a = texture()
+    a.SetUseCenterForOrigin, a.SetYaw, a.SetScale, a.SetAlpha = noop, noop, noop, noop
+    -- Every model a 2 x 2 yard square around its origin.
+    function a:IsLoaded()
+        return true
+    end
+    function a:GetActiveBoundingBox()
+        return -1, -1, 0, 1, 1, 2
+    end
+    function a:SetModelByFileID(id)
+        self.model = id
+    end
+    function a:SetPosition(x, y, z)
+        self.ahead, self.y, self.z = x, y, z
+    end
+    return a
+end
+function CreateFrame()
+    return decorScene
+end
+o.frame.GetWidth = function()
+    return W
+end
+o:CreateDecorations({})
+o:ApplyBiome()
+o.state = g.New()
+o:Render()
+local left, right, models = 0, 0, {}
+for _, group in ipairs(app.biomes.Current().decorations.groups) do
+    for _, item in ipairs(group.items) do
+        for _, id in ipairs(type(item.model) == "table" and item.model or { item.model }) do
+            models[id] = true
+        end
+    end
+end
+for _, d in ipairs(o.decor) do
+    left, right = left + (d.y > 0 and 1 or 0), right + (d.y < 0 and 1 or 0)
+    assert(models[d.actor.model] and d.actor.shown, "Elwynn's models, shown")
+    assert(d.actor.ahead < 88 and d.actor.ahead > o.camera.x - 4, "between the camera and the far end")
+    assert(math.abs(d.actor.z - app.shapes.Ground(d.actor.ahead)) < 1e-9, "on the curved ground")
+    -- Turned, a square reaches |sin| + |cos| toward the road.
+    local reach = (math.abs(math.sin(d.yaw)) + math.abs(math.cos(d.yaw))) * d.scale
+    assert(d.overhang or math.abs(d.y) - reach >= 4.4 - 1e-9, "no decoration reaches into the road")
+    assert(math.abs(d.y) >= 4.4, "not even an overhanging one's origin")
+end
+assert(left > 3 and right > 3 and decorScene.shown, "decorations on both sides")
+local c = decorScene.camera
+assert(c[1] == o.camera.x and c[2] == o.camera.offset and c[3] == o.camera.z, "the road's camera")
+-- Wherever the scene puts a point, the road puts it too, whichever length its lens spans.
+local function matches()
+    for _, p in ipairs({ { 20, 4.3 }, { 60, -8 }, { 3, 6 } }) do
+        local px, py = decorScene:Project3DPointTo2D(p[1], -p[2], app.shapes.Ground(p[1]))
+        px, py = px / decorScene.scale, py / decorScene.scale
+        local rx, ry = o:Project(p[1], p[2], app.shapes.Ground(p[1]))
+        if math.abs(px - rx) > 0.01 or math.abs(py - ry) > 0.01 then
+            return false
+        end
+    end
+    return true
+end
+assert(matches(), "the scene draws a point where the road does, lens spanning the height")
+decorScene.span, o.decorLens, o.lastRoad = W, {}, {}
+o:Render()
+assert(matches(), "and spanning the width")
+o.state.lateral, o.state.height = 0.6, 1.2
+o:Render()
+assert(matches(), "while changing lanes and jumping")
+o.state.lateral, o.state.height = 0, 0
+local placed = #o.decor
+for _ = 1, 400 do
+    o.state.distance = o.state.distance + 1
+    o:Render()
+end
+for _, d in ipairs(o.decor) do
+    assert(d.actor.ahead > o.camera.x - 4, "decorations behind the camera are dropped")
+end
+assert(created < 4 * placed, string.format("actors are reused: %d for %d in view", created, placed))
+o.state = g.New()
+o:Render()
+assert(o.decor[1].actor.ahead < 0, "a new run starts with new decorations from behind the camera")
+app.db.profile.biome = "default"
+o:ApplyBiome()
+o:Render()
+assert(#o.decor == 0 and not decorScene.shown, "the plain biome has none, and hides its scene")
+app.db.profile.biome = "elwynn"
+o:ApplyBiome()
+print("PASS decorations line both sides in the road's camera, reused as the run goes on")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
 local falling = false
