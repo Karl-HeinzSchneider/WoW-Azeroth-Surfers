@@ -42,6 +42,10 @@ app.biomes.Register("default", {
         -- The far ground fades out between these distances ahead instead of ending at a hard
         -- edge.
         fade = { from = 60, to = 88 },
+        -- How the ground curves down and away toward the horizon: it drops `curve` times the
+        -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85).
+        -- 0 is flat. Everything on the road follows it. The options can fix it instead.
+        curve = 0.0005,
     },
 
     -- 3D models along both sides of the road, as actors of one scene. Along each side a group
@@ -98,6 +102,17 @@ app.biomes.Register("default", {
     -- side over the platform's width. A kind without variants stays a flat box (in `shapes`'
     -- colors), as does a ramp without `ramp` items. None by default.
     obstacles = {},
+
+    -- Behind the road in the side window, where there is no world: the sky from `top` down to
+    -- `horizon`, and the land below the horizon, hazing toward `horizon` by `haze` far away.
+    -- Lit like the ground (light and the brightness setting); `land` is the color at full
+    -- brightness, so it should match the outer ground's texture.
+    sky = {
+        top = { 0.42, 0.56, 0.74 },
+        horizon = { 0.74, 0.78, 0.8 },
+        land = { 0.3, 0.3, 0.24 },
+        haze = 0.4,
+    },
 
     -- The light at midnight; day is white. light.lua blends between them by the game's clock.
     light = {

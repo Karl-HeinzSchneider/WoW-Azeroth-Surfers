@@ -39,10 +39,101 @@ local function calibration(order, key, name, desc, min, max, step)
     }
 end
 
+-- A mode setting; an open game takes it on at once.
+local function modeSetting(order, name, desc, get, set)
+    return {
+        type = "toggle",
+        order = order,
+        width = "full",
+        name = name,
+        desc = desc,
+        get = get,
+        set = function(_, value)
+            set(value)
+            if app.overlay.frame then
+                app.overlay:ApplyMode()
+            end
+        end,
+    }
+end
+
 local options = {
     type = "group",
     name = appName,
     args = {
+        mode = {
+            type = "group",
+            order = 1,
+            inline = true,
+            name = "Mode",
+            args = {
+                mode = {
+                    type = "select",
+                    order = 1,
+                    name = "Mode",
+                    desc = "Full screen: the road lies in the world around your character. Side window: the game runs in a window of its own, out of the way; drag it by its title and size it from its corner.",
+                    values = { full = "Full screen", side = "Side window" },
+                    sorting = { "full", "side" },
+                    get = function()
+                        return app.db.profile.mode
+                    end,
+                    set = function(_, value)
+                        app.db.profile.mode = value
+                        if app.overlay.frame then
+                            app.overlay:ApplyMode()
+                        end
+                    end,
+                },
+                capture = modeSetting(
+                    2,
+                    "Capture movement keys",
+                    "While the game is open it takes your move, strafe, turn and jump keys: your character stays where it is and the runner runs on its own. Steering with the mouse buttons still moves your character.",
+                    function()
+                        return app.db.profile.capture
+                    end,
+                    function(value)
+                        app.db.profile.capture = value
+                    end
+                ),
+                frameFull = modeSetting(
+                    3,
+                    "Window frame in full screen",
+                    "A border, title bar and close button around the screen. Without it, the game looks like part of the world.",
+                    function()
+                        return app.db.profile.frame.full
+                    end,
+                    function(value)
+                        app.db.profile.frame.full = value
+                    end
+                ),
+                frameSide = modeSetting(
+                    4,
+                    "Window frame in the side window",
+                    "A border, title bar and close button around the side window. Without it, the window can't be dragged or sized.",
+                    function()
+                        return app.db.profile.frame.side
+                    end,
+                    function(value)
+                        app.db.profile.frame.side = value
+                    end
+                ),
+                resetSide = {
+                    type = "execute",
+                    order = 5,
+                    name = "Reset side window",
+                    desc = "Put the side window back at the right edge of the screen, at its first size.",
+                    func = function()
+                        local saved, default = app.db.profile.side, app.dbDefaults.profile.side
+                        for key, value in pairs(default) do
+                            saved[key] = value
+                        end
+                        if app.overlay.frame then
+                            app.overlay:ApplyMode()
+                        end
+                    end,
+                },
+            },
+        },
         coinSound = {
             type = "toggle",
             order = 6,
@@ -83,14 +174,14 @@ local options = {
                 help = {
                     type = "description",
                     order = 1,
-                    name = "Open the game and stand still, then adjust until the see-through copy covers your character and the road lies flat on the ground. Zooming or tilting the camera changes the fit.",
+                    name = "Full screen: open the game and stand still, then adjust until the see-through copy covers your character and the road lies flat on the ground. Zooming or tilting the camera changes the fit. In the side window, pitch, focus, distance and field of view set the window's own camera.",
                 },
                 hideReal = {
                     type = "toggle",
                     order = 3,
                     width = "full",
                     name = "Hide your real character (first-person camera)",
-                    desc = "The game does not draw your character in first person, so only the twin shows. Zooms all the way in while the game is open and back out after; the world is then seen from eye height.",
+                    desc = "Full screen only. The game does not draw your character in first person, so only the twin shows. Zooms all the way in while the game is open and back out after; the world is then seen from eye height.",
                     get = function()
                         return app.db.profile.overlay.hideReal
                     end,
@@ -144,7 +235,15 @@ local options = {
                     1.5,
                     0.01
                 ),
-                opacity = calibration(60, "opacity", "Road opacity", nil, 0.1, 1, 0.05),
+                opacity = calibration(
+                    60,
+                    "opacity",
+                    "Road opacity",
+                    "Full screen only: how much of the world shows through the road.",
+                    0.1,
+                    1,
+                    0.05
+                ),
                 brightness = calibration(
                     70,
                     "brightness",
@@ -154,6 +253,37 @@ local options = {
                     1,
                     0.05
                 ),
+                fixedCurve = {
+                    type = "toggle",
+                    order = 80,
+                    name = "Fixed ground curve",
+                    desc = "Use the curve below instead of the biome's: how the ground bends down toward the horizon.",
+                    get = function()
+                        return app.db.profile.overlay.fixedCurve
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.fixedCurve = value
+                    end,
+                },
+                curve = {
+                    type = "range",
+                    order = 81,
+                    name = "Ground curve",
+                    desc = "How many yards the ground drops 50 yards ahead. 0 is flat.",
+                    min = 0,
+                    max = 6,
+                    step = 0.05,
+                    disabled = function()
+                        return not app.db.profile.overlay.fixedCurve
+                    end,
+                    -- Stored as the drop per yard squared.
+                    get = function()
+                        return app.db.profile.overlay.curve * 2500
+                    end,
+                    set = function(_, value)
+                        app.db.profile.overlay.curve = value / 2500
+                    end,
+                },
                 dayNight = {
                     type = "toggle",
                     order = 75,

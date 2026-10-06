@@ -9,6 +9,8 @@ for _, file in ipairs({
     "game/shapes",
     "game/overlay",
     "game/decorations",
+    "game/window",
+    "game/menu",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
@@ -17,6 +19,10 @@ app.db = {
     global = { bestScore = 0 },
     profile = {
         biome = "elwynn",
+        mode = "full",
+        capture = false,
+        frame = { full = false, side = true },
+        side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
         overlay = {
             twinScale = 1,
             pitch = 20,

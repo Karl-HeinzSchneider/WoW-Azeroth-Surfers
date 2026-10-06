@@ -24,15 +24,31 @@ end
 local COLUMN, COLUMN_NEAR = 2.4, 12
 -- A band's pieces by its `segments` (biomes/default.lua).
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
--- The addon's draw order, bottom to top. The overlay frame (BACKGROUND strata) draws the ground
+-- The addon's draw order by mode, bottom to top. The overlay frame (`view`) draws the ground
 -- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin a strata above all of them (LOW), and the buttons above that
--- (MEDIUM). Levels count from the overlay frame's; all are fixed, so nothing
--- the client or another frame does changes them.
+-- decorations and coins; the twin above all of them, the window frame over its edges
+-- (window.lua), and the buttons, the start dialog and the restart bar above that (menu.lua).
+-- Full screen, the game lies under the rest of the UI (BACKGROUND, the twin a strata up), but
+-- its frame and buttons stay above it, wherever the minimap or a raised panel is. The side
+-- window is one window above the UI, all of it in one strata. Levels count from the overlay
+-- frame's; all are fixed, so nothing the client or another frame does changes them.
 local ORDER = {
-    world = { "BACKGROUND", 2 },
-    twin = { "LOW", 10 },
-    controls = { "MEDIUM", 1 },
+    full = {
+        view = { "BACKGROUND" },
+        world = { "BACKGROUND", 2 },
+        twin = { "LOW", 10 },
+        window = { "HIGH", 20 },
+        controls = { "HIGH", 21 },
+        menu = { "HIGH", 25 },
+    },
+    side = {
+        view = { "HIGH" },
+        world = { "HIGH", 2 },
+        twin = { "HIGH", 10 },
+        window = { "HIGH", 20 },
+        controls = { "HIGH", 21 },
+        menu = { "HIGH", 25 },
+    },
 }
 -- The clip planes of every 3D scene, in yards. The scenes share the depth buffer, so with the
 -- same planes and the road's camera position their depths compare as in one scene: the twin
@@ -50,9 +66,10 @@ local AIR_LOOP = 1.1
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
--- The game, full screen: the road, obstacles and coins are drawn around the real character,
--- and a twin (a copy of the character, seen through the road's camera) runs on top of it.
--- This file draws; controls.lua adds input, movement sampling, the per-frame step and scoring.
+-- The game: the road, obstacles and coins, and a twin (a copy of the character, seen through
+-- the road's camera) running on it. Full screen they are drawn around the real character and
+-- the twin covers it; window.lua adds the side window and the window frame. This file draws;
+-- controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
 overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
@@ -76,9 +93,10 @@ function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
     cam.f = h / 2 / math.tan(math.rad(settings.fov) / 2)
-    -- Not in this client's API docs; the distance setting stands in when it is missing, and in
-    -- first person, where the twin still needs a camera behind it.
-    local zoom = not self.zoomedIn and GetCameraZoom and GetCameraZoom()
+    -- Not in this client's API docs; the distance setting stands in when it is missing, in
+    -- first person, where the twin still needs a camera behind it, and in the side window,
+    -- which has a camera of its own.
+    local zoom = not self.zoomedIn and not self.side and GetCameraZoom and GetCameraZoom()
     cam.zoomRead = zoom and true or false
     zoom = zoom or settings.distance
     local pitch = math.rad(settings.pitch)
@@ -103,6 +121,12 @@ function overlay:UpdateCamera()
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
+    -- The biome's curve, or the fixed one of the options.
+    local curve = settings.fixedCurve and settings.curve or self.biome.ground.curve
+    if not unchanged(last, "curve", curve) then
+        shapes.SetCurve(curve)
+        same = false
+    end
     return not same
 end
 
@@ -211,14 +235,14 @@ function overlay:CreateGround(f)
 end
 
 -- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
--- or the opacity, changed since the last call.
+-- or the opacity, changed since the last call. The side window has nothing to see through to.
 function overlay:UpdateGroundLight()
     local settings = app.db.profile.overlay
     local last = self.groundLight or {}
     self.groundLight = last
     local same = unchanged(last, "day", light.day)
     same = unchanged(last, "brightness", settings.brightness) and same
-    same = unchanged(last, "opacity", settings.opacity) and same
+    same = unchanged(last, "opacity", self.side and 1 or settings.opacity) and same
     return not same
 end
 
@@ -257,13 +281,25 @@ function overlay:ScrollGround()
     end
 end
 
--- Puts `frame` at its place in ORDER.
+-- Puts `frame` at its place in ORDER for the current mode, and again whenever it changes.
 function overlay:Stack(frame, place)
-    local strata, level = ORDER[place][1], ORDER[place][2]
+    self.stacked = self.stacked or {}
+    self.stacked[frame] = place
+    local strata, level = ORDER[self.side and "side" or "full"][place][1], ORDER.full[place][2]
+    frame:SetFixedFrameStrata(false)
+    frame:SetFixedFrameLevel(false)
     frame:SetFrameStrata(strata)
     frame:SetFixedFrameStrata(true)
     frame:SetFrameLevel(self.frame:GetFrameLevel() + level)
     frame:SetFixedFrameLevel(true)
+end
+
+-- Every stacked frame at its place for the mode, after the view's own strata.
+function overlay:Restack()
+    self.frame:SetFrameStrata(ORDER[self.side and "side" or "full"].view[1])
+    for frame, place in pairs(self.stacked) do
+        self:Stack(frame, place)
+    end
 end
 
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
@@ -306,7 +342,7 @@ function overlay:LoadPlayer()
 end
 
 -- The game does not draw the character in first person: zoom all the way in while the view is
--- open and back out to the previous zoom after.
+-- open full screen and back out to the previous zoom after.
 function overlay:HideRealCharacter(hide)
     if hide == (self.zoomedIn or false) then
         return
@@ -322,7 +358,7 @@ end
 
 function overlay:ApplyHideReal()
     local shown = self.frame and self.frame:IsShown()
-    self:HideRealCharacter(shown and app.db.profile.overlay.hideReal or false)
+    self:HideRealCharacter(shown and not self.side and app.db.profile.overlay.hideReal or false)
 end
 
 -- The biome's look: ground, coins, box colors and night light. On a change while playing,
@@ -415,8 +451,9 @@ function overlay:Create()
     local f = CreateFrame("Frame", "SurferOverlay", UIParent)
     self.frame = f
     f:SetAllPoints(UIParent)
-    -- Above the 3D world, below the rest of the UI; clicks go through to the world.
-    f:SetFrameStrata("BACKGROUND")
+    -- Above the 3D world, below the rest of the UI (full screen, ORDER); clicks go through to
+    -- the world.
+    f:SetFrameStrata(ORDER.full.view[1])
     f:EnableMouse(false)
     -- The ground; the boxes on it draw on BORDER.
     self:CreateGround(f)
@@ -452,9 +489,11 @@ function overlay:Create()
     self.hint = label(f, "GameFontHighlight", "CENTER", 175)
     self.hint:SetWidth(700)
     local controls = CreateFrame("Frame", nil, f)
+    self.controls = controls
     self:Stack(controls, "controls")
-    controls:SetSize(3 * 112, 24)
-    controls:SetPoint("TOP", 0, -38)
+    controls:SetHeight(24)
+    -- Minimize and Close show only without the window frame, which has its own (window.lua
+    -- lays the row out).
     local buttons = {
         {
             "Restart",
@@ -471,27 +510,39 @@ function overlay:Create()
             end,
         },
         {
+            "Minimize",
+            function()
+                self:SetMode(self.side and "full" or "side")
+            end,
+        },
+        {
             "Close",
             function()
                 f:Hide()
             end,
         },
     }
+    self.controlButtons = {}
     for i, spec in ipairs(buttons) do
         local b = CreateFrame("Button", nil, controls, "UIPanelButtonTemplate")
-        b:SetSize(108, 24)
-        b:SetPoint("LEFT", (i - 1) * 112, 0)
+        b:SetSize(84, 24)
         b:SetText(spec[1])
         b:SetScript("OnClick", spec[2])
+        self.controlButtons[i] = b
     end
+    self:CreateMenu(f)
 
     f:EnableKeyboard(true)
     f:SetPropagateKeyboardInput(true)
-    -- Observe movement bindings without consuming keys or replacing WoW bindings.
+    -- Keys pass on to WoW, except the restart key and, while captured, the movement keys.
     f:SetScript("OnKeyDown", function(_, key)
-        self:OnMovementKey(key)
+        self:OnKey(key)
+    end)
+    f:SetScript("OnKeyUp", function(_, key)
+        self:OnKeyRelease(key)
     end)
     f:SetScript("OnHide", function()
+        self.holding = nil
         self:ForgetPosition()
         self.state.forward = false
         if self.state.status == "running" then
@@ -503,6 +554,10 @@ function overlay:Create()
     f:SetScript("OnShow", function()
         if not InCombatLockdown() then
             f:SetPropagateKeyboardInput(true)
+        end
+        -- After a finished run the game opens on the start dialog again.
+        if self.state.status == "over" then
+            self.state = sim.New()
         end
         self:LoadPlayer()
         self:ApplyHideReal()
@@ -521,9 +576,11 @@ function overlay:Create()
             self:LoadPlayer()
         end
     end)
+    self:CreateWindow(f)
     f:SetScript("OnUpdate", function(_, elapsed)
         local lap = self.timing and debugprofilestop()
         self:Step(elapsed)
+        self:UpdateHold(elapsed)
         lap = self:Lap("simulation", lap)
         self:AnimateTwin(elapsed)
         self:Measure()
@@ -531,7 +588,7 @@ function overlay:Create()
         lap = self:Lap("twin animation, models", lap)
         self:Render(lap)
     end)
-    self:ApplyHideReal()
+    self:ApplyMode()
     self:Render()
 end
 
@@ -539,7 +596,7 @@ end
 -- the character's projected body, sized by the road's own projection; its camera sits where
 -- the road's camera is and looks at the body from the same angle and distance. A square frame
 -- spans the same angle across and up, so how the scene measures its field of view cannot
--- change the twin's size. Half see-through while not running, to line it up.
+-- change the twin's size. Half see-through while not running full screen, to line it up.
 function overlay:PlaceTwin()
     local s, settings = self.state, app.db.profile.overlay
     local scene, actor = self.twin, self.twinActor
@@ -573,7 +630,7 @@ function overlay:PlaceTwin()
     scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
     actor:SetScale(settings.twinScale)
     actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
-    actor:SetAlpha(s.status == "running" and 1 or 0.5)
+    actor:SetAlpha((s.status == "running" or self.side) and 1 or 0.5)
     actor:Show()
 end
 
@@ -653,10 +710,16 @@ function overlay:Render(lap)
         if self.worldScene then
             self:AimDecorations()
         end
+        if self.side then
+            self:PlaceBackdrop()
+        end
     end
     light.Update()
     if self:UpdateGroundLight() then
         self:ShadeGround()
+        if self.side then
+            self:ShadeBackdrop()
+        end
     end
     lap = self:Lap("road placement", lap)
     self:PlaceTwin()
@@ -700,33 +763,49 @@ function overlay:Render(lap)
     lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
     self:ShowHint()
+    self:ShowMenu()
     self:Lap("texts", lap)
     if self.timing then
         self.timing.frames = self.timing.frames + 1
     end
 end
 
--- The hint under the status message, rebuilt only when something it shows changes.
+-- How to play: in the start dialog while a run is ready, under the status message what to do
+-- while it is paused or over; rebuilt only when something it shows changes.
 function overlay:ShowHint()
-    local hint, running = self.lastHint or {}, self.state.status == "running"
+    local hint, status = self.lastHint or {}, self.state.status
     self.lastHint = hint
     local distance = math.floor(cam.distance * 10 + 0.5)
-    local same = unchanged(hint, "running", running)
+    local same = unchanged(hint, "status", status)
     same = unchanged(hint, "zoomRead", cam.zoomRead) and same
     same = unchanged(hint, "distance", distance) and same
     if same then
         return
     end
-    self.hint:SetText(
-        running and ""
-            or "Run forward to start. WoW turn / strafe keys: lanes   |   WoW jump key: jump\n"
-                .. "Line the see-through copy up with your character in /surfer options.\n"
-                .. string.format(
-                    cam.zoomRead and "Camera zoom %.1f, read from the game."
-                        or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
-                    distance / 10
-                )
-    )
+    if status == "paused" then
+        self.hint:SetText("Press Q to go on. Hold R to start over.")
+    elseif status == "over" then
+        self.hint:SetText("Press R to run again.")
+    else
+        self.hint:SetText("")
+    end
+    if status ~= "ready" then
+        return
+    end
+    local text = self.capture
+            and "Forward or jump key: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over\nYour character stays where it is."
+        or "Run forward: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over"
+    if not self.side then
+        text = text
+            .. "\n\nLine the see-through copy up with your character in /surfer options. "
+            .. string.format(
+                cam.zoomRead and "Camera zoom %.1f, read from the game."
+                    or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
+                distance / 10
+            )
+    end
+    self.menuHelp:SetText(text)
+    self:FitMenu()
 end
 
 -- Adds the time since `since` to `part` of a frame and starts the next lap, into `timing` while
