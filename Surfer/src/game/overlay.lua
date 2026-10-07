@@ -26,11 +26,14 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- The addon's draw order by mode, bottom to top. The overlay frame (`view`) draws the ground
 -- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin above all of them, the score display (hud.lua) above it, the
+-- decorations and coins; the twin above all of them, the score display (hud.lua) and the hotkey
+-- legend (legend.lua) above it, the
 -- window frame over its edges (window.lua), and the buttons, the start dialog and the restart
 -- bar above that (menu.lua).
 -- Full screen, the game lies under the rest of the UI (BACKGROUND, the twin a strata up), but
--- its frame and buttons stay above it, wherever the minimap or a raised panel is. The side
+-- its frame and buttons stay above it, wherever the minimap or a raised panel is; the legend
+-- too, a strata over the player frame (LOW) in the corner it shares with it, which would
+-- otherwise draw between the legend's background and border. The side
 -- window is one window above the UI, all of it in one strata. Levels count from the overlay
 -- frame's; all are fixed, so nothing the client or another frame does changes them.
 local ORDER = {
@@ -39,6 +42,7 @@ local ORDER = {
         world = { "BACKGROUND", 2 },
         twin = { "LOW", 10 },
         hud = { "LOW", 15 },
+        legend = { "MEDIUM", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
         menu = { "HIGH", 25 },
@@ -48,6 +52,7 @@ local ORDER = {
         world = { "HIGH", 2 },
         twin = { "HIGH", 10 },
         hud = { "HIGH", 15 },
+        legend = { "HIGH", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
         menu = { "HIGH", 25 },
@@ -488,6 +493,7 @@ function overlay:Create()
     self:ApplyBiome()
 
     self:CreateHud(f)
+    self:CreateLegend(f)
     self.message = label(f, "GameFontNormalHuge", "CENTER", 220)
     self.hint = label(f, "GameFontHighlight", "CENTER", 175)
     self.hint:SetWidth(700)
@@ -495,23 +501,9 @@ function overlay:Create()
     self.controls = controls
     self:Stack(controls, "controls")
     controls:SetHeight(24)
-    -- Minimize and Close show only without the window frame, which has its own (window.lua
-    -- lays the row out).
+    -- Minimize and Close, shown only without the window frame, which has its own (window.lua
+    -- lays the row out). Restarting and pausing are keys (the legend lists them).
     local buttons = {
-        {
-            "Restart",
-            function()
-                if not InCombatLockdown() then
-                    self:Restart()
-                end
-            end,
-        },
-        {
-            "Pause",
-            function()
-                self:Action("P")
-            end,
-        },
         {
             "Minimize",
             function()
@@ -766,6 +758,7 @@ function overlay:Render(lap)
     lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
     self:ShowHud()
+    self:ShowLegend()
     self:ShowHint()
     self:ShowMenu()
     self:Lap("texts", lap)

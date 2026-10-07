@@ -147,6 +147,19 @@ local options = {
                 app.db.profile.coinSound = value
             end,
         },
+        legend = {
+            type = "toggle",
+            order = 6.5,
+            width = "full",
+            name = "Show hotkeys",
+            desc = "List the game's keys beside the road: your own movement keys, and Q and R.",
+            get = function()
+                return app.db.profile.legend
+            end,
+            set = function(_, value)
+                app.db.profile.legend = value
+            end,
+        },
         biome = {
             type = "select",
             order = 7,

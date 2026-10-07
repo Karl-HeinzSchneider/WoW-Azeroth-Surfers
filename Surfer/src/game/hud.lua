@@ -154,8 +154,9 @@ function overlay:PlaceHud(side, w, h, top)
     hud:ClearAllPoints()
     if side then
         hud:SetScale(SIDE_SCALE)
-        -- Under the buttons' row; a point's offsets count in the display's own scale.
-        hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, (top - 40) / SIDE_SCALE)
+        -- Under the buttons' row, if any; a point's offsets count in the display's own scale.
+        local y = top - (self.framed and 8 or 40)
+        hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, y / SIDE_SCALE)
     else
         hud:SetScale(1)
         -- Beside the road's far end, above the horizon, but always on the screen and under

@@ -125,6 +125,10 @@ function CreateFrame(kind, _, _, template)
 end
 UIParent = stub("Frame")
 function ButtonFrameTemplate_HidePortrait() end
+function GetBindingKey() end
+function GetBindingText(key)
+    return key
+end
 function CreateColor()
     return stub("Color")
 end
@@ -181,6 +185,7 @@ for _, file in ipairs({
     "game/window",
     "game/menu",
     "game/hud",
+    "game/legend",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

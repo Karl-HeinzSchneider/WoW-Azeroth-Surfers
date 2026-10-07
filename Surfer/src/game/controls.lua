@@ -25,6 +25,8 @@ local RUN_SPEED = 7
 local RESTART_KEY, RESTART_HOLD = "R", 0.75
 -- The game's pause key: pauses a run and goes on with it.
 local PAUSE_KEY = "Q"
+-- The game's own keys, for the hotkey legend (legend.lua).
+overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
 
 function overlay:SaveBest()
     app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))

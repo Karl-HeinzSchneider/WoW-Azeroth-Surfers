@@ -13,6 +13,7 @@ for _, file in ipairs({
     "game/window",
     "game/menu",
     "game/hud",
+    "game/legend",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
@@ -177,6 +178,19 @@ function CreateFrame()
 end
 o.frame.GetFrameLevel = zero
 o:CreateHud(widget())
+-- The hotkey legend, with the default movement bindings.
+local BINDINGS = { MOVEFORWARD = { "W", "UP" }, TURNLEFT = { "A", "LEFT" }, STRAFELEFT = { "Q" }, JUMP = { "SPACE" } }
+function GetBindingKey(binding)
+    local keys = BINDINGS[binding]
+    if keys then
+        return keys[1], keys[2]
+    end
+end
+function GetBindingText(key)
+    return key
+end
+app.db.profile.legend = true
+o:CreateLegend(widget())
 o.menu, o.menuBest, o.menuHelp, o.runSeed, o.seedBox, o.holdBar =
     widget(), widget(), widget(), widget(), widget(), widget()
 o.menuButtons = { widget(), widget() }

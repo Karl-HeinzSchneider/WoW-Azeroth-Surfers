@@ -117,8 +117,8 @@ be listed**. The order follows these rules:
   PortraitFrameTemplate (built like the spell book's: its CloseButton, a
   MaximizeMinimizeButtonFrameTemplate left of it, no background, no portrait) sibling of the view, so the clipping does not cut it; full screen it
   covers the screen's edges, since the road must stay centered on the real character.
-  The frame's minimize/maximize button (and, without the frame, the row's Minimize/Close
-  buttons) switch modes through `SetMode(mode)`. `Layout()` places texts and buttons for the
+  The frame's minimize/maximize button (and, without the frame, the Minimize/Close buttons in a
+  row at the top middle) switch modes through `SetMode(mode)`. `Layout()` places texts and buttons for the
   mode and size. Call `ApplyMode()` after any mode
   setting changes (the options and `OnProfileRefresh` do).
 - `src/game/menu.lua` — the start dialog (classic dialog box: best score, how to play, Start game
@@ -134,6 +134,16 @@ be listed**. The order follows these rules:
   Full screen it stands right of the road's far end, above the horizon (placed in proportion to
   the screen's height); in the side window in its top right corner under the buttons, scaled
   down. Hidden on the start dialog. Its own place in the draw order (`hud`, above the twin).
+- `src/game/legend.lua` — the hotkey legend, remade after the client's persistent input
+  legend: one group of rows per run state (ready, running, paused, over), only the current one
+  shown; each group a `DialogBorderTemplate` panel sized from its rows, a header row with a
+  classic divider as trim, rows of key caps (tooltip-bordered plates) and gold texts in one
+  column. The keys are the player's movement bindings (`GetBindingKey`, again on
+  `UPDATE_BINDINGS`; Q and R left out of them) and the game's own (`overlay.GAME_KEYS`,
+  controls.lua). In the view's top left corner (scaled down in the side window), clear of the
+  window frame's border; full screen in MEDIUM strata, over the player frame (LOW), which would
+  otherwise draw between its background and border.
+  `profile.legend` (option "Show hotkeys").
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
   `Step`, the status message and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
