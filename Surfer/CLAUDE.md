@@ -130,7 +130,7 @@ be listed**. The order follows these rules:
   with bright outlined numbers (the UI font, Friz Quadrata): the score, the multiplier (a star
   and `x1`, orange above 1; the star pops when it rises) in front of it, the coins under it. It
   holds still to be read while running: one fixed-width cell per digit, panels widen only for a
-  digit more, the running score is redrawn 8 times a second.
+  digit more, the running score is redrawn 20 times a second.
   Full screen it stands right of the road's far end, above the horizon (placed in proportion to
   the screen's height); in the side window in its top right corner under the buttons, scaled
   down. Hidden on the start dialog. Its own place in the draw order (`hud`, above the twin).

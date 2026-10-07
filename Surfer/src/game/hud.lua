@@ -32,7 +32,7 @@ local SCORE_DIGITS, COINS_DIGITS = 6, 3
 local MULTIPLIER_WIDTH = 70
 local SIDE_SCALE = 0.75
 -- Seconds between redraws of the running score; a finished or paused one is exact at once.
-local SCORE_EVERY = 0.125
+local SCORE_EVERY = 0.05
 -- Seconds the star pops (grows and shrinks back) when the multiplier goes up, and by how much.
 local POP, POP_GROW = 0.3, 0.4
 -- The multiplier's gold, and the brighter orange it turns while above 1.
