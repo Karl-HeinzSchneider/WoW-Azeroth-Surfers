@@ -60,6 +60,10 @@ function game.Overlaps(s, o)
 end
 
 local STEP = 1 / 120
+-- Yards ahead the track is laid out: as far as the views show anything (shapes.lua draws boxes
+-- up to it, overlay.lua lays the ground to it, a biome's `ground.fade` ends short of it), so
+-- nothing comes into sight before it exists.
+game.AHEAD = 140
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 -- Seconds a jump from a floor to the same height lasts.
@@ -191,7 +195,7 @@ local function tick(s)
         s.height, s.velocity = floor, 0
     end
     -- The track ahead: patterns (track.lua) up to this far.
-    while s.nextRow < s.distance + 85 do
+    while s.nextRow < s.distance + game.AHEAD do
         game.Spawn(s)
     end
     for i = #s.objects, 1, -1 do

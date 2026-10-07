@@ -20,7 +20,7 @@ local autopilot = {}
 app.autopilot = autopilot
 
 -- Seconds between two inputs, and how many a plan looks ahead (1.4 seconds: up to 76 yards at
--- the top speed, short of the 85 yards the track is laid out ahead).
+-- the top speed, short of the 140 yards the track is laid out ahead, simulation.AHEAD).
 local DT, STEPS = 0.05, 28
 -- Inputs played from a plan before the next one, as long as it found a way through.
 local REPLAN = 5

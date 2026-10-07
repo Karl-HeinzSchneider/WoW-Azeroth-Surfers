@@ -10,7 +10,7 @@ local LANE = bounds.laneWidth
 local shapes = {}
 app.shapes = shapes
 -- Faces closer than this are not drawn; farther than DRAW_DISTANCE neither.
-local NEAR, DRAW_DISTANCE = -3, 85
+local NEAR, DRAW_DISTANCE = -3, sim.AHEAD
 
 -- The track curves down and away toward the horizon: it drops `curve` times the distance
 -- squared, in yards. The overlay sets it (the biome's `ground.curve`, or the fixed one).

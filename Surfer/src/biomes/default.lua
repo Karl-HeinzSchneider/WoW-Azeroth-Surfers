@@ -41,10 +41,12 @@ app.biomes.Register("default", {
             { surface = "dirt", layer = 1, segments = 4, from = 0.95, to = 1.45, opacity = { 0.3, 0.3 } },
         },
         -- The far ground fades out between these distances ahead instead of ending at a hard
-        -- edge.
-        fade = { from = 60, to = 88 },
+        -- edge; models, decorations and wildlife fade in the same way. `to` must stay short of
+        -- simulation.AHEAD (140), how far ahead the track is laid out.
+        fade = { from = 95, to = 135 },
         -- How the ground curves down and away toward the horizon: it drops `curve` times the
-        -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85).
+        -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85, 9.1
+        -- at 135).
         -- 0 is flat. Everything on the road follows it. The options can fix it instead.
         curve = 0.0005,
     },

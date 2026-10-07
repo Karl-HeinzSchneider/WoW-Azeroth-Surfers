@@ -13,7 +13,8 @@ local LANE = bounds.laneWidth
 -- only a few pixels tall: fewer pieces to place on every lane change and jump.
 local function edges(scale)
     local list = { -7 }
-    while list[#list] < 87 do
+    -- A little past the track's end (simulation.AHEAD).
+    while list[#list] < sim.AHEAD + 2 do
         local d = list[#list]
         list[#list + 1] = d + scale * (d < 6 and 0.5 or d < 20 and 1 or d < 44 and 2 or 4)
     end

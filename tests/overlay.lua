@@ -310,7 +310,10 @@ assert(math.abs(road.coords[4] - (bottom - 1 / road.tile)) < 1e-9, "running a ya
 o.state.distance = 1000 * road.tile + 0.25
 o:Render()
 assert(road.coords[4] > -2, "far runs keep the coordinates small")
-assert(road.alpha == settings.opacity and piece("road", 0, 85).alpha < 0.2 * settings.opacity, "the far road fades out")
+assert(
+    road.alpha == settings.opacity and piece("road", 0, 133).alpha < 0.2 * settings.opacity,
+    "the far road fades out"
+)
 local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -10.8, 5)
 assert(cobbleEdge.gradient[1] > 0 and cobbleEdge.gradient[2] == 0, "the cobbles fade out toward the side")
 assert(grassLeft.gradient[1] == 0 and grassLeft.gradient[2] > 0, "the grass fades into the world on the left")

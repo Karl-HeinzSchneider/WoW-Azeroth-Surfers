@@ -80,7 +80,9 @@ be listed**. The order follows these rules:
   expert; `New(seed, difficulty)`, `profile.difficulty`, set by `overlay:SetDifficulty(id)` /
   `StepDifficulty(±1)` from the option and the status panel's arrows) set the speed (start,
   top, how fast it rises), the free road between patterns and, through the patterns' weights,
-  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for.
+  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for. `AHEAD` (140 yards) is how far ahead the track is laid out,
+  and so how far the views can show: flat boxes and the ground reach it, a biome's `ground.fade`
+  ends short of it.
 - `src/game/track.lua` — `app.track`, the track ahead (`simulation.Spawn`): a stream of
   patterns, weighted by the run's difficulty, each followed by free road measured in seconds at
   the speed of the moment. `Register(pattern)` (`name`, `weight` — a number or a table by
