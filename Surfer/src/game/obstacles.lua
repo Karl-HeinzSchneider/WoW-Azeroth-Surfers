@@ -82,26 +82,35 @@ local function attach(self, o, item, along)
     }
 end
 
--- A ramp's model, `across` of them side by side over the platform's width: placed by its center
--- (it is turned up to the slope about it), scaled and turned once loaded (`fit`).
+-- A ramp's models, `across` of them side by side over the platform's width and, with
+-- `segment`, as many end to end up the slope as make each about that many yards long (one
+-- otherwise): placed by their centers (each is turned up to the slope about it), scaled and
+-- turned once loaded (`fit`).
 local function attachRamp(self, o, item)
     local count = item.across or 1
     local width = 2 * sim.geometry.halfWidth.platform
-    for k = 1, count do
-        local model = choose(looks, item.model)
-        local actor = self:AcquireActor(model)
-        actor:SetAlpha(0)
-        actor:SetUseCenterForOrigin(true, true, true)
-        actor:SetYaw(0)
-        o.surferActors[#o.surferActors + 1] = {
-            model = model,
-            actor = actor,
-            item = item,
-            ramp = true,
-            yaw = 0,
-            x = (k - (count + 1) / 2) * width / count,
-            alpha = false,
-        }
+    local slope = math.sqrt(o.ramp ^ 2 + (o.layers * LAYER) ^ 2)
+    local pieces = item.segment and math.max(1, math.floor(slope / item.segment + 0.5)) or 1
+    for piece = 1, pieces do
+        for k = 1, count do
+            local model = choose(looks, item.model)
+            local actor = self:AcquireActor(model)
+            actor:SetAlpha(0)
+            actor:SetUseCenterForOrigin(true, true, true)
+            actor:SetYaw(0)
+            o.surferActors[#o.surferActors + 1] = {
+                model = model,
+                actor = actor,
+                item = item,
+                ramp = true,
+                -- Which piece up the slope, of how many.
+                piece = piece,
+                pieces = pieces,
+                yaw = 0,
+                x = (k - (count + 1) / 2) * width / count,
+                alpha = false,
+            }
+        end
     end
 end
 
@@ -154,8 +163,9 @@ function overlay:ResetObstacles()
 end
 
 -- Scales an entry's model once it has loaded: to its item's `scale`, or so its top above its
--- origin is `height` yards (the box's height when left out). A ramp's model spans the slope:
--- as long as it, turned up to its angle, its top on it (its center half its thickness below).
+-- origin is `height` yards (the box's height when left out). A ramp's model spans its piece of
+-- the slope: as long as it, turned up to its angle, its top on it (its center half its
+-- thickness below), its middle at the piece's.
 local function fit(self, o, entry)
     local bounds = self:ModelBounds(entry.actor, entry.model)
     if not bounds then
@@ -165,10 +175,12 @@ local function fit(self, o, entry)
     if entry.ramp then
         local rise = o.layers * LAYER
         local angle = math.atan2(rise, o.ramp)
-        entry.scale = item.scale or math.sqrt(o.ramp ^ 2 + rise ^ 2) / math.max(bounds[4] - bounds[1], 0.01)
+        local length = math.sqrt(o.ramp ^ 2 + rise ^ 2) / entry.pieces
+        entry.scale = item.scale or length / math.max(bounds[4] - bounds[1], 0.01)
         local thickness = (bounds[6] - bounds[3]) * entry.scale
-        entry.along = o.at + o.ramp / 2 + thickness / 2 * math.sin(angle)
-        entry.z = o.layer * LAYER + rise / 2 - thickness / 2 * math.cos(angle)
+        local middle = (entry.piece - 0.5) / entry.pieces
+        entry.along = o.at + o.ramp * middle + thickness / 2 * math.sin(angle)
+        entry.z = o.layer * LAYER + rise * middle - thickness / 2 * math.cos(angle)
         entry.actor:SetScale(entry.scale)
         -- Its far end up.
         entry.actor:SetPitch(-angle)

@@ -27,6 +27,12 @@ local bush = {
     scale = { 0.45, 0.65 },
 }
 
+-- A ramp's planks: world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01 (21.6
+-- yards long) scaled down to pieces of about 4 yards of slope, four side by side over the
+-- platform's width, as many pieces end to end as the slope is long; a long ramp has more
+-- planks, not bigger ones.
+local RAMP = { { model = 190091, across = 4, segment = 4 } }
+
 -- A fence group with `...` added to it, picked by `weight`.
 local function fenceWith(weight, ...)
     local items = {}
@@ -155,25 +161,23 @@ app.biomes.Register("elwynn", {
             },
         },
         -- Rows of lumber piles: deadminelumberpilesmall (0.56 tall) for one layer,
-        -- deadminelumberpilelarge (1.67 tall) scaled for two and three, stacked for four and five. Ramps of planks
-        -- (world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01, 21.6 yards
-        -- long, scaled to the slope): the shorter the ramp, the narrower its planks, so more
-        -- side by side.
+        -- deadminelumberpilelarge (1.67 tall) scaled for two and three, stacked for four and
+        -- five. Every ramp is laid with the same short planks, end to end up the slope (RAMP).
         platform = {
             {
                 layers = 1,
                 items = { { model = 198340, every = 3.4 } },
-                ramp = { { model = 190091, across = 4 } },
+                ramp = RAMP,
             },
             {
                 layers = 2,
                 items = { { model = 198339, every = 2.3 } },
-                ramp = { { model = 190091, across = 2 } },
+                ramp = RAMP,
             },
             {
                 layers = 3,
                 items = { { model = 198339, every = 3.4 } },
-                ramp = { { model = 190091, across = 2 } },
+                ramp = RAMP,
             },
             -- Higher ground (towers, corridor walls, the top of stairs and rooftops): two
             -- large piles stacked, each half the height.
@@ -183,7 +187,7 @@ app.biomes.Register("elwynn", {
                     { model = 198339, every = 2.3, height = 1.2 },
                     { model = 198339, every = 2.3, z = 1.2, height = 1.2 },
                 },
-                ramp = { { model = 190091, across = 2 } },
+                ramp = RAMP,
             },
             {
                 layers = 5,
@@ -191,7 +195,7 @@ app.biomes.Register("elwynn", {
                     { model = 198339, every = 2.9, height = 1.5 },
                     { model = 198339, every = 2.9, z = 1.5, height = 1.5 },
                 },
-                ramp = { { model = 190091, across = 2 } },
+                ramp = RAMP,
             },
         },
     },
