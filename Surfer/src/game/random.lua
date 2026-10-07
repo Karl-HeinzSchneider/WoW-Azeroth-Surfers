@@ -14,6 +14,8 @@ random.MAX = M - 1
 -- (as a factor), so they do not repeat one another. Next values of one sequence, as seeds,
 -- would only be that sequence shifted by one.
 random.TRACK, random.LEFT, random.RIGHT, random.LOOK = 1, 1583458089, 784588716, 2045073574
+-- The wildlife's (ambient.lua).
+random.AMBIENT = 1209675413
 
 -- x * c mod M, exactly: c split in two halves keeps every product below 2^53.
 local function times(x, c)

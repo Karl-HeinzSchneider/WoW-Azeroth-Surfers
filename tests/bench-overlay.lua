@@ -185,6 +185,7 @@ dofile("tests/load.lua")(app, {
     "game/overlay",
     "game/decorations",
     "game/obstacles",
+    "game/ambient",
     "game/window",
     "game/menu",
     "game/hud",

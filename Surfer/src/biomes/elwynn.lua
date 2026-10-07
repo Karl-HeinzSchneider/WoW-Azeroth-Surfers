@@ -200,6 +200,17 @@ app.biomes.Register("elwynn", {
         },
     },
 
+    -- Elwynn's wildlife: now and then a deer (347) bounding across the road, more often a
+    -- rabbit (139885) darting over from closer by. Both at their own size; /surfer preview in
+    -- Surfer_Dev shows a creature on the road with its size.
+    ambient = {
+        every = { 70, 180 },
+        creatures = {
+            { creature = 347, move = "cross", speed = { 11, 14 } },
+            { creature = 139885, move = "cross", speed = { 8, 10 }, from = 7, weight = 1.5 },
+        },
+    },
+
     -- The roadside: fences in four variants with open stretches between them, bushes, thorn
     -- bushes by the road and pines farther back.
     decorations = {

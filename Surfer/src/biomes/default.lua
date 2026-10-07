@@ -110,6 +110,29 @@ app.biomes.Register("default", {
     -- colors), as does a ramp without `ramp` items. None by default.
     obstacles = {},
 
+    -- Wildlife: creatures that pass by now and then, only for the eye. They never touch the
+    -- runner and never change the track. One comes up every `every` yards of the run (picked
+    -- by `weight` among `creatures`), from either side at random:
+    --   creature   a creature display id, or a list to pick one from at random
+    --   move       "cross": runs across the road on the ground, at the nearest spot ahead clear
+    --              of every box and coin, and is off the road before the runner gets there (a
+    --              turn without such a spot within sight passes without one); "fly": crosses
+    --              `z` yards above the road, `ahead` yards ahead, anywhere
+    --   speed      yards per second across, 10 if left out. Faster crossers can cross nearer:
+    --              a slow one at a fast run has to cross so far ahead it may find no spot.
+    --   from       yards off the road's middle it starts from (and runs to on the other side),
+    --              9 if left out: behind the roadside's bushes
+    --   animation  the animation it moves with, 5 (run) if left out; `rate` its speed, 1 if
+    --              left out
+    --   height     yards its top is scaled to; or `scale`, its size (1, its own, if left out)
+    --   z, ahead   a flyer's height over the road (10) and how far ahead it crosses (50)
+    -- Any number may instead be a { min, max } range. Actors of the decorations' scene, lit like
+    -- them. None by default.
+    ambient = {
+        every = { 80, 200 },
+        creatures = {},
+    },
+
     -- Behind the road in the side window, where there is no world: the sky from `top` down to
     -- `horizon`, and the land below the horizon, hazing toward `horizon` by `haze` far away.
     -- Lit like the ground (light and the brightness setting); `land` is the color at full

@@ -65,7 +65,7 @@ be listed**. The order follows these rules:
   seeded): Park–Miller's minimal standard, exact in Lua's doubles. `random.New(seed, stream)` is
   a generator called like `math.random` (`r()`, `r(n)`, `r(m, n)`), `r:Seed(seed, stream)`
   restarts it without allocating. Each system draws from its own `stream` (`TRACK`, `LEFT`,
-  `RIGHT`, `LOOK`), a far-away point of the cycle, so they do not repeat one another. **Nothing
+  `RIGHT`, `LOOK`, `AMBIENT`), a far-away point of the cycle, so they do not repeat one another. **Nothing
   in a run may use `math.random`**: everything a seed should replay draws from a generator of
   the run's seed.
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
@@ -127,6 +127,15 @@ be listed**. The order follows these rules:
   biome's `clear` by their measured, turned bounds unless an item is `overhang`. Each side draws
   from its own stream of the run's seed in road order, and an obstacle's look from its box's
   `o.seed` (obstacles.lua), so a seed decorates the same at any frame rate.
+- `src/game/ambient.lua` — wildlife, the biome's `ambient` creatures (default.lua documents
+  them): now and then one passes by, only for the eye, never in the simulation or the runner's
+  way. A crosser runs across the road at the nearest spot ahead clear of every box and coin
+  (`CLEAR` yards to either side, all lanes), far enough ahead to be off the road before the
+  runner comes (its speed and start against the run's speed, with `SAFETY`); a flyer crosses
+  high above, anywhere. Actors of the world scene (pooled like the decorations), moving in the
+  run's time: still, their animation too, while it stands. Which creatures come and where
+  follows from the run's seed through their own stream, `random.AMBIENT`, so the track stays
+  as it is.
 - `src/game/window.lua` — the modes (`profile.mode`): `ApplyMode()` puts the view full screen
   or in the side window (a movable, resizable, clipped frame whose place `profile.side` saves;
   its camera uses the calibration distance, not the real zoom, and a sky/land backdrop from the

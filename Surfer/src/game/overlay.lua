@@ -389,6 +389,7 @@ function overlay:ApplyBiome()
         self:LoadCoinModel(1)
         self:ApplyDecorations(biome)
         self:ResetObstacles()
+        self:ResetAmbient()
     end
     self.lastRoad, self.groundLight, self.scrolled = {}, nil, nil
 end
@@ -489,6 +490,7 @@ function overlay:Create()
     self:LoadPlayer()
     -- The world scene: 3D decorations and coins, one render pass for all of them.
     self:CreateDecorations(f)
+    self:CreateAmbient()
     self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
 
@@ -527,14 +529,15 @@ function overlay:Create()
             function()
                 self:SetAuto(false)
             end,
+            -- Wider, for its text.
+            120,
         },
     }
     self.controlButtons = {}
     for i, spec in ipairs(buttons) do
         local b = CreateFrame("Button", nil, controls, "UIPanelButtonTemplate")
-        b:SetSize(84, 24)
+        b:SetSize(spec[3] or 84, 24)
         b:SetText(spec[1])
-        b:SetWidth(math.max(84, b:GetFontString():GetStringWidth() + 24))
         b:SetScript("OnClick", spec[2])
         self.controlButtons[i] = b
     end
@@ -766,8 +769,9 @@ function overlay:Render(lap)
     if self.worldScene then
         self:UpdateDecorations()
         self:UpdateObstacles()
+        self:UpdateAmbient()
     end
-    lap = self:Lap("ground scroll, decorations, obstacles", lap)
+    lap = self:Lap("ground scroll, decorations, obstacles, wildlife", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
     local faces, count = shapes.Collect(s, -cam.offset)
@@ -792,7 +796,7 @@ function overlay:Render(lap)
             end
         end
         -- Every shown scene costs a render pass, even an empty one.
-        if #self.decor > 0 or coins > 0 or not self.coinReady or self.keepWorldScene then
+        if #self.decor > 0 or #self.critters > 0 or coins > 0 or not self.coinReady or self.keepWorldScene then
             shapes.Show(self.worldScene)
         else
             shapes.Hide(self.worldScene)
