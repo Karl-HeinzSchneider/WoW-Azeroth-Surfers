@@ -39,6 +39,29 @@ dev.Command("multiplier", "multiplier <n>: score n times from now on (the HUD's 
     log:chat("Multiplier: x%d", o.state.multiplier)
 end)
 
+dev.Command(
+    "reference",
+    "reference <yards>: the height a taller character is drawn at in the track's world (the track grows around it)",
+    function(rest)
+        local o = dev.Overlay()
+        if not o then
+            return
+        end
+        local yards = dev.Words(rest)[1]
+        if type(yards) == "number" and yards > 0.5 then
+            o.referenceHeight = yards
+            o:ApplyBodyScale()
+        end
+        log:chat(
+            "Character %.2f yards tall (measured), reference %.2f: drawn at %.2f, the track %.2f times as big",
+            o.height,
+            o.referenceHeight,
+            o.body,
+            o.bodyScale
+        )
+    end
+)
+
 -- The registered patterns' names (src/patterns/), in their order.
 local function patternNames()
     local names = {}

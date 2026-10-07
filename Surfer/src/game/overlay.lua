@@ -77,6 +77,14 @@ local AIR_LOOP = 1.1
 -- least this many seconds, and turns there and back this much quicker than otherwise (a lane
 -- change takes about 0.14 seconds).
 local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
+-- The yards a character may be tall in the track's world, measured as `Measure` does (its
+-- bounds, hair and all, so more than it looks). The track's body is three layers tall (1.8
+-- yards); at this height a head clears a bar to run under (layer 3) as it looks: fitted in the
+-- game with a female troll (2.68 measured). A taller character is drawn this tall, and the
+-- road's camera comes nearer by as much (`bodyScale`): on the screen it stays as tall as the
+-- real one it covers, and the whole track is drawn that much bigger around it. Shorter ones
+-- stay as they are.
+local REFERENCE_HEIGHT = 1.7
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
@@ -86,6 +94,9 @@ local TWIN_FRAME = 1.6
 -- controls.lua adds input, movement sampling, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
+-- The height a taller character is drawn at in the track's world (REFERENCE_HEIGHT);
+-- Surfer_Dev's /surfer reference changes it, to fit it in the game.
+overlay.referenceHeight = REFERENCE_HEIGHT
 overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
 
 local ground = shapes.Ground
@@ -117,11 +128,13 @@ function overlay:UpdateCamera()
     cam.cos, cam.sin = math.cos(pitch), math.sin(pitch)
     cam.cx, cam.cy = w / 2, h / 2
     cam.distance = zoom
-    cam.x = -math.max(zoom, 0.5) * cam.cos
+    -- Nearer for a tall character, so the track is drawn bigger around it (referenceHeight).
+    local k = self.bodyScale
+    cam.x = -math.max(zoom, 0.5) * cam.cos / k
     -- The camera follows the character, so the world shifts by its lane offset and, while it
     -- jumps, drops away beneath it: the character keeps its place on screen.
     cam.feet = self.state.height
-    cam.z = cam.feet + settings.focus * self.height + math.max(zoom, 0.5) * cam.sin
+    cam.z = cam.feet + (settings.focus * self.height + math.max(zoom, 0.5) * cam.sin) / k
     cam.offset = self.state.lateral * LANE
     -- Whether the road has to be projected again: compared value by value, without building a
     -- key, so an unchanged frame allocates nothing.
@@ -333,6 +346,7 @@ end
 overlay.Extents = extents
 
 -- Character height in yards from a copy without weapons; a human-sized guess until it loads.
+-- `body` is its height in the track's world, `bodyScale` how much smaller than the real one.
 function overlay:Measure()
     if self.measured then
         return
@@ -343,8 +357,23 @@ function overlay:Measure()
     end
     self.height = math.min(math.max(high - low, 0.8), 4)
     self.measured = true
+    self:ApplyBodyScale()
     -- Every shown scene costs a render pass, even an empty one.
     shapes.Hide(self.probeScene)
+end
+
+-- The character's size in the track's world: at most a human's height (`referenceHeight`).
+function overlay:ApplyBodyScale()
+    self.bodyScale = math.max(1, self.height / self.referenceHeight)
+    self.body = self.height / self.bodyScale
+    -- Everything is placed again.
+    self.lastRoad = {}
+    app.logger:debug(
+        "Character %.2f yards tall: drawn at %.2f in the track's world, the track %.2f times as big",
+        self.height,
+        self.body,
+        self.bodyScale
+    )
 end
 
 function overlay:LoadPlayer()
@@ -456,7 +485,7 @@ end
 
 function overlay:Create()
     self.state = self:NewState()
-    self.height, self.lastRoad = 2, {}
+    self.height, self.body, self.bodyScale, self.lastRoad = 2, 2, 1, {}
     local f = CreateFrame("Frame", "SurferOverlay", UIParent)
     self.frame = f
     f:SetAllPoints(UIParent)
@@ -625,13 +654,13 @@ function overlay:PlaceTwin()
         end
         self.twinLow = low
     end
-    local middle = cam.feet + self.height / 2
+    local middle = cam.feet + self.body / 2
     local x, y, scale = project(0, -cam.offset, middle)
     if not x then
         actor:Hide()
         return
     end
-    local side = TWIN_FRAME * self.height
+    local side = TWIN_FRAME * self.body
     scene:ClearAllPoints()
     scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, y)
     scene:SetSize(side * scale, side * scale)
@@ -641,8 +670,10 @@ function overlay:PlaceTwin()
     scene:SetCameraPosition(cam.x, 0, cam.z)
     scene:SetCameraOrientationByYawPitchRoll(0, math.atan2(down, ahead), 0)
     scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
-    actor:SetScale(settings.twinScale)
-    actor:SetPosition(0, 0, cam.feet / settings.twinScale - self.twinLow)
+    -- A tall character at the track's size (referenceHeight); its position counts in its scale.
+    local scale = settings.twinScale / self.bodyScale
+    actor:SetScale(scale)
+    actor:SetPosition(0, 0, cam.feet / scale - self.twinLow)
     actor:SetAlpha((s.status == "running" or self.side) and 1 or 0.5)
     actor:Show()
 end
@@ -686,6 +717,8 @@ function overlay:AnimateTwin(elapsed)
             -- As the run speeds up the track, the legs speed up with it, or the twin glides.
             if animation == RUN and s.status == "running" then
                 rate = rate * s.speed / sim.RUN_PACE
+                -- A tall character is drawn smaller in the track's world: shorter strides.
+                rate = rate * self.bodyScale
             end
         end
     elseif self.landTime and self.landTime < 0.3 then

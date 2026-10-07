@@ -113,7 +113,11 @@ be listed**. The order follows these rules:
   model of the follow camera (focus point at the view's center; pitch, focus height, FOV and, without `GetCameraZoom`, distance from
   `profile.overlay`). A twin covers the real character: a square ModelScene (LOW strata) around
   the projected body, sized by the road's projection, its camera at the road's camera (a square
-  frame makes the scene's field-of-view axis irrelevant). The real character's animation cannot be
+  frame makes the scene's field-of-view axis irrelevant). A character taller than `overlay.referenceHeight` (1.7 yards, as `Measure`
+  measures it, hair and all) is drawn that tall in the track's world (`bodyScale`), the road's
+  camera nearer by as much: on the screen it covers the real one as before, and the whole track
+  is drawn bigger around it, so its head clears a bar to run under. Fitted with a female troll
+  (2.68 measured); Surfer_Dev's `/surfer reference` tries other values in the game. The real character's animation cannot be
   read, so the twin mirrors its movement (`motion` from position sampling, `GetUnitSpeed`,
   `IsFalling`). `hideReal` zooms into first person (`CameraZoomIn`) while the game is open. Coins
   within 40 yards are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene

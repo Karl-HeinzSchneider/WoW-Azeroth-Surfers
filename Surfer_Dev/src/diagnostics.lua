@@ -111,10 +111,13 @@ dev.Command("debug", "debug: cameras, lens calibration, model bounds", function(
     end
     local minX, minY, low, maxX, maxY, high = o.Extents(o.twinActor)
     log:chat(
-        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f",
+        "twin loaded %s, bounds %s, scale %.2f; measured height %.2f, drawn at %.2f (reference %.2f), track %.2f times as big",
         tostring(o.twinActor:IsLoaded()),
         low and string.format("%.2f x %.2f x %.2f", maxX - minX, maxY - minY, high - low) or "none",
         o.twinActor:GetScale(),
-        o.height
+        o.height,
+        o.body,
+        o.referenceHeight,
+        o.bodyScale
     )
 end)

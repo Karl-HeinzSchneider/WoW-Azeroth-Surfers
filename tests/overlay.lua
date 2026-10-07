@@ -152,7 +152,7 @@ o.frame = {
         return W, H
     end,
 }
-o.height, o.lastRoad = 2, {}
+o.height, o.body, o.bodyScale, o.lastRoad = 2, 2, 1, {}
 o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
@@ -229,6 +229,22 @@ g.Start(o.state)
 o:Render()
 assert(actor.alpha == 1, "the twin is fully drawn while running")
 print("PASS twin stands on the real character, as tall as the road's projection")
+
+-- A tall character (2.5 yards) is drawn at a human's height in the track's world, the camera
+-- nearer by as much: on the screen it covers the real one just as before, and the track around
+-- it is bigger.
+o.height, o.body, o.bodyScale, o.lastRoad = 2.5, 2.5, 1, {}
+o:Render()
+local realX, realY, realSize, realWidth = scene.x, scene.y, scene.h, first().w
+o.body, o.bodyScale, o.lastRoad = 2, 1.25, {}
+o:Render()
+assert(math.abs(scene.h / realSize - 1) < 1e-9, "the twin is as big on the screen as the real character")
+assert(math.abs(scene.x - realX) < 1e-6 and math.abs(scene.y - realY) < 1e-6, "and where it stands")
+assert(math.abs(actor.scale - 1 / 1.25) < 1e-9, "the twin itself is smaller")
+assert(first().w > realWidth * 1.15, "the track is drawn bigger around it")
+o.height, o.body, o.bodyScale, o.lastRoad = 2, 2, 1, {}
+o:Render()
+print("PASS a tall character keeps its size on the screen, the track grows around it")
 
 for _, lane in ipairs({ -1, 1 }) do
     o.state.objects = { obstacle(lane, 10) }
