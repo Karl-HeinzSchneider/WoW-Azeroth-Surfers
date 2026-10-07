@@ -137,6 +137,22 @@ If they exist, **read them, never edit them**:
 
 Never list anything from these folders in a TOC or copy files out of them into the repo.
 
+### The community listfile: game file ids
+
+The biomes name textures and models by game file id. `../wow-listfile/` (`E:\Projects\wow-listfile\`
+here, a clone of [wowdev/wow-listfile](https://github.com/wowdev/wow-listfile)) maps every id
+to its path; look ids up there instead of downloading the listfile or guessing them:
+
+- `parts/*.csv` — `id;Path` per line (paths in mixed case), split by area: `world.csv` for
+  doodads and other models (`World/...`), `creature.csv`, `item.csv`, `interface.csv`,
+  `sound.csv`, `spells.csv`, `world-maps.csv`, `world-wmo.csv` and more. Search them
+  case-insensitively, e.g. `grep -i "woodendummies/.*\.m2$" ../wow-listfile/parts/world.csv`.
+- `listfile.txt` — the paths alone, lowercased, without ids: no use for an id.
+
+Only classic-era files (see the biomes): the original game's files have the low ids (Elwynn's
+doodads are in the 18xxxx–20xxxx range); a much higher id beside a similar path is usually a
+later expansion's remake. Read it, never edit it, and never copy it into the repo.
+
 ## Textures and Blizzard frames: reuse art, remake code
 
 - **Don't create new textures unless there is no other way.** Prefer the game's own textures
