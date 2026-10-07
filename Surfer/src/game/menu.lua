@@ -56,6 +56,9 @@ local function numberBox(parent)
     return box
 end
 
+-- For the status panel's seed (messages.lua).
+overlay.NumberBox = numberBox
+
 function overlay:CreateMenu(f)
     local menu = CreateFrame("Frame", nil, f, "BackdropTemplate")
     self:Stack(menu, "menu")

@@ -45,6 +45,7 @@ local ORDER = {
         legend = { "MEDIUM", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
+        messages = { "HIGH", 24 },
         menu = { "HIGH", 25 },
     },
     side = {
@@ -55,6 +56,7 @@ local ORDER = {
         legend = { "HIGH", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
+        messages = { "HIGH", 24 },
         menu = { "HIGH", 25 },
     },
 }
@@ -447,12 +449,6 @@ function overlay:UpdateCoinModel(elapsed)
     end
 end
 
-local function label(parent, font, point, y)
-    local f = parent:CreateFontString(nil, "OVERLAY", font)
-    f:SetPoint(point, 0, y)
-    return f
-end
-
 function overlay:Create()
     self.state = self:NewState()
     self.height, self.lastRoad = 2, {}
@@ -494,9 +490,7 @@ function overlay:Create()
 
     self:CreateHud(f)
     self:CreateLegend(f)
-    self.message = label(f, "GameFontNormalHuge", "CENTER", 220)
-    self.hint = label(f, "GameFontHighlight", "CENTER", 175)
-    self.hint:SetWidth(700)
+    self:CreateMessages(f)
     local controls = CreateFrame("Frame", nil, f)
     self.controls = controls
     self:Stack(controls, "controls")
@@ -757,6 +751,7 @@ function overlay:Render(lap)
     end
     lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
+    self:ShowBanner()
     self:ShowHud()
     self:ShowLegend()
     self:ShowHint()
@@ -767,8 +762,8 @@ function overlay:Render(lap)
     end
 end
 
--- How to play: in the start dialog while a run is ready, under the status message what to do
--- while it is paused or over; rebuilt only when something it shows changes.
+-- How to play, in the start dialog while a run is ready; rebuilt only when something it shows
+-- changes.
 function overlay:ShowHint()
     local hint, status = self.lastHint or {}, self.state.status
     self.lastHint = hint
@@ -779,14 +774,6 @@ function overlay:ShowHint()
     same = unchanged(hint, "seed", self.state.seed) and same
     if same then
         return
-    end
-    -- The seed, to play the run again.
-    if status == "paused" then
-        self.hint:SetText(string.format("Seed %d. Press Q to go on. Hold R to start over.", self.state.seed))
-    elseif status == "over" then
-        self.hint:SetText(string.format("Seed %d. Press R to run again.", self.state.seed))
-    else
-        self.hint:SetText("")
     end
     if status ~= "ready" then
         return

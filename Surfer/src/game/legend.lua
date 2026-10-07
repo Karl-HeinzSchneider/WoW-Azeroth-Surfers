@@ -72,6 +72,21 @@ local function keyCap(parent)
     return cap
 end
 
+-- Writes a key's name (or `text` as is) on a cap and fits the cap to it; returns its width.
+-- Every one-character name (A, Q, 1, Ä) gets the same cap, however wide its letter; longer
+-- names grow it.
+local function setKey(cap, key, text)
+    text = text or GetBindingText(key) or key
+    cap.text:SetText(text)
+    -- Characters, not bytes: UTF-8 continuation bytes are not counted.
+    local single = #text:gsub("[\128-\191]", "") == 1
+    local w = single and KEY_WIDTH or math.max(KEY_WIDTH, cap.text:GetStringWidth() + 2 * KEY_PAD)
+    cap:SetWidth(w)
+    return w
+end
+-- For the status panel's buttons (messages.lua).
+overlay.KeyCap, overlay.SetKeyCap = keyCap, setKey
+
 -- A row: two key caps with a slash between them, and its text.
 local function entry(parent, spec)
     local e = { spec = spec, caps = { keyCap(parent), keyCap(parent) } }
@@ -144,9 +159,7 @@ local function placeKeys(e, keys, x, y)
         local key = keys[i]
         cap:SetShown(key ~= nil)
         if key then
-            cap.text:SetText(GetBindingText(key) or key)
-            local w = math.max(KEY_WIDTH, cap.text:GetStringWidth() + 2 * KEY_PAD)
-            cap:SetWidth(w)
+            local w = setKey(cap, key)
             if i > 1 then
                 width = width + KEY_GAP
             end
@@ -164,12 +177,9 @@ local function placeKeys(e, keys, x, y)
     if not keys[1] then
         local cap = e.caps[1]
         cap:Show()
-        cap.text:SetText(NOT_BOUND or "Not bound")
-        local w = math.max(KEY_WIDTH, cap.text:GetStringWidth() + 2 * KEY_PAD)
-        cap:SetWidth(w)
+        width = setKey(cap, nil, NOT_BOUND or "Not bound")
         cap:ClearAllPoints()
         cap:SetPoint("TOPLEFT", x, y)
-        width = w
     end
     return width
 end

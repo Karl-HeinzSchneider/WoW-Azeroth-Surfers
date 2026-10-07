@@ -206,21 +206,7 @@ function overlay:Layout()
     self.controls:SetWidth(math.max(1, count * BUTTON_STEP - 4))
     self.holdBar:ClearAllPoints()
     self.holdBar:SetPoint("TOP", self.controls, "BOTTOM", 0, -12)
-    self.message:ClearAllPoints()
-    self.hint:ClearAllPoints()
-    if side then
-        self.message:SetFontObject(GameFontNormalLarge)
-        self.message:SetPoint("TOP", 0, -h * 0.22)
-        self.hint:SetFontObject(GameFontHighlightSmall)
-        self.hint:SetPoint("TOP", self.message, "BOTTOM", 0, -8)
-        self.hint:SetWidth(w - 24)
-    else
-        self.message:SetFontObject(GameFontNormalHuge)
-        self.message:SetPoint("CENTER", 0, 220)
-        self.hint:SetFontObject(GameFontHighlight)
-        self.hint:SetPoint("CENTER", 0, 175)
-        self.hint:SetWidth(700)
-    end
+    self:PlaceMessages(side, h)
 end
 
 -- The horizon between the sky and the land: where a point straight ahead, endlessly far,

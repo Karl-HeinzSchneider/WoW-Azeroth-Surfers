@@ -186,6 +186,7 @@ for _, file in ipairs({
     "game/menu",
     "game/hud",
     "game/legend",
+    "game/messages",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

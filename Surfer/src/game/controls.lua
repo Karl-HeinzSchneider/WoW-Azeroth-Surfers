@@ -29,7 +29,12 @@ local PAUSE_KEY = "Q"
 overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
 
 function overlay:SaveBest()
-    app.db.global.bestScore = math.max(app.db.global.bestScore, sim.Score(self.state))
+    local score = sim.Score(self.state)
+    if score > app.db.global.bestScore then
+        app.db.global.bestScore = score
+        -- For the status panel (messages.lua).
+        self.state.newBest = true
+    end
 end
 
 -- A run ready to start: from the fixed seed (`profile.seed`), or a new one.
@@ -47,6 +52,10 @@ end
 -- started yet takes it at once.
 function overlay:SetSeed(seed)
     app.db.profile.seed = seed and app.random.Normalize(seed) or false
+    -- The addon options show it too.
+    if app.options then
+        app.options:Refresh()
+    end
     -- Before the view is created, only the setting.
     if not self.frame then
         return
@@ -56,6 +65,20 @@ function overlay:SetSeed(seed)
     end
     self:ShowSeed()
     self:FitMenu()
+    -- The status panel's seed option (messages.lua).
+    if self.status.holder:IsShown() then
+        self:FillStatus(self.state.status)
+    end
+end
+
+-- "Fixed seed" on keeps the current run's seed (or the last one's) for every run; off, every
+-- run draws its own.
+function overlay:SetFixedSeed(on)
+    if on then
+        self:SetSeed(self.state and self.state.seed or app.random.Seed())
+    else
+        self:SetSeed(false)
+    end
 end
 
 function overlay:Action(key)
@@ -169,19 +192,6 @@ end
 function overlay:ForgetPosition()
     if self.lastPosition then
         self.lastPosition.valid = false
-    end
-end
-
--- A ready run has the start dialog instead (menu.lua).
-local MESSAGES = { paused = "PAUSED", over = "RUN COMPLETE" }
-
--- The status message, rewritten only when it changes (the score is hud.lua's).
-function overlay:ShowStatus()
-    local s, shown = self.state, self.shown or {}
-    self.shown = shown
-    if shown.status ~= s.status then
-        shown.status = s.status
-        self.message:SetText(MESSAGES[s.status] or "")
     end
 end
 

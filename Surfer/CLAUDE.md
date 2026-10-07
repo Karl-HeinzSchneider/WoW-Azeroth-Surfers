@@ -125,7 +125,9 @@ be listed**. The order follows these rules:
   and Close; options go between the buttons: the Seed box) shown while a run is `ready`, and the
   restart bar shown while the restart key is held. `profile.seed` is a fixed seed (or false: a
   new one every run); `overlay:NewState()` starts every run from it and `SetSeed(n|false)`
-  changes it (also `/surfer seed`).
+  changes it (also `/surfer seed`); `SetFixedSeed(on)` keeps the current run's seed or lets
+  every run draw one (the "Fixed seed" option and checkbox). `SetSeed` updates every place that
+  shows the setting: the start dialog, the status panel and the addon options.
 - `src/game/hud.lua` — the score display: dark, see-through panels (the tooltip's art, tinted)
   with bright outlined numbers (the UI font, Friz Quadrata): the score, the multiplier (a star
   and `x1`, orange above 1; the star pops when it rises) in front of it, the coins under it. It
@@ -137,15 +139,26 @@ be listed**. The order follows these rules:
 - `src/game/legend.lua` — the hotkey legend, remade after the client's persistent input
   legend: one group of rows per run state (ready, running, paused, over), only the current one
   shown; each group a `DialogBorderTemplate` panel sized from its rows, a header row with a
-  classic divider as trim, rows of key caps (tooltip-bordered plates) and gold texts in one
+  classic divider as trim, rows of key caps (tooltip-bordered plates; `overlay.KeyCap` / `SetKeyCap` for others) and gold texts in one
   column. The keys are the player's movement bindings (`GetBindingKey`, again on
   `UPDATE_BINDINGS`; Q and R left out of them) and the game's own (`overlay.GAME_KEYS`,
   controls.lua). In the view's top left corner (scaled down in the side window), clear of the
   window frame's border; full screen in MEDIUM strata, over the player frame (LOW), which would
   otherwise draw between its background and border.
   `profile.legend` (option "Show hotkeys").
+- `src/game/messages.lua` — what the game says in the middle of the view, over everything else
+  (`messages` in the draw order, HIGH strata in both modes): the status panel while a run is
+  paused or over (a `DialogBorderTemplate` panel like the legend's: score with its
+  multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the seed in a box (editable only
+  with the "Fixed seed" checkbox under it checked, otherwise read-only but copyable),
+  and a button per next action, Go on / Start over / Run again, each behind the legend's key
+  cap of the game key that does the same, `DoAction(key)`), and announcements:
+  `overlay:Announce(text, seconds, small)` shows big zone-text-style letters (`ZoneTextFont`,
+  `small` in `SubZoneTextFont` above) that fade in, stay `seconds` (2 by default) and fade
+  out; a newer one replaces it. `WelcomeBiome()` announces the biome ("Welcome to" /
+  "Elwynn Forest") when a run starts and when the biome option changes during one.
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
-  `Step`, the status message and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
+  `Step`, best score (`SaveBest`) and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
   runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
   is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds
