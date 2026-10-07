@@ -29,6 +29,10 @@ local PAUSE_KEY = "Q"
 overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
 
 function overlay:SaveBest()
+    -- A run Surfer_Dev's bot played is not the player's.
+    if self.state.piloted then
+        return
+    end
     local score = sim.Score(self.state)
     if score > app.db.global.bestScore then
         app.db.global.bestScore = score
@@ -148,7 +152,7 @@ local COIN_SOUND_FILE = 567428
 -- One frame of the game: movement, simulation, best score, coin sound.
 function overlay:Step(elapsed)
     local s = self.state
-    if self.capture then
+    if self.capture or self.pilot then
         s.forward = self:AutoRun()
     else
         s.forward = self:IsMovingForward(elapsed)
@@ -157,7 +161,9 @@ function overlay:Step(elapsed)
         sim.Start(s)
     end
     local status, coins = s.status, s.coins
-    sim.Update(s, elapsed)
+    -- `pilot(s, elapsed)`: Surfer_Dev's /surfer bot plays the run in the simulation's stead.
+    local update = self.pilot or sim.Update
+    update(s, elapsed)
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end
@@ -255,7 +261,8 @@ function overlay:OnKey(key)
         .. key
     local binding = GetBindingAction(chord, true)
     self.frame:SetPropagateKeyboardInput(not (self.capture and binding and MOVEMENT[binding]))
-    if not binding then
+    -- While the bot plays, the movement keys do not steer.
+    if not binding or self.pilot then
         return
     end
     if binding == "TURNLEFT" or binding == "STRAFELEFT" then
