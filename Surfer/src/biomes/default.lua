@@ -29,11 +29,12 @@ app.biomes.Register("default", {
         --   from, to  yards off the middle
         --   opacity   { at from, at to }. Gradients are linear across a band, so a soft edge is
         --             a band of its own.
-        -- Here: a road fading into a dirt shoulder, the dirt into grass, the grass into the
-        -- world, and worn dirt ruts marking the lanes.
+        -- Here: a road fading into a dirt shoulder, the dirt into grass (a lane's width more of
+        -- it to each side, for the roadside's decorations), the grass into the world, and worn
+        -- dirt ruts marking the lanes.
         bands = {
-            { surface = "grass", layer = -2, segments = 2, from = 3.3, to = 5.5, opacity = { 1, 1 } },
-            { surface = "grass", layer = -2, segments = 2, from = 5.5, to = 8.5, opacity = { 1, 0 } },
+            { surface = "grass", layer = -2, segments = 2, from = 3.3, to = 7.9, opacity = { 1, 1 } },
+            { surface = "grass", layer = -2, segments = 2, from = 7.9, to = 10.9, opacity = { 1, 0 } },
             { surface = "dirt", layer = -1, segments = 2, from = 3.3, to = 5.3, opacity = { 1, 0 } },
             { surface = "road", layer = 0, segments = 1, from = 0, to = 3.3, opacity = { 1, 1 } },
             { surface = "road", layer = 0, segments = 1, from = 3.3, to = 4.3, opacity = { 1, 0 } },
@@ -54,7 +55,7 @@ app.biomes.Register("default", {
     -- empty). A group's `items` are placed together:
     --   model  a file id, or a list to pick one from at random
     --   x      yards from the road's middle to the model's origin, the point it stands on in the
-    --          world (the road's edge is at 4.3, the grass ends at 8.5). Moved farther out if
+    --          world (the road's edge is at 4.3, the grass is solid to 7.9 and fades out by 10.9). Moved farther out if
     --          the model would reach closer to the middle than `clear`.
     --   overhang  true: may reach over the road (a lamp's arm), `clear` does not apply
     --   d      yards along the road from the group's start, 0 if left out
