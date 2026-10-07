@@ -24,30 +24,61 @@ function GetBindingAction(key, overrides)
     assert(overrides)
     return binding
 end
+-- The view: whether the last key went on to WoW.
+local propagates
+r.frame = {
+    SetPropagateKeyboardInput = function(_, value)
+        propagates = value
+    end,
+}
 r.state = app.simulation.New()
 binding = "MOVEFORWARD"
-r:OnMovementKey("W")
+r:OnKey("W")
 assert(r.state.status == "running" and r.state.velocity == 0)
+assert(propagates, "observed keys go on to WoW")
 binding = "STRAFELEFT"
-r:OnMovementKey("Q")
+r:OnKey("A")
 assert(r.state.lane == 1)
 binding = "TURNRIGHT"
-r:OnMovementKey("D")
+r:OnKey("D")
 assert(r.state.lane == 0)
 binding = "JUMP"
-r:OnMovementKey("SPACE")
+r:OnKey("SPACE")
 assert(r.state.velocity > 0)
 focused = {}
 binding = "TURNRIGHT"
-r:OnMovementKey("D")
-assert(r.state.lane == 0)
+r:OnKey("D")
+assert(r.state.lane == 0 and propagates, "typing goes to the focused box")
 focused = nil
 function IsShiftKeyDown()
     return true
 end
-r:OnMovementKey("Z")
+r:OnKey("Z")
 assert(chord == "SHIFT-Z" and r.state.lane == -1)
-print("PASS movement bindings, modifiers, forward start, jump and typing focus")
+function IsShiftKeyDown()
+    return false
+end
+r.capture = true
+binding = "TURNLEFT"
+r:OnKey("A")
+assert(r.state.lane == 0 and propagates == false, "captured movement keys stop at the view")
+binding = "TOGGLEMINIMAP"
+r:OnKey("M")
+assert(propagates, "other keys go on while captured")
+r.capture = nil
+-- The game's own keys stop at the view: Q pauses and goes on, holding R starts over.
+function IsModifierKeyDown()
+    return false
+end
+r:OnKey("Q")
+assert(r.state.status == "paused" and propagates == false)
+r:OnKey("Q")
+assert(r.state.status == "running")
+r:OnKey("R")
+assert(r.holding == 0 and propagates == false, "R starts the hold")
+r:OnKeyRelease("R")
+assert(r.holding == nil)
+print("PASS movement bindings, modifiers, forward start, jump, typing focus, capture, pause and restart keys")
 
 local x, y, map, facing, speed = 0, 0, 1, 0, 7
 function UnitPosition()

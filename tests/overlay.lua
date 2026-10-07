@@ -12,6 +12,7 @@ for _, file in ipairs({
     "game/decorations",
     "game/window",
     "game/menu",
+    "game/hud",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
@@ -154,7 +155,31 @@ o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
 o.twin, o.twinActor = scene, actor
-o.score, o.message, o.hint = texture(), texture(), texture()
+o.message, o.hint = texture(), texture()
+-- The score display, the start dialog and the restart bar: a widget's Create* methods make
+-- another widget, its Get* methods answer 0, the rest do nothing.
+local function zero()
+    return 0
+end
+local function nothing() end
+local widgetMeta = {}
+local function widget()
+    return setmetatable({}, widgetMeta)
+end
+widgetMeta.__index = function(_, name)
+    if name:find("^Create") then
+        return widget
+    end
+    return name:find("^Get") and zero or nothing
+end
+function CreateFrame()
+    return widget()
+end
+o.frame.GetFrameLevel = zero
+o:CreateHud(widget())
+o.menu, o.menuBest, o.menuHelp, o.runSeed, o.seedBox, o.holdBar =
+    widget(), widget(), widget(), widget(), widget(), widget()
+o.menuButtons = { widget(), widget() }
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
     return o.faces[1]

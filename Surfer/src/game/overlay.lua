@@ -26,8 +26,9 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- The addon's draw order by mode, bottom to top. The overlay frame (`view`) draws the ground
 -- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin above all of them, the window frame over its edges
--- (window.lua), and the buttons, the start dialog and the restart bar above that (menu.lua).
+-- decorations and coins; the twin above all of them, the score display (hud.lua) above it, the
+-- window frame over its edges (window.lua), and the buttons, the start dialog and the restart
+-- bar above that (menu.lua).
 -- Full screen, the game lies under the rest of the UI (BACKGROUND, the twin a strata up), but
 -- its frame and buttons stay above it, wherever the minimap or a raised panel is. The side
 -- window is one window above the UI, all of it in one strata. Levels count from the overlay
@@ -37,6 +38,7 @@ local ORDER = {
         view = { "BACKGROUND" },
         world = { "BACKGROUND", 2 },
         twin = { "LOW", 10 },
+        hud = { "LOW", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
         menu = { "HIGH", 25 },
@@ -45,6 +47,7 @@ local ORDER = {
         view = { "HIGH" },
         world = { "HIGH", 2 },
         twin = { "HIGH", 10 },
+        hud = { "HIGH", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
         menu = { "HIGH", 25 },
@@ -484,7 +487,7 @@ function overlay:Create()
     self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
 
-    self.score = label(f, "GameFontNormalLarge", "TOP", -14)
+    self:CreateHud(f)
     self.message = label(f, "GameFontNormalHuge", "CENTER", 220)
     self.hint = label(f, "GameFontHighlight", "CENTER", 175)
     self.hint:SetWidth(700)
@@ -762,6 +765,7 @@ function overlay:Render(lap)
     end
     lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
+    self:ShowHud()
     self:ShowHint()
     self:ShowMenu()
     self:Lap("texts", lap)

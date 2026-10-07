@@ -173,38 +173,10 @@ end
 -- A ready run has the start dialog instead (menu.lua).
 local MESSAGES = { paused = "PAUSED", over = "RUN COMPLETE" }
 
--- The score line and status message, rewritten only when they change, so a running game does
--- not build new strings every frame.
+-- The status message, rewritten only when it changes (the score is hud.lua's).
 function overlay:ShowStatus()
     local s, shown = self.state, self.shown or {}
     self.shown = shown
-    local score, best = sim.Score(s), app.db.global.bestScore
-    local speed, layer = math.floor(s.speed + 0.5), math.floor(s.height / sim.LAYER + 0.01)
-    if
-        shown.narrow ~= self.narrow
-        or shown.score ~= score
-        or shown.coins ~= s.coins
-        or shown.best ~= best
-        or shown.speed ~= speed
-        or shown.layer ~= layer
-    then
-        shown.score, shown.coins, shown.best, shown.speed, shown.layer = score, s.coins, best, speed, layer
-        shown.narrow = self.narrow
-        if self.narrow then
-            self.score:SetText(string.format("SCORE  %06d     COINS  %d     BEST  %06d", score, s.coins, best))
-        else
-            self.score:SetText(
-                string.format(
-                    "SCORE  %06d     COINS  %d     BEST  %06d     SPEED  %d     LAYER  %d",
-                    score,
-                    s.coins,
-                    best,
-                    speed,
-                    layer
-                )
-            )
-        end
-    end
     if shown.status ~= s.status then
         shown.status = s.status
         self.message:SetText(MESSAGES[s.status] or "")

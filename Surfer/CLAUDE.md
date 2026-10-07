@@ -72,6 +72,9 @@ be listed**. The order follows these rules:
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
   collide or are collected. `New(seed)` starts a run from `seed` (a new one when left out,
   `s.seed`); the track follows only from it. Every generated box gets `o.seed` for its looks.
+  The score adds up as the run goes (`s.points` per yard, `s.bonus` per coin), each at the
+  multiplier of its moment: `SetMultiplier(s, n)` (whole, at least 1; events raise it) scales
+  only what is earned from then on. `Score(s)` is the total.
 - `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
   `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
   biome each and override only what they change; `default.lua` holds every field, documented, and
@@ -123,8 +126,16 @@ be listed**. The order follows these rules:
   restart bar shown while the restart key is held. `profile.seed` is a fixed seed (or false: a
   new one every run); `overlay:NewState()` starts every run from it and `SetSeed(n|false)`
   changes it (also `/surfer seed`).
+- `src/game/hud.lua` — the score display: dark, see-through panels (the tooltip's art, tinted)
+  with bright outlined numbers (the UI font, Friz Quadrata): the score, the multiplier (a star
+  and `x1`, orange above 1; the star pops when it rises) in front of it, the coins under it. It
+  holds still to be read while running: one fixed-width cell per digit, panels widen only for a
+  digit more, the running score is redrawn 8 times a second.
+  Full screen it stands right of the road's far end, above the horizon (placed in proportion to
+  the screen's height); in the side window in its top right corner under the buttons, scaled
+  down. Hidden on the start dialog. Its own place in the draw order (`hud`, above the twin).
 - `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
-  `Step`, score texts and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
+  `Step`, the status message and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
   runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
   is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds

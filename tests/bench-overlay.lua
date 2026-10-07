@@ -30,6 +30,10 @@ function special.GetStringHeight()
     count("GetStringHeight")
     return 12
 end
+function special.GetStringWidth()
+    count("GetStringWidth")
+    return 60
+end
 function special.GetSize()
     count("GetSize")
     return 1920, 1080
@@ -176,6 +180,7 @@ for _, file in ipairs({
     "game/obstacles",
     "game/window",
     "game/menu",
+    "game/hud",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

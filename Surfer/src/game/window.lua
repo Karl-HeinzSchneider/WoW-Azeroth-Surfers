@@ -19,10 +19,10 @@ local INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM = 2, 21, 2, 2
 -- edges; the side window keeps them on the screen when clamped. Fitted by eye in the game, not
 -- the textures' own offsets.
 local OUT_LEFT, OUT_TOP, OUT_RIGHT, OUT_BOTTOM = -1, 5, 3, 5
--- The smallest side window: room for the buttons and the score line.
+-- The smallest side window: room for the buttons and the score display.
 local MIN_WIDTH, MIN_HEIGHT = 360, 300
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
--- The buttons' row under the score: its buttons' width and spacing.
+-- The buttons' row at the top: its buttons' width and spacing.
 local BUTTON_STEP = 88
 
 -- The frame (a sibling of the view, so the side window's clipping does not cut it off), its
@@ -180,7 +180,7 @@ function overlay:ApplyMode()
     end
     chrome:SetShown(self.framed and f:IsShown())
     -- Everything is placed, shaded and written again.
-    self.lastRoad, self.groundLight, self.lastHint, self.shown = {}, nil, nil, nil
+    self.lastRoad, self.groundLight, self.lastHint, self.shown, self.hudShown = {}, nil, nil, nil, nil
     self:Layout()
     self:ApplyHideReal()
 end
@@ -190,11 +190,9 @@ function overlay:Layout()
     local side, w, h = self.side, self.frame:GetSize()
     -- Full screen, a frame's title bar covers the top of the screen.
     local top = (not side and self.framed) and -(OUT_TOP + INSET_TOP) or 0
-    self.score:SetFontObject(side and GameFontNormal or GameFontNormalLarge)
-    self.score:ClearAllPoints()
-    self.score:SetPoint("TOP", 0, top - (side and 8 or 14))
+    self:PlaceHud(side, w, h, top)
     self.controls:ClearAllPoints()
-    self.controls:SetPoint("TOP", 0, top - (side and 26 or 38))
+    self.controls:SetPoint("TOP", 0, top - (side and 8 or 14))
     -- Restart and Pause; Minimize (or Maximize) and Close too without the frame's buttons.
     local buttons, count = self.controlButtons, self.framed and 2 or 4
     buttons[3]:SetText(side and "Maximize" or "Minimize")
@@ -221,8 +219,6 @@ function overlay:Layout()
         self.hint:SetPoint("CENTER", 0, 175)
         self.hint:SetWidth(700)
     end
-    -- A narrow view gets the short score line.
-    self.narrow = w < 560
 end
 
 -- The horizon between the sky and the land: where a point straight ahead, endlessly far,
