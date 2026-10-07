@@ -180,7 +180,7 @@ function overlay:ApplyMode()
     end
     chrome:SetShown(self.framed and f:IsShown())
     -- Everything is placed, shaded and written again.
-    self.lastRoad, self.groundLight, self.lastHint, self.shown, self.hudShown = {}, nil, nil, nil, nil
+    self.lastRoad, self.groundLight, self.shown, self.hudShown = {}, nil, nil, nil
     self.legendState = nil
     self:Layout()
     self:ApplyHideReal()

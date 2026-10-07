@@ -192,9 +192,7 @@ end
 app.db.profile.legend = true
 o:CreateLegend(widget())
 o:CreateMessages(widget())
-o.menu, o.menuBest, o.menuHelp, o.runSeed, o.seedBox, o.holdBar =
-    widget(), widget(), widget(), widget(), widget(), widget()
-o.menuButtons = { widget(), widget() }
+o:CreateHoldBar(widget())
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
     return o.faces[1]

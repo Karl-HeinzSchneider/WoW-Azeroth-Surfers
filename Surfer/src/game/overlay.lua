@@ -519,7 +519,7 @@ function overlay:Create()
         b:SetScript("OnClick", spec[2])
         self.controlButtons[i] = b
     end
-    self:CreateMenu(f)
+    self:CreateHoldBar(f)
 
     f:EnableKeyboard(true)
     f:SetPropagateKeyboardInput(true)
@@ -754,44 +754,10 @@ function overlay:Render(lap)
     self:ShowBanner()
     self:ShowHud()
     self:ShowLegend()
-    self:ShowHint()
-    self:ShowMenu()
     self:Lap("texts", lap)
     if self.timing then
         self.timing.frames = self.timing.frames + 1
     end
-end
-
--- How to play, in the start dialog while a run is ready; rebuilt only when something it shows
--- changes.
-function overlay:ShowHint()
-    local hint, status = self.lastHint or {}, self.state.status
-    self.lastHint = hint
-    local distance = math.floor(cam.distance * 10 + 0.5)
-    local same = unchanged(hint, "status", status)
-    same = unchanged(hint, "zoomRead", cam.zoomRead) and same
-    same = unchanged(hint, "distance", distance) and same
-    same = unchanged(hint, "seed", self.state.seed) and same
-    if same then
-        return
-    end
-    if status ~= "ready" then
-        return
-    end
-    local text = self.capture
-            and "Forward or jump key: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over\nYour character stays where it is."
-        or "Run forward: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over"
-    if not self.side then
-        text = text
-            .. "\n\nLine the see-through copy up with your character in /surfer options. "
-            .. string.format(
-                cam.zoomRead and "Camera zoom %.1f, read from the game."
-                    or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
-                distance / 10
-            )
-    end
-    self.menuHelp:SetText(text)
-    self:FitMenu()
 end
 
 -- Adds the time since `since` to `part` of a frame and starts the next lap, into `timing` while

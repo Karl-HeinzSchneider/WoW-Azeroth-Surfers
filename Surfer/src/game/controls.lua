@@ -63,8 +63,6 @@ function overlay:SetSeed(seed)
     if self.state.status == "ready" then
         self.state = self:NewState()
     end
-    self:ShowSeed()
-    self:FitMenu()
     -- The status panel's seed option (messages.lua).
     if self.status.holder:IsShown() then
         self:FillStatus(self.state.status)

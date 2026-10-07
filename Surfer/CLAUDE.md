@@ -121,13 +121,12 @@ be listed**. The order follows these rules:
   row at the top middle) switch modes through `SetMode(mode)`. `Layout()` places texts and buttons for the
   mode and size. Call `ApplyMode()` after any mode
   setting changes (the options and `OnProfileRefresh` do).
-- `src/game/menu.lua` — the start dialog (classic dialog box: best score, how to play, Start game
-  and Close; options go between the buttons: the Seed box) shown while a run is `ready`, and the
-  restart bar shown while the restart key is held. `profile.seed` is a fixed seed (or false: a
+- `src/game/menu.lua` — the restart bar shown while the restart key is held, and the number box
+  (`overlay.NumberBox`) of the seed. The start screen is the status panel's (messages.lua). `profile.seed` is a fixed seed (or false: a
   new one every run); `overlay:NewState()` starts every run from it and `SetSeed(n|false)`
   changes it (also `/surfer seed`); `SetFixedSeed(on)` keeps the current run's seed or lets
   every run draw one (the "Fixed seed" option and checkbox). `SetSeed` updates every place that
-  shows the setting: the start dialog, the status panel and the addon options.
+  shows the setting: the status panel (the start screen too) and the addon options.
 - `src/game/hud.lua` — the score display: dark, see-through panels (the tooltip's art, tinted)
   with bright outlined numbers (the UI font, Friz Quadrata): the score, the multiplier (a star
   and `x1`, orange above 1; the star pops when it rises) in front of it, the coins under it. It
@@ -148,7 +147,8 @@ be listed**. The order follows these rules:
   `profile.legend` (option "Show hotkeys").
 - `src/game/messages.lua` — what the game says in the middle of the view, over everything else
   (`messages` in the draw order, HIGH strata in both modes): the status panel while a run is
-  paused or over (a `DialogBorderTemplate` panel like the legend's: score with its
+  ready (the start screen: best score, the seed, Start game / Options / Close), paused or over
+  (a `DialogBorderTemplate` panel like the legend's: score with its
   multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the seed in a box (editable only
   with the "Fixed seed" checkbox under it checked, otherwise read-only but copyable),
   and a button per next action, Go on / Start over / Run again, each behind the legend's key

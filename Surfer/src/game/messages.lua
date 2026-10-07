@@ -1,11 +1,12 @@
 ---@type string, Surfer
-local _, app = ...
+local appName, app = ...
 local sim = app.simulation
 -- What the game says in the middle of the view, added to the view that overlay.lua creates,
 -- drawn over everything else of the game (and full screen, over the rest of the UI too):
 --
--- * The status panel while a run is paused or over: a classic dialog (framed like the hotkey
---   legend) with the run's numbers (score, coins, distance, best; "New best!" after one), its
+-- * The status panel while a run is ready to start (the start screen: the best score, Start
+--   game, Options, Close), paused or over: a classic dialog (framed like the hotkey legend)
+--   with the run's numbers (score, coins, distance, best; "New best!" after one), its
 --   seed in a box and the seed option ("Fixed seed", as in the addon options; checked, the box
 --   can be edited, otherwise only copied), and a button for each thing to do next, with the
 --   key cap of the key that does the same in front of it. Trims like the legend's under the
@@ -32,12 +33,24 @@ local BANNER_SIDE_SCALE = 0.5
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
 
-local TITLES = { paused = "Paused", over = "Run complete" }
--- What to do next, by state: the game key that does it (`overlay.GAME_KEYS`), whether the key
--- is held for it, and the button's text.
+local TITLES = { ready = appName, paused = "Paused", over = "Run complete" }
+-- The numbers' rows (Score, Coins, Distance, Best) each state shows.
+local ROWS = { ready = { false, false, false, true } }
+-- What to do next, by state: what the button does (`DoAction`), the key that does the same (a
+-- game key, `overlay.GAME_KEYS`, or the first bound key of `bindings`; none: no key cap),
+-- whether the key is held for it, and the button's text.
+local START = { "MOVEFORWARD", "JUMP" }
 local ACTIONS = {
-    paused = { { key = "pause", text = "Go on" }, { key = "restart", hold = true, text = "Start over" } },
-    over = { { key = "restart", text = "Run again" } },
+    ready = {
+        { act = "start", bindings = START, text = "Start game" },
+        { act = "options", text = "Options" },
+        { act = "close", text = "Close" },
+    },
+    paused = {
+        { act = "pause", key = "pause", text = "Go on" },
+        { act = "restart", key = "restart", hold = true, text = "Start over" },
+    },
+    over = { { act = "restart", key = "restart", text = "Run again" } },
 }
 
 -- A row of the status panel: a name on the left, its value on the right.
@@ -59,17 +72,37 @@ local function actionRow(o, panel)
     r.button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     r.button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
     r.button:SetScript("OnClick", function()
-        o:DoAction(r.key)
+        o:DoAction(r.act)
     end)
     return r
 end
 
--- What a game key does, from a button: pause goes on, restart starts a new run.
-function overlay:DoAction(key)
-    if key == "pause" then
+-- A button's action: start the run, go on with it (pause again toggles), start a new one, open
+-- the addon options, or close the game.
+function overlay:DoAction(act)
+    if act == "start" then
+        sim.Start(self.state)
+    elseif act == "pause" then
         self:Action("P")
-    elseif key == "restart" and not InCombatLockdown() then
+    elseif act == "restart" and not InCombatLockdown() then
         self:Restart()
+    elseif act == "options" then
+        app.options:Open()
+    elseif act == "close" then
+        self.frame:Hide()
+    end
+end
+
+-- The key a button's action has, if any: a game key, or the first bound key of its bindings.
+local function actionKey(o, action)
+    if action.key then
+        return o.GAME_KEYS[action.key]
+    end
+    for _, binding in ipairs(action.bindings or {}) do
+        local key = GetBindingKey(binding)
+        if key then
+            return key
+        end
     end
 end
 
@@ -98,7 +131,7 @@ function overlay:CreateMessages(f)
         trims[i]:SetTexture(TRIM)
         trims[i]:SetHeight(TRIM_HEIGHT)
     end
-    local actions = { actionRow(self, panel), actionRow(self, panel) }
+    local actions = { actionRow(self, panel), actionRow(self, panel), actionRow(self, panel) }
 
     -- The seed option, the setting `profile.seed` (SetSeed shows a change here).
     local fixed = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -208,13 +241,19 @@ function overlay:FillStatus(status)
         y = y - st.best:GetStringHeight() - 8
     end
     local values = { sim.Score(s), s.coins, math.floor(s.distance), app.db.global.bestScore }
+    local rows = ROWS[status]
     for i, r in ipairs(st.rows) do
-        r.name:ClearAllPoints()
-        r.name:SetPoint("LEFT", panel, "TOPLEFT", PAD, y - ROW / 2)
-        r.value:ClearAllPoints()
-        r.value:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, y - ROW / 2)
-        r.value:SetText(i == 3 and string.format("%d yd", values[i]) or tostring(values[i]))
-        y = y - ROW
+        local shown = not rows or rows[i]
+        r.name:SetShown(shown)
+        r.value:SetShown(shown)
+        if shown then
+            r.name:ClearAllPoints()
+            r.name:SetPoint("LEFT", panel, "TOPLEFT", PAD, y - ROW / 2)
+            r.value:ClearAllPoints()
+            r.value:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, y - ROW / 2)
+            r.value:SetText(i == 3 and string.format("%d yd", values[i]) or tostring(values[i]))
+            y = y - ROW
+        end
     end
     -- A multiplier above 1 shows next to the score.
     if s.multiplier > 1 then
@@ -250,13 +289,16 @@ function overlay:FillStatus(status)
     local actions = ACTIONS[status]
     for i, r in ipairs(st.actions) do
         local action = actions[i]
+        local key = action and actionKey(self, action)
         r.hold:SetShown(action ~= nil and action.hold == true)
-        r.cap:SetShown(action ~= nil)
+        r.cap:SetShown(key ~= nil)
         r.button:SetShown(action ~= nil)
         if action then
-            r.key = action.key
+            r.act = action.act
             r.button:SetText(action.text)
-            self.SetKeyCap(r.cap, self.GAME_KEYS[action.key])
+            if key then
+                self.SetKeyCap(r.cap, key)
+            end
             r.button:ClearAllPoints()
             r.button:SetPoint("CENTER", panel, "TOP", 0, y - ACTION_ROW / 2)
             r.cap:ClearAllPoints()
