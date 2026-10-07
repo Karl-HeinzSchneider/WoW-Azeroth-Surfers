@@ -84,8 +84,11 @@ be listed**. The order follows these rules:
   patterns, weighted by the run's difficulty, each followed by free road measured in seconds at
   the speed of the moment. `Register(pattern)` (`name`, `weight` — a number or a table by
   difficulty id —, `from` yards, `place(s, at, r)` returning its length), `Add`/`Coins`/`Fit`
-  to place boxes, `Pick(s, at)`. The rules every pattern keeps are at the top of the file;
-  `tests/simulation.lua` checks each pattern alone and generated tracks at every difficulty.
+  to place boxes, `Arc` (coins only a jump collects), `JumpLength(s)` (spacings after a jump),
+  `Pick(s, at)`. The rules every pattern keeps are at the top of the file; `tests/simulation.lua`
+  checks each pattern alone (at every difficulty's slowest and fastest speed), that a search
+  through the simulation gets through it (crates and enemies counted lane-wide: no squeezing
+  between two), and generated tracks at every difficulty.
 - `src/patterns/*.lua` — one pattern each, all listed in `patterns.xml` (the TOC loads the XML;
   the tests read it too, `tests/load.lua`). **A new pattern is a new file plus a line in
   `patterns.xml`**, nothing else. A new or changed pattern changes what a seed lays out.

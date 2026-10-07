@@ -77,10 +77,11 @@ app.biomes.Register("default", {
     },
 
     -- The track's boxes as 3D models in the same scene, by kind: obstacles to jump over (1, 2 or
-    -- 4 layers of 0.6 yards tall, 1.3 wide), enemies standing in a lane (2 layers, jumpable, or
-    -- 4, 1.2 wide, rare), barriers to run under (a bar 1.8 to 2.4 yards up, 2.2 wide) and
-    -- platforms to run on (1 to 3 layers tall, 2.1 wide, 24 to 40 yards long, sometimes with a
-    -- ramp). Each kind is a list of variants; a box picks one whose `layers` is
+    -- 4 layers of 0.6 yards tall, 1.3 wide), enemies standing in a lane or on a platform (2
+    -- layers, jumpable, or 4, 1.2 wide), barriers to run under (a bar 1.8 to 2.4 yards up, 2.2
+    -- wide) and platforms to run on or walling a lane off (1 to 5 layers tall, 2.1 wide, 12 to
+    -- 60 yards long, sometimes with a ramp). A box's `layer` (its bottom) may be above the road:
+    -- an enemy or crate on a platform. Each kind is a list of variants; a box picks one whose `layers` is
     -- its own (any if left out) by `weight`, once. A variant's `items` are its models:
     --   model   a file id, or a list to pick one from at random
     --   x       yards to the screen's right of the lane's middle, 0 if left out

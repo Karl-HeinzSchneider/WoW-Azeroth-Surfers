@@ -155,7 +155,7 @@ app.biomes.Register("elwynn", {
             },
         },
         -- Rows of lumber piles: deadminelumberpilesmall (0.56 tall) for one layer,
-        -- deadminelumberpilelarge (1.67 tall) scaled for two and three. Ramps of planks
+        -- deadminelumberpilelarge (1.67 tall) scaled for two and three, stacked for four and five. Ramps of planks
         -- (world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01, 21.6 yards
         -- long, scaled to the slope): the shorter the ramp, the narrower its planks, so more
         -- side by side.
@@ -173,6 +173,24 @@ app.biomes.Register("elwynn", {
             {
                 layers = 3,
                 items = { { model = 198339, every = 3.4 } },
+                ramp = { { model = 190091, across = 2 } },
+            },
+            -- Higher ground (towers, corridor walls, the top of stairs and rooftops): two
+            -- large piles stacked, each half the height.
+            {
+                layers = 4,
+                items = {
+                    { model = 198339, every = 2.3, height = 1.2 },
+                    { model = 198339, every = 2.3, z = 1.2, height = 1.2 },
+                },
+                ramp = { { model = 190091, across = 2 } },
+            },
+            {
+                layers = 5,
+                items = {
+                    { model = 198339, every = 2.9, height = 1.5 },
+                    { model = 198339, every = 2.9, z = 1.5, height = 1.5 },
+                },
                 ramp = { { model = 190091, across = 2 } },
             },
         },

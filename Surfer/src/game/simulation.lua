@@ -62,6 +62,8 @@ end
 local STEP = 1 / 120
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
+-- Seconds a jump from a floor to the same height lasts.
+game.JUMP_TIME = 2 * JUMP_VELOCITY / GRAVITY
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
 

@@ -10,7 +10,10 @@ local game = app.simulation
 -- lays out the same track.
 --
 -- A pattern file registers one pattern (`track.Register`) and places its boxes with `Add`,
--- `Coins` and `Fit`. Its rules, which tests/simulation.lua checks for every pattern:
+-- `Coins`, `Fit` and `Arc`; spacings that depend on reaction time follow the speed
+-- (`s.speed`, `JumpLength`). Its rules, which tests/simulation.lua checks for every pattern
+-- (also that a search through the simulation gets through it at every difficulty's slowest
+-- and fastest speed):
 -- * boxes from `at` on, coins leading in at most LEAD_IN yards before it; it returns its
 --   length, how far past `at` it reaches (no box starts beyond it), and the next pattern
 --   starts past that;
@@ -47,6 +50,23 @@ end
 -- How many coins fit in a row from `from` to `to`, at most `most`.
 function track.Fit(from, to, most)
     return math.max(0, math.min(most, math.floor((to - from) / SPACING) + 1))
+end
+
+-- The layers of an arc of coins, over its floor: only a jump collects them.
+local ARC = { 3, 4, 5, 5, 4, 3 }
+-- An arc of coins in `lane` centred on track distance `middle`, over a floor `layer` layers
+-- up (0, the ground, when left out); it reaches 7.5 yards to each side.
+function track.Arc(s, lane, middle, layer)
+    for i, up in ipairs(ARC) do
+        add(s, "coin", lane, middle + (i - 3.5) * SPACING - 0.16, 0.32, (layer or 0) + up, 1)
+    end
+end
+
+-- Yards a jump carries the runner at the speed of the moment: what a pattern leaves after a
+-- jump before something that needs the runner back on its floor (spacings that depend on the
+-- speed keep a pattern fair at every difficulty).
+function track.JumpLength(s)
+    return s.speed * game.JUMP_TIME
 end
 
 -- Called by each pattern file, once:

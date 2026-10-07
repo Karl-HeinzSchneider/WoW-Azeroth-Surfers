@@ -256,10 +256,17 @@ end
 -- Every pattern on its own, many times: within its length and lead-in, and a way through.
 test("every pattern keeps the track's rules", function()
     assert(#track.list > 0, "patterns registered")
+    -- At every difficulty's slowest and fastest: some spacings follow the speed.
+    local speeds = {}
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        speeds[#speeds + 1] = difficulty.startSpeed
+        speeds[#speeds + 1] = difficulty.topSpeed
+    end
     for _, pattern in ipairs(track.list) do
         for seed = 1, 100 do
             local s = g.New(seed)
             s.objects = {}
+            s.speed = speeds[seed % #speeds + 1]
             local at = 30
             local length = pattern.place(s, at, s.random)
             local label = string.format("pattern %s, seed %d", pattern.name, seed)
@@ -273,6 +280,104 @@ test("every pattern keeps the track's rules", function()
             checkTrack(s.objects, label)
         end
     end
+end)
+
+-- Whether a runner can get through a run's track up to `goal`: a depth-first search over the
+-- inputs (nothing, jump, a lane either way, both) every DT seconds, through the simulation
+-- itself. Each branch is a copy of the run (its own list of boxes: the simulation drops the
+-- passed ones).
+local DT = 0.05
+local INPUTS = { { 0, false }, { 0, true }, { -1, false }, { 1, false }, { -1, true }, { 1, true } }
+local function branch(s)
+    local c = {}
+    for k, v in pairs(s) do
+        c[k] = v
+    end
+    c.objects = {}
+    for i, o in ipairs(s.objects) do
+        c.objects[i] = o
+    end
+    return c
+end
+local function runnable(start, goal)
+    local seen = {}
+    local function go(s, step)
+        if s.status ~= "running" then
+            return false
+        end
+        if s.distance >= goal then
+            return true
+        end
+        local key = string.format(
+            "%d %d %d %d %d",
+            step,
+            s.lane,
+            math.floor(s.lateral * 20 + 0.5),
+            math.floor(s.height * 20 + 0.5),
+            math.floor(s.velocity * 4 + 0.5)
+        )
+        if seen[key] then
+            return false
+        end
+        seen[key] = true
+        for _, input in ipairs(INPUTS) do
+            local c = branch(s)
+            if input[1] ~= 0 then
+                g.Move(c, input[1])
+            end
+            if input[2] then
+                g.Jump(c)
+            end
+            g.Update(c, DT)
+            if go(c, step + 1) then
+                return true
+            end
+        end
+        return false
+    end
+    return go(start, 0)
+end
+
+-- Every pattern can be run through at every difficulty's slowest and fastest speed, starting
+-- in any lane. Crates and enemies fill their lane for it: the simulation leaves room to
+-- squeeze between two of them mid lane change, which no one can time every time.
+test("every pattern can be run through", function()
+    local widths = g.geometry.halfWidth
+    local crateWidth, enemyWidth = widths.obstacle, widths.enemy
+    widths.obstacle, widths.enemy = 1, 1
+    for _, pattern in ipairs(track.list) do
+        for _, difficulty in ipairs(g.DIFFICULTIES) do
+            for _, speed in ipairs({ difficulty.startSpeed, difficulty.topSpeed }) do
+                for seed = 1, 6 do
+                    local s = g.New(seed, difficulty.id)
+                    s.objects, s.nextRow, s.speed = {}, math.huge, speed
+                    local at = 30
+                    local length = pattern.place(s, at, s.random)
+                    -- The speed held for the whole pattern.
+                    s.difficulty = { startSpeed = speed, topSpeed = speed, speedUp = math.huge, gap = difficulty.gap }
+                    g.Start(s)
+                    s.forward = true
+                    local through = false
+                    for lane = -1, 1 do
+                        local c = branch(s)
+                        c.lane, c.lateral = lane, lane
+                        through = through or runnable(c, at + length + 2)
+                    end
+                    assert(
+                        through,
+                        string.format(
+                            "pattern %s, seed %d: no way through at %s's %d",
+                            pattern.name,
+                            seed,
+                            difficulty.id,
+                            speed
+                        )
+                    )
+                end
+            end
+        end
+    end
+    widths.obstacle, widths.enemy = crateWidth, enemyWidth
 end)
 
 -- Generated tracks, at every difficulty: the stream stays bounded, the rules hold where

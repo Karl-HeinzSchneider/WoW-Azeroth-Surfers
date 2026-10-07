@@ -7,4 +7,12 @@
     <Script file="barriers.lua"/>
     <Script file="platform.lua"/>
     <Script file="enemy.lua"/>
+    <Script file="tower.lua"/>
+    <Script file="stairs.lua"/>
+    <Script file="corridor.lua"/>
+    <Script file="ambush.lua"/>
+    <Script file="guard.lua"/>
+    <Script file="slalom.lua"/>
+    <Script file="rooftops.lua"/>
+    <Script file="gauntlet.lua"/>
 </Ui>
