@@ -132,7 +132,9 @@ be listed**. The order follows these rules:
   way. A crosser runs across the road at the nearest spot ahead clear of every box and coin
   (`CLEAR` yards to either side, all lanes), far enough ahead to be off the road before the
   runner comes (its speed and start against the run's speed, with `SAFETY`); a flyer crosses
-  high above, anywhere. Actors of the world scene (pooled like the decorations), moving in the
+  high above, anywhere. A creature may come as a group (`group`: one after another by a
+  delay, on parallel lines, some the other way); a group needs every line clear and its last
+  one off the road in time, and leaves its last members behind until it fits. Actors of the world scene (pooled like the decorations), moving in the
   run's time: still, their animation too, while it stands. Which creatures come and where
   follows from the run's seed through their own stream, `random.AMBIENT`, so the track stays
   as it is.

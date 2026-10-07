@@ -126,6 +126,16 @@ app.biomes.Register("default", {
     --              left out
     --   height     yards its top is scaled to; or `scale`, its size (1, its own, if left out)
     --   z, ahead   a flyer's height over the road (10) and how far ahead it crosses (50)
+    --   group      several at once, for more motion; one if left out:
+    --     count      how many, a whole number (or a { min, max } range of them, each as likely)
+    --     gap        yards of its way each one starts after the one before (2 if left out):
+    --                one after another
+    --     offset     yards along the road from the first one's line, to either side at random
+    --                (0 if left out): side by side on parallel lines
+    --     opposite   from 0 to 1: how often one crosses the other way, from the other side, past
+    --                the others (0 if left out), at least 1.5 yards off the first one's line
+    --              A group needs every member's line clear, and its last one off the road
+    --              before the runner comes. A flock of flyers is a group too.
     -- Any number may instead be a { min, max } range. Actors of the decorations' scene, lit like
     -- them. None by default.
     ambient = {

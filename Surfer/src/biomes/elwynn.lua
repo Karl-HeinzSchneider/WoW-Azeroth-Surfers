@@ -200,14 +200,27 @@ app.biomes.Register("elwynn", {
         },
     },
 
-    -- Elwynn's wildlife: now and then a deer (347) bounding across the road, more often a
-    -- rabbit (139885) darting over from closer by. Both at their own size; /surfer preview in
-    -- Surfer_Dev shows a creature on the road with its size.
+    -- Elwynn's wildlife: now and then deer (347) bounding across the road, one to three, one
+    -- after another or side by side, now and then one the other way; more often rabbits
+    -- (139885) darting over from closer by, one or two, often crossing each other. Both at their
+    -- own size; /surfer preview in Surfer_Dev shows a creature on the road with its size.
     ambient = {
         every = { 70, 180 },
         creatures = {
-            { creature = 347, move = "cross", speed = { 11, 14 } },
-            { creature = 139885, move = "cross", speed = { 8, 10 }, from = 7, weight = 1.5 },
+            {
+                creature = 347,
+                move = "cross",
+                speed = { 11, 14 },
+                group = { count = { 1, 3 }, gap = { 2, 4 }, offset = { 0, 3 }, opposite = 0.2 },
+            },
+            {
+                creature = 139885,
+                move = "cross",
+                speed = { 8, 10 },
+                from = 7,
+                weight = 1.5,
+                group = { count = { 1, 2 }, gap = { 1, 3 }, offset = { 1.5, 3 }, opposite = 0.5 },
+            },
         },
     },
 
