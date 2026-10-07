@@ -1,11 +1,13 @@
 -- Exercise the full-screen projection, the twin and the coins without creating client UI frames.
 local app = {}
-for _, file in ipairs({
+dofile("tests/load.lua")(app, {
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
     "game/random",
     "game/simulation",
+    "game/track",
+    "patterns/patterns.xml",
     "game/light",
     "game/shapes",
     "game/overlay",
@@ -16,9 +18,7 @@ for _, file in ipairs({
     "game/legend",
     "game/messages",
     "game/controls",
-}) do
-    assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
-end
+})
 app.db = {
     global = { bestScore = 0 },
     profile = {

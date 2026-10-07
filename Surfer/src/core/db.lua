@@ -25,6 +25,8 @@ local profile = {
     mode = "full",
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
     capture = true,
+    -- The game's difficulty, an id of simulation.lua's DIFFICULTIES.
+    difficulty = "normal",
     -- A fixed seed: every run lays out the same track. false: a new seed every run.
     seed = false,
     -- The window frame (border, title bar, close button) in each mode.

@@ -1,8 +1,8 @@
 local app = {}
-assert(loadfile("Surfer/src/game/random.lua"))("Surfer", app)
-assert(loadfile("Surfer/src/game/simulation.lua"))("Surfer", app)
+dofile("tests/load.lua")(app, { "game/random", "game/simulation", "game/track", "patterns/patterns.xml" })
 local random = app.random
 local g = app.simulation
+local track = app.track
 local L = g.LAYER
 local count = 0
 local function test(name, fn)
@@ -177,70 +177,161 @@ test("restart is clean", function()
     assert(s.velocity == 0 and s.lane == 0)
 end)
 
--- Generated tracks: boxes stay on the grid, the stream stays bounded, and at every point some
--- lane is free of anything a runner on the ground can neither jump nor climb.
-test("generated patterns always leave a way through", function()
-    for seed = 1, 200 do
-        -- Jump ahead pattern by pattern, keeping every box before the track drops it.
-        local s, objects, seen = g.New(seed), {}, {}
-        g.Start(s)
-        for _ = 1, 40 do
-            -- High above the track, so nothing ends the run before the next pattern spawns.
-            s.distance, s.height = s.nextRow - 80, 100
-            g.Update(s, 1 / 120)
-            s.status = "running"
-            for _, o in ipairs(s.objects) do
-                if not seen[o] then
-                    seen[o] = true
-                    objects[#objects + 1] = o
-                end
-            end
-        end
-        assert(#s.objects < 120, "the live stream stays bounded")
-        assert(#objects > 150, "the track was generated")
-        local far = 0
-        for _, o in ipairs(objects) do
-            assert(o.lane >= -1 and o.lane <= 1 and o.layer >= 0 and o.layers >= 1)
-            far = math.max(far, o.at + o.length)
-        end
-        for at = 0, far, 0.25 do
-            local open = 0
-            for lane = -1, 1 do
-                local blocked = false
-                for _, o in ipairs(objects) do
-                    local solid = o.kind == "obstacle" or o.kind == "enemy" or (o.kind == "platform" and not o.ramp)
-                    if solid and o.lane == lane and at >= o.at and at <= o.at + o.length then
-                        -- Taller than a jump from the ground, starting below the body's top.
-                        if g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight then
-                            blocked = true
-                        end
-                    end
-                end
-                open = open + (blocked and 0 or 1)
-            end
-            assert(open > 0, string.format("seed %d blocks every lane at %.2f", seed, at))
-        end
-        -- Coins: spaced apart, never inside a solid box, and on a platform only over its top.
-        for _, c in ipairs(objects) do
-            if c.kind == "coin" then
-                for _, o in ipairs(objects) do
-                    if o ~= c and o.lane == c.lane and math.abs(o.at - c.at) < 2.99 and o.kind == "coin" then
-                        assert(o.layer ~= c.layer, string.format("seed %d: coins closer than 3 yards", seed))
-                    end
-                    local overlaps = o.lane == c.lane and c.at < o.at + o.length and c.at + c.length > o.at
-                    if overlaps and o.kind ~= "coin" and o.kind ~= "platform" then
-                        local apart = c.layer >= o.layer + o.layers or c.layer + c.layers <= o.layer
-                        assert(apart, string.format("seed %d: a coin inside a %s", seed, o.kind))
-                    end
-                    if o.kind == "platform" and o.lane == c.lane and c.layer == o.layer + o.layers then
-                        local near = c.at > o.at - 2 and c.at < o.at + o.length + 2
-                        local over = c.at >= o.at and c.at + c.length <= o.at + o.length
-                        assert(not near or over, string.format("seed %d: a coin beyond a platform's top", seed))
-                    end
+-- The rules of a track (track.lua): boxes on the grid, at every point some lane free of
+-- anything a runner on the ground can neither jump nor climb, and coins spaced apart, never
+-- inside a solid box, on a platform only over its top. `label` names it in a failure.
+local function byAt(a, b)
+    return a.at < b.at
+end
+local function checkTrack(objects, label)
+    -- Per lane, sorted along the track: the boxes, and the stretches a runner on the ground
+    -- can neither jump nor climb (merged where they overlap).
+    local lanes, walls, longest = { [-1] = {}, [0] = {}, [1] = {} }, { [-1] = {}, [0] = {}, [1] = {} }, 0
+    for _, o in ipairs(objects) do
+        assert(lanes[o.lane] and o.layer >= 0 and o.layers >= 1, label .. ": off the grid")
+        local list = lanes[o.lane]
+        list[#list + 1] = o
+        longest = math.max(longest, o.length)
+    end
+    for lane, list in pairs(lanes) do
+        table.sort(list, byAt)
+        local stretches = walls[lane]
+        for _, o in ipairs(list) do
+            local solid = o.kind == "obstacle" or o.kind == "enemy" or (o.kind == "platform" and not o.ramp)
+            -- Taller than a jump from the ground, starting below the body's top.
+            if solid and g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight then
+                local last = stretches[#stretches]
+                if last and o.at <= last[2] then
+                    last[2] = math.max(last[2], o.at + o.length)
+                else
+                    stretches[#stretches + 1] = { o.at, o.at + o.length }
                 end
             end
         end
     end
+    -- No stretch where all three lanes are walled.
+    for _, a in ipairs(walls[-1]) do
+        for _, b in ipairs(walls[0]) do
+            local from, to = math.max(a[1], b[1]), math.min(a[2], b[2])
+            if from <= to then
+                for _, c in ipairs(walls[1]) do
+                    local inner, outer = math.max(from, c[1]), math.min(to, c[2])
+                    assert(inner > outer, string.format("%s blocks every lane at %.2f", label, inner))
+                end
+            end
+        end
+    end
+    -- Coins against their lane's boxes nearby: every box that can reach a coin starts at most
+    -- the longest box's length before it.
+    for _, list in pairs(lanes) do
+        for i, c in ipairs(list) do
+            if c.kind == "coin" then
+                local j = i - 1
+                while list[j] and list[j].at > c.at - longest - 3 do
+                    j = j - 1
+                end
+                j = j + 1
+                while list[j] and list[j].at < c.at + 3 do
+                    local o = list[j]
+                    if o ~= c and o.kind == "coin" and math.abs(o.at - c.at) < 2.99 then
+                        assert(o.layer ~= c.layer, label .. ": coins closer than 3 yards")
+                    end
+                    local overlaps = c.at < o.at + o.length and c.at + c.length > o.at
+                    if overlaps and o.kind ~= "coin" and o.kind ~= "platform" then
+                        local apart = c.layer >= o.layer + o.layers or c.layer + c.layers <= o.layer
+                        assert(apart, string.format("%s: a coin inside a %s", label, o.kind))
+                    end
+                    if o.kind == "platform" and c.layer == o.layer + o.layers then
+                        local near = c.at > o.at - 2 and c.at < o.at + o.length + 2
+                        local over = c.at >= o.at and c.at + c.length <= o.at + o.length
+                        assert(not near or over, label .. ": a coin beyond a platform's top")
+                    end
+                    j = j + 1
+                end
+            end
+        end
+    end
+end
+
+-- Every pattern on its own, many times: within its length and lead-in, and a way through.
+test("every pattern keeps the track's rules", function()
+    assert(#track.list > 0, "patterns registered")
+    for _, pattern in ipairs(track.list) do
+        for seed = 1, 100 do
+            local s = g.New(seed)
+            s.objects = {}
+            local at = 30
+            local length = pattern.place(s, at, s.random)
+            local label = string.format("pattern %s, seed %d", pattern.name, seed)
+            assert(type(length) == "number" and length >= 0, label .. ": returns its length")
+            assert(#s.objects > 0, label .. ": places something")
+            for _, o in ipairs(s.objects) do
+                assert(o.seed, label .. ": a box without a seed (use track.Add)")
+                assert(o.at >= at - track.LEAD_IN - 0.5, label .. ": leads in too far")
+                assert(o.at <= at + length, label .. ": starts a box past its length")
+            end
+            checkTrack(s.objects, label)
+        end
+    end
+end)
+
+-- Generated tracks, at every difficulty: the stream stays bounded, the rules hold where
+-- patterns meet.
+test("generated tracks always leave a way through", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for seed = 1, difficulty.id == "normal" and 200 or 40 do
+            -- Jump ahead pattern by pattern, keeping every box before the track drops it.
+            local s, objects, seen = g.New(seed, difficulty.id), {}, {}
+            g.Start(s)
+            for _ = 1, 40 do
+                -- High above the track, so nothing ends the run before the next pattern spawns.
+                s.distance, s.height = s.nextRow - 80, 100
+                g.Update(s, 1 / 120)
+                s.status = "running"
+                for _, o in ipairs(s.objects) do
+                    if not seen[o] then
+                        seen[o] = true
+                        objects[#objects + 1] = o
+                    end
+                end
+            end
+            assert(#s.objects < 120, "the live stream stays bounded")
+            assert(#objects > 150, "the track was generated")
+            checkTrack(objects, string.format("%s seed %d", difficulty.id, seed))
+        end
+    end
+end)
+
+-- The pick honors a pattern's weight by difficulty and its `from`; a run's speed follows its
+-- difficulty.
+test("difficulties pick their patterns and set the speed", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        local s = g.New(1, difficulty.id)
+        assert(s.difficulty == difficulty and s.speed == difficulty.startSpeed)
+        for _, at in ipairs({ 0, 300, 3000 }) do
+            for _ = 1, 200 do
+                local pattern = track.Pick(s, at)
+                local weight = pattern and pattern.weight
+                if type(weight) == "table" then
+                    weight = weight[difficulty.id]
+                end
+                assert(
+                    not pattern or (pattern.from <= at and weight and weight > 0),
+                    difficulty.id .. " picks a pattern it has"
+                )
+            end
+        end
+    end
+    assert(g.New(1, "nowhere").difficulty == g.DIFFICULTIES.normal, "an unknown difficulty is normal")
+    local easy, expert = g.New(1, "easy"), g.New(1, "expert")
+    easy.objects, expert.objects, easy.nextRow, expert.nextRow = {}, {}, math.huge, math.huge
+    for _, s in ipairs({ easy, expert }) do
+        g.Start(s)
+        s.forward = true
+        advance(s, 30, 60)
+    end
+    assert(easy.distance < expert.distance and easy.speed < expert.speed, "harder is faster")
+    assert(expert.speed <= g.DIFFICULTIES.expert.topSpeed, "up to the top speed")
 end)
 -- Seeds: Park and Miller's own check, and one seed always lays out the same track.
 test("the generator is the minimal standard", function()
@@ -256,7 +347,7 @@ test("the generator is the minimal standard", function()
         assert(u >= 0 and u < 1 and (n == -1 or n == 0 or n == 1))
     end
 end)
-local function track(seed)
+local function layout(seed)
     local s, objects = g.New(seed), {}
     g.Start(s)
     for _ = 1, 40 do
@@ -277,8 +368,8 @@ local function track(seed)
     return table.concat(lines, "\n")
 end
 test("a seed always lays out the same track", function()
-    assert(track(1234) == track(1234))
-    assert(track(1234) ~= track(1235))
+    assert(layout(1234) == layout(1234))
+    assert(layout(1234) ~= layout(1235))
     assert(g.New(99).seed == 99 and g.New().seed >= 1)
 end)
 print(string.format("%d simulation tests passed", count))

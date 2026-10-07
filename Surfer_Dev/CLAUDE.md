@@ -7,7 +7,7 @@ client with Surfer. Put debugging, playtesting and biome-building tools here, no
 It reaches Surfer's private table through `LibStub("AceAddon-3.0"):GetAddon("Surfer"):DevApp()`
 (`dev.app` in every file) and adds `/surfer` subcommands with `dev.Command(name, usage, run)`;
 `/surfer help` lists them. Surfer keeps only the hooks the tools need: `overlay:Lap` (timing),
-`light.override` (a fixed time of day), `simulation.invincible`, `simulation.patterns`,
+`light.override` (a fixed time of day), `simulation.invincible`, `track.list`/`track.byName`,
 `overlay.keepWorldScene` (keeps the 3D scene shown for a preview).
 
 Files (load order in the TOC):
@@ -23,4 +23,5 @@ Files (load order in the TOC):
   biome's enemies (or one creature) have, from an invisible PlayerModel (`HasAnimation`; model
   scenes cannot tell).
 - `src/playtest.lua` — `/surfer light day|dusk|night|auto`, `/surfer god` (invincible), `/surfer multiplier <n>` (the score multiplier),
-  `/surfer spawn <pattern>` (30 yards ahead; names in simulation.lua's order).
+  `/surfer spawn <pattern>` (30 yards ahead; by name or number, `/surfer spawn` lists the
+  registered patterns).

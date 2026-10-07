@@ -71,10 +71,24 @@ be listed**. The order follows these rules:
 - `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
   a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
   collide or are collected. `New(seed)` starts a run from `seed` (a new one when left out,
-  `s.seed`); the track follows only from it. Every generated box gets `o.seed` for its looks.
+  `s.seed`); the track follows only from it (track.lua). Every generated box gets `o.seed` for
+  its looks.
   The score adds up as the run goes (`s.points` per yard, `s.bonus` per coin), each at the
   multiplier of its moment: `SetMultiplier(s, n)` (whole, at least 1; events raise it) scales
-  only what is earned from then on. `Score(s)` is the total.
+  only what is earned from then on. `Score(s)` is the total. `DIFFICULTIES` (easy, normal, hard,
+  expert; `New(seed, difficulty)`, `profile.difficulty`, set by `overlay:SetDifficulty(id)` /
+  `StepDifficulty(±1)` from the option and the status panel's arrows) set the speed (start,
+  top, how fast it rises), the free road between patterns and, through the patterns' weights,
+  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for.
+- `src/game/track.lua` — `app.track`, the track ahead (`simulation.Spawn`): a stream of
+  patterns, weighted by the run's difficulty, each followed by free road measured in seconds at
+  the speed of the moment. `Register(pattern)` (`name`, `weight` — a number or a table by
+  difficulty id —, `from` yards, `place(s, at, r)` returning its length), `Add`/`Coins`/`Fit`
+  to place boxes, `Pick(s, at)`. The rules every pattern keeps are at the top of the file;
+  `tests/simulation.lua` checks each pattern alone and generated tracks at every difficulty.
+- `src/patterns/*.lua` — one pattern each, all listed in `patterns.xml` (the TOC loads the XML;
+  the tests read it too, `tests/load.lua`). **A new pattern is a new file plus a line in
+  `patterns.xml`**, nothing else. A new or changed pattern changes what a seed lays out.
 - `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
   `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
   biome each and override only what they change; `default.lua` holds every field, documented, and
@@ -149,7 +163,7 @@ be listed**. The order follows these rules:
   (`messages` in the draw order, HIGH strata in both modes): the status panel while a run is
   ready (the start screen: best score, the seed, Start game / Options / Close), paused or over
   (a `DialogBorderTemplate` panel like the legend's: score with its
-  multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the seed in a box (editable only
+  multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the difficulty between the spell book's page arrows (while paused a change is for the next run and says so), the seed in a box (editable only
   with the "Fixed seed" checkbox under it checked, otherwise read-only but copyable),
   and a button per next action, Go on / Start over / Run again, each behind the legend's key
   cap of the game key that does the same, `DoAction(key)`), and announcements:

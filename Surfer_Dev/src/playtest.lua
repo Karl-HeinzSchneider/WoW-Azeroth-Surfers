@@ -39,30 +39,26 @@ dev.Command("multiplier", "multiplier <n>: score n times from now on (the HUD's 
     log:chat("Multiplier: x%d", o.state.multiplier)
 end)
 
--- The simulation's patterns in their order (simulation.lua).
-local PATTERNS = { "jump", "hurdle", "wall", "barriers", "platform", "enemy" }
-
-dev.Command(
-    "spawn",
-    "spawn jump | hurdle | wall | barriers | platform | enemy: that pattern 30 yards ahead",
-    function(rest)
-        local o = dev.Overlay()
-        if not o then
-            return
-        end
-        local word = dev.Words(rest)[1]
-        local index = type(word) == "number" and word or nil
-        for i, name in ipairs(PATTERNS) do
-            if name == word then
-                index = i
-            end
-        end
-        local pattern = index and app.simulation.patterns[index]
-        if not pattern then
-            log:chat("/surfer spawn %s", table.concat(PATTERNS, " | "))
-            return
-        end
-        local s = o.state
-        pattern(s, s.distance + 30, s.random)
+-- The registered patterns' names (src/patterns/), in their order.
+local function patternNames()
+    local names = {}
+    for i, pattern in ipairs(app.track.list) do
+        names[i] = pattern.name
     end
-)
+    return table.concat(names, " | ")
+end
+
+dev.Command("spawn", "spawn <pattern>: that pattern 30 yards ahead (spawn alone lists them)", function(rest)
+    local o = dev.Overlay()
+    if not o then
+        return
+    end
+    local word = dev.Words(rest)[1]
+    local pattern = type(word) == "number" and app.track.list[word] or app.track.byName[word]
+    if not pattern then
+        log:chat("/surfer spawn %s", patternNames())
+        return
+    end
+    local s = o.state
+    pattern.place(s, s.distance + 30, s.random)
+end)

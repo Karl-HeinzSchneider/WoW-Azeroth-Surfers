@@ -6,8 +6,9 @@ local sim = app.simulation
 --
 -- * The status panel while a run is ready to start (the start screen: the best score, Start
 --   game, Options, Close), paused or over: a classic dialog (framed like the hotkey legend)
---   with the run's numbers (score, coins, distance, best; "New best!" after one), its
---   seed in a box and the seed option ("Fixed seed", as in the addon options; checked, the box
+--   with the run's numbers (score, coins, distance, best; "New best!" after one), the
+--   difficulty between page arrows (as in the addon options; while paused, for the next run),
+--   its seed in a box and the seed option ("Fixed seed", as in the addon options; checked, the box
 --   can be edited, otherwise only copied), and a button for each thing to do next, with the
 --   key cap of the key that does the same in front of it. Trims like the legend's under the
 --   title and under the numbers.
@@ -23,6 +24,9 @@ local WIDTH, PAD, ROW = 300, 28, 22
 local BUTTON_WIDTH, BUTTON_HEIGHT, ACTION_ROW = 130, 22, 28
 -- The seed option's rows: the checkbox, and the seed's box (as wide as the start dialog's).
 local OPTION_ROW, CHECK_SIZE, INPUT_WIDTH = 26, 24, 110
+-- The difficulty's row: its name between the spell book's page arrows.
+local ARROW_SIZE, DIFFICULTY_WIDTH = 26, 72
+local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
 -- The legend's header trim, as far in from the panel's sides.
 local TRIM, TRIM_HEIGHT, TRIM_INDENT = "Interface\\Common\\UI-TooltipDivider", 8, 20
 local SIDE_SCALE = 0.8
@@ -93,6 +97,20 @@ function overlay:DoAction(act)
     end
 end
 
+-- A page arrow that steps the difficulty by `step`.
+local function arrow(o, panel, art, step)
+    local button = CreateFrame("Button", nil, panel)
+    button:SetSize(ARROW_SIZE, ARROW_SIZE)
+    button:SetNormalTexture(art .. "-Up")
+    button:SetPushedTexture(art .. "-Down")
+    button:SetDisabledTexture(art .. "-Disabled")
+    button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
+    button:SetScript("OnClick", function()
+        o:StepDifficulty(step)
+    end)
+    return button
+end
+
 -- The key a button's action has, if any: a game key, or the first bound key of its bindings.
 local function actionKey(o, action)
     if action.key then
@@ -132,6 +150,18 @@ function overlay:CreateMessages(f)
         trims[i]:SetHeight(TRIM_HEIGHT)
     end
     local actions = { actionRow(self, panel), actionRow(self, panel), actionRow(self, panel) }
+
+    -- The difficulty, the setting `profile.difficulty` (SetDifficulty shows a change here).
+    local difficultyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    difficultyLabel:SetText("Difficulty")
+    local easier, harder = arrow(self, panel, ARROWS[1], -1), arrow(self, panel, ARROWS[2], 1)
+    local difficulty = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    difficulty:SetWidth(DIFFICULTY_WIDTH)
+    difficulty:SetPoint("LEFT", easier, "RIGHT")
+    harder:SetPoint("LEFT", difficulty, "RIGHT")
+    -- While paused, a change waits for the next run.
+    local nextRun = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    nextRun:SetText("From the next run on")
 
     -- The seed option, the setting `profile.seed` (SetSeed shows a change here).
     local fixed = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
@@ -189,6 +219,11 @@ function overlay:CreateMessages(f)
         fixedLabel = fixedLabel,
         seedLabel = seedLabel,
         seedBox = seedBox,
+        difficultyLabel = difficultyLabel,
+        difficulty = difficulty,
+        easier = easier,
+        harder = harder,
+        nextRun = nextRun,
     }
 
     local banner = CreateFrame("Frame", nil, f)
@@ -262,6 +297,25 @@ function overlay:FillStatus(status)
         st.rows[1].name:SetText("Score")
     end
     y = self:PlaceTrim(st.trims[2], y - 4)
+    -- The difficulty, centered: its name between the arrows (each off at its end). While
+    -- paused, a different one than the run's is for the next run, and says so.
+    local chosen = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
+    st.difficulty:SetText(chosen.name)
+    st.easier:SetEnabled(chosen.level > 1)
+    st.harder:SetEnabled(chosen.level < #sim.DIFFICULTIES)
+    local labelWidth = st.difficultyLabel:GetStringWidth()
+    local x = (WIDTH - labelWidth - 8 - 2 * ARROW_SIZE - DIFFICULTY_WIDTH) / 2
+    st.difficultyLabel:ClearAllPoints()
+    st.difficultyLabel:SetPoint("LEFT", panel, "TOPLEFT", x, y - OPTION_ROW / 2)
+    st.easier:ClearAllPoints()
+    st.easier:SetPoint("LEFT", panel, "TOPLEFT", x + labelWidth + 8, y - OPTION_ROW / 2)
+    y = y - OPTION_ROW
+    st.nextRun:SetShown(status == "paused" and chosen ~= s.difficulty)
+    if st.nextRun:IsShown() then
+        st.nextRun:ClearAllPoints()
+        st.nextRun:SetPoint("TOP", panel, "TOP", 0, y)
+        y = y - st.nextRun:GetStringHeight() - 4
+    end
     -- The seed, centered: its box (white while it can be edited, gray while read-only), and the
     -- checkbox under it.
     local kept = app.db.profile.seed
@@ -273,8 +327,8 @@ function overlay:FillStatus(status)
     else
         st.seedBox:SetTextColor(0.6, 0.6, 0.6)
     end
-    local labelWidth = st.seedLabel:GetStringWidth()
-    local x = (WIDTH - labelWidth - 12 - INPUT_WIDTH) / 2
+    labelWidth = st.seedLabel:GetStringWidth()
+    x = (WIDTH - labelWidth - 12 - INPUT_WIDTH) / 2
     st.seedLabel:ClearAllPoints()
     st.seedLabel:SetPoint("LEFT", panel, "TOPLEFT", x, y - OPTION_ROW / 2)
     st.seedBox:ClearAllPoints()

@@ -171,13 +171,15 @@ local app = {
         end,
     },
 }
-for _, file in ipairs({
+dofile("tests/load.lua")(app, {
     "core/db",
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
     "game/random",
     "game/simulation",
+    "game/track",
+    "patterns/patterns.xml",
     "game/light",
     "game/shapes",
     "game/overlay",
@@ -189,9 +191,7 @@ for _, file in ipairs({
     "game/legend",
     "game/messages",
     "game/controls",
-}) do
-    assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
-end
+})
 local profile = app.dbDefaults.profile
 -- The runner follows the character's sampled movement, as without capturing the keys.
 profile.capture = false

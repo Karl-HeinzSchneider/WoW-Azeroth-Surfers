@@ -173,6 +173,32 @@ local options = {
                 app.db.profile.legend = value
             end,
         },
+        difficulty = {
+            type = "select",
+            order = 6.55,
+            name = "Difficulty",
+            desc = "How fast the run goes and speeds up, how much room there is between obstacles, and which come up. During a run: from the next one on.",
+            values = function()
+                local names = {}
+                for _, difficulty in ipairs(app.simulation.DIFFICULTIES) do
+                    names[difficulty.id] = difficulty.name
+                end
+                return names
+            end,
+            sorting = function()
+                local ids = {}
+                for i, difficulty in ipairs(app.simulation.DIFFICULTIES) do
+                    ids[i] = difficulty.id
+                end
+                return ids
+            end,
+            get = function()
+                return app.db.profile.difficulty
+            end,
+            set = function(_, value)
+                app.overlay:SetDifficulty(value)
+            end,
+        },
         fixedSeed = {
             type = "toggle",
             order = 6.6,

@@ -21,6 +21,8 @@ src\biomes\default.lua
 src\biomes\elwynn.lua
 src\game\random.lua
 src\game\simulation.lua
+src\game\track.lua
+src\patterns\patterns.xml
 src\game\light.lua
 src\game\shapes.lua
 src\game\overlay.lua

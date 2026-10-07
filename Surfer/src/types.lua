@@ -8,6 +8,7 @@
 ---@class Surfer
 ---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
 ---@field simulation table
+---@field track table  # the track generator and the registry of patterns (src/patterns/*.lua)
 ---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfer subcommands of Surfer_Dev
 ---@field biomes table  # the registered biomes (src/biomes/*.lua) and the current one
 ---@field light table  # the world's day/night light, shared by the ground and every 3D model

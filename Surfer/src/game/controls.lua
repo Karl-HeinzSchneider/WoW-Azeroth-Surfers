@@ -37,9 +37,10 @@ function overlay:SaveBest()
     end
 end
 
--- A run ready to start: from the fixed seed (`profile.seed`), or a new one.
+-- A run ready to start: from the fixed seed (`profile.seed`), or a new one, at the profile's
+-- difficulty.
 function overlay:NewState()
-    return sim.New(app.db.profile.seed or nil)
+    return sim.New(app.db.profile.seed or nil, app.db.profile.difficulty)
 end
 
 function overlay:Restart()
@@ -66,6 +67,37 @@ function overlay:SetSeed(seed)
     -- The status panel's seed option (messages.lua).
     if self.status.holder:IsShown() then
         self:FillStatus(self.state.status)
+    end
+end
+
+-- Sets the difficulty (an id of simulation.lua's DIFFICULTIES) from the next run on; a run
+-- that has not started yet takes it at once, with its seed.
+function overlay:SetDifficulty(id)
+    if not sim.DIFFICULTIES[id] then
+        return
+    end
+    app.db.profile.difficulty = id
+    if app.options then
+        app.options:Refresh()
+    end
+    if not self.frame then
+        return
+    end
+    if self.state.status == "ready" then
+        self.state = sim.New(self.state.seed, id)
+    end
+    -- The status panel's difficulty (messages.lua).
+    if self.status.holder:IsShown() then
+        self:FillStatus(self.state.status)
+    end
+end
+
+-- One difficulty easier (-1) or harder (1), as far as there is one.
+function overlay:StepDifficulty(step)
+    local current = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
+    local other = sim.DIFFICULTIES[current.level + step]
+    if other then
+        self:SetDifficulty(other.id)
     end
 end
 

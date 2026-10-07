@@ -60,17 +60,36 @@ function game.Overlaps(s, o)
 end
 
 local STEP = 1 / 120
--- The track's speed (yards per second) at the start and at most; it rises with the distance.
-game.START_SPEED, game.TOP_SPEED = 30, 42
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
 
--- A run from `seed` (any whole number), or from a new one when left out.
-function game.New(seed)
+-- The difficulties, easiest first; `profile.difficulty` picks one by `id`. Each sets the
+-- track's speed (yards per second) at the start and at most, the yards run for each yard per
+-- second more (`speedUp`), the seconds of free road between two patterns (`gap`, a range,
+-- in yards at the speed of the moment; track.lua), and which patterns come up how often (a
+-- pattern's `weight` may differ by difficulty id; src/patterns/).
+game.DIFFICULTIES = {
+    { id = "easy", name = "Easy", startSpeed = 26, topSpeed = 36, speedUp = 240, gap = { 0.45, 0.7 } },
+    { id = "normal", name = "Normal", startSpeed = 30, topSpeed = 42, speedUp = 180, gap = { 1 / 3, 0.53 } },
+    { id = "hard", name = "Hard", startSpeed = 34, topSpeed = 48, speedUp = 150, gap = { 0.3, 0.46 } },
+    { id = "expert", name = "Expert", startSpeed = 38, topSpeed = 54, speedUp = 120, gap = { 0.27, 0.4 } },
+}
+for level, difficulty in ipairs(game.DIFFICULTIES) do
+    difficulty.level = level
+    game.DIFFICULTIES[difficulty.id] = difficulty
+end
+-- The track speed the twin's run animation is paced for (overlay.lua): faster legs above it.
+game.RUN_PACE = game.DIFFICULTIES.normal.startSpeed
+
+-- A run from `seed` (any whole number), or from a new one when left out, at difficulty
+-- `difficulty` (an id; normal when left out or unknown).
+function game.New(seed, difficulty)
     seed = random.Normalize(seed or random.Seed())
+    difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
     return {
+        difficulty = difficulty,
         seed = seed,
         status = "ready",
         lane = 0,
@@ -86,7 +105,7 @@ function game.New(seed)
         points = 0,
         bonus = 0,
         multiplier = 1,
-        speed = game.START_SPEED,
+        speed = difficulty.startSpeed,
         accumulator = 0,
         nextRow = 22,
         objects = {},
@@ -135,120 +154,9 @@ function game.Pause(s)
     s.accumulator = 0
 end
 
--- Each box gets a seed of its own for its looks, so the views draw it the same whenever it
--- comes into sight.
-local function add(s, kind, lane, at, length, layer, layers, ramp)
-    local o = game.Box(kind, lane, at, length, layer, layers, ramp)
-    o.seed = s.random(random.MAX)
-    s.objects[#s.objects + 1] = o
-end
-
--- Yards between coins in a row: close enough to read as a trail, far enough apart that
--- distant coins do not merge.
-local COIN_SPACING = 3
-
--- `count` coins in `lane` on `layer`, one every COIN_SPACING yards from `at`.
-local function coins(s, lane, at, count, layer)
-    for i = 0, count - 1 do
-        add(s, "coin", lane, at + i * COIN_SPACING - 0.16, 0.32, layer, 1)
-    end
-end
-
--- How many coins fit in a row from `from` to `to`, at most `most`.
-local function fit(from, to, most)
-    return math.max(0, math.min(most, math.floor((to - from) / COIN_SPACING) + 1))
-end
-
--- Each pattern places its boxes around `at` and returns where its last box ends, relative to
--- `at`; coins may lead in up to 8 yards before it, less than the gap between patterns. Every
--- pattern leaves a lane that can be run, jumped or climbed through.
-local patterns = {
-    -- One lane blocked low enough to jump, coins in another.
-    function(s, at, r)
-        local blocked = r(-1, 1)
-        add(s, "obstacle", blocked, at, 0.5, 0, r(1, 2))
-        coins(s, (blocked + 2) % 3 - 1, at - 4, 5, 0)
-        return 4 * COIN_SPACING - 4
-    end,
-    -- A hurdle under an arc of coins that only a jump collects.
-    function(s, at, r)
-        local lane = r(-1, 1)
-        add(s, "obstacle", lane, at, 0.5, 0, 1)
-        -- Centred over the hurdle.
-        for i, layer in ipairs({ 3, 4, 5, 5, 4, 3 }) do
-            add(s, "coin", lane, at + 0.25 + (i - 3.5) * COIN_SPACING - 0.16, 0.32, layer, 1)
-        end
-        return 8
-    end,
-    -- A tall wall to dodge beside a hurdle to jump; the third lane is clear.
-    function(s, at, r)
-        local tall = r(-1, 1)
-        local low = (tall + 1 + r(1, 2)) % 3 - 1
-        add(s, "obstacle", tall, at, 0.8, 0, 4)
-        add(s, "obstacle", low, at, 0.5, 0, 1)
-        coins(s, -tall - low, at - 4, 4, 0)
-        return 3 * COIN_SPACING - 4
-    end,
-    -- Overhead barriers on layer 3: run under them, do not jump.
-    function(s, at, r)
-        local first = r(-1, 1)
-        local last = r(first, 1)
-        for lane = first, last do
-            add(s, "barrier", lane, at, 0.4, 3, 1)
-        end
-        coins(s, first, at - 2, 3, 0)
-        return 2 * COIN_SPACING - 2
-    end,
-    -- Higher ground: a platform (with a ramp when too high to jump onto), coins and maybe an
-    -- obstacle on top, sometimes a higher platform beside it to jump across to.
-    function(s, at, r)
-        local lane, layers = r(-1, 1), r(1, 3)
-        local ramp = (layers == 3 or r(0, 1) == 1) and layers * 4 or nil
-        local length = r(24, 40)
-        add(s, "platform", lane, at, length, 0, layers, ramp)
-        -- Coins on top, from past the ramp to short of the end.
-        local first = at + (ramp or 0) + 2
-        local count = fit(first, at + length - 2, 6)
-        coins(s, lane, first, count, layers)
-        -- Past the coins, with room to land before the platform ends.
-        if r(0, 1) == 1 and at + length - 6 > first + (count - 1) * COIN_SPACING + 3 then
-            add(s, "obstacle", lane, at + length - 6, 0.5, layers, 1)
-        end
-        if layers < 3 and r(0, 1) == 1 then
-            local beside = lane == 0 and (r(0, 1) == 0 and -1 or 1) or 0
-            add(s, "platform", beside, at + 10, length - 10, 0, layers + 1)
-            coins(s, beside, at + 14, fit(at + 14, at + length - 2, 6), layers + 1)
-        end
-        return length
-    end,
-    -- An enemy standing in one lane, low enough to jump (2 layers) or too tall (4), coins in
-    -- another.
-    function(s, at, r)
-        local lane, tall = r(-1, 1), r(0, 1) == 1
-        add(s, "enemy", lane, at, tall and 0.8 or 1.2, 0, tall and 4 or 2)
-        coins(s, (lane + 2) % 3 - 1, at - 4, 5, 0)
-        return 4 * COIN_SPACING - 4
-    end,
-}
-game.patterns = patterns
--- How often each pattern comes up: enemies are rare.
-local WEIGHTS = { 3, 3, 3, 3, 3, 1 }
-local TOTAL = 0
-for _, weight in ipairs(WEIGHTS) do
-    TOTAL = TOTAL + weight
-end
-
-local function spawn(s)
-    local r = s.random
-    local roll, i = r(1, TOTAL), 1
-    while roll > WEIGHTS[i] do
-        roll, i = roll - WEIGHTS[i], i + 1
-    end
-    s.nextRow = s.nextRow + patterns[i](s, s.nextRow, r) + r(10, 16)
-end
-
 local function tick(s)
-    s.speed = math.min(game.TOP_SPEED, game.START_SPEED + s.distance / 180)
+    local difficulty = s.difficulty
+    s.speed = math.min(difficulty.topSpeed, difficulty.startSpeed + s.distance / difficulty.speedUp)
     if s.forward then
         local step = s.speed * STEP
         s.distance = s.distance + step
@@ -278,8 +186,9 @@ local function tick(s)
     else
         s.height, s.velocity = floor, 0
     end
+    -- The track ahead: patterns (track.lua) up to this far.
     while s.nextRow < s.distance + 85 do
-        spawn(s)
+        game.Spawn(s)
     end
     for i = #s.objects, 1, -1 do
         local o = s.objects[i]

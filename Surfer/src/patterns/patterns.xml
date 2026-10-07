@@ -1,0 +1,10 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- The track's patterns (src/game/track.lua), one file each, in the order the pick weighs
+         them. A new or changed pattern changes what a seed lays out. -->
+    <Script file="jump.lua"/>
+    <Script file="hurdle.lua"/>
+    <Script file="wall.lua"/>
+    <Script file="barriers.lua"/>
+    <Script file="platform.lua"/>
+    <Script file="enemy.lua"/>
+</Ui>

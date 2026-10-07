@@ -1,7 +1,14 @@
 local app = {}
-for _, file in ipairs({ "random", "simulation", "light", "shapes", "overlay", "controls" }) do
-    assert(loadfile("Surfer/src/game/" .. file .. ".lua"))("Surfer", app)
-end
+dofile("tests/load.lua")(app, {
+    "game/random",
+    "game/simulation",
+    "game/track",
+    "patterns/patterns.xml",
+    "game/light",
+    "game/shapes",
+    "game/overlay",
+    "game/controls",
+})
 local r = app.overlay
 local focused, binding, chord
 function InCombatLockdown()
