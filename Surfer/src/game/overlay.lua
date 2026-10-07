@@ -654,6 +654,10 @@ function overlay:AnimateTwin(elapsed)
         else
             animation = speed < 4 and WALK or RUN
             rate, yaw = speed / (animation == WALK and WALK_SPEED or RUN_SPEED), direction
+            -- As the run speeds up the track, the legs speed up with it, or the twin glides.
+            if animation == RUN and s.status == "running" then
+                rate = rate * s.speed / sim.START_SPEED
+            end
         end
     elseif self.landTime and self.landTime < 0.3 then
         animation = JUMP_END

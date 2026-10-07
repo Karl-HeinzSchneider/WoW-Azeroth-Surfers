@@ -60,6 +60,8 @@ function game.Overlaps(s, o)
 end
 
 local STEP = 1 / 120
+-- The track's speed (yards per second) at the start and at most; it rises with the distance.
+game.START_SPEED, game.TOP_SPEED = 30, 42
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
@@ -84,7 +86,7 @@ function game.New(seed)
         points = 0,
         bonus = 0,
         multiplier = 1,
-        speed = 30,
+        speed = game.START_SPEED,
         accumulator = 0,
         nextRow = 22,
         objects = {},
@@ -246,7 +248,7 @@ local function spawn(s)
 end
 
 local function tick(s)
-    s.speed = math.min(42, 30 + s.distance / 180)
+    s.speed = math.min(game.TOP_SPEED, game.START_SPEED + s.distance / 180)
     if s.forward then
         local step = s.speed * STEP
         s.distance = s.distance + step
