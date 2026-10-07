@@ -85,7 +85,18 @@ r:OnKey("R")
 assert(r.holding == 0 and propagates == false, "R starts the hold")
 r:OnKeyRelease("R")
 assert(r.holding == nil)
-print("PASS movement bindings, modifiers, forward start, jump, typing focus, capture, pause and restart keys")
+-- In auto mode every key goes on to WoW, the game's own too, and none steers.
+r.auto = true
+local lane = r.state.lane
+for _, k in ipairs({ "A", "Q", "R" }) do
+    binding = k == "A" and "STRAFELEFT" or nil
+    r:OnKey(k)
+    assert(propagates and r.state.lane == lane and r.state.status == "running" and r.holding == nil, k)
+end
+r.auto = nil
+print(
+    "PASS movement bindings, modifiers, forward start, jump, typing focus, capture, pause and restart keys, auto mode"
+)
 
 local x, y, map, facing, speed = 0, 0, 1, 0, 7
 function UnitPosition()

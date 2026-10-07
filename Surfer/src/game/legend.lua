@@ -259,9 +259,9 @@ function overlay:PlaceLegend(side, top)
 end
 
 -- Once a frame: the group of the run's state, laid out again only when the state, the bindings
--- or the mode changed.
+-- or the mode changed. None in auto mode, when the game takes no keys.
 function overlay:ShowLegend()
-    local state = app.db.profile.legend and self.state.status or "off"
+    local state = app.db.profile.legend and not self.auto and self.state.status or "off"
     if self.legendState == state then
         return
     end

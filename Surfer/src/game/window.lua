@@ -22,8 +22,8 @@ local OUT_LEFT, OUT_TOP, OUT_RIGHT, OUT_BOTTOM = -1, 5, 3, 5
 -- The smallest side window: room for the score display and the legend.
 local MIN_WIDTH, MIN_HEIGHT = 360, 300
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
--- The buttons' row at the top (without the window frame): its buttons' width and spacing.
-local BUTTON_STEP = 88
+-- The room between the buttons of the row at the top.
+local BUTTON_GAP = 4
 
 -- The frame (a sibling of the view, so the side window's clipping does not cut it off), its
 -- drag handle and size grip, and the backdrop. Shown and hidden with the view.
@@ -195,15 +195,20 @@ function overlay:Layout()
     self:PlaceLegend(side, top)
     self.controls:ClearAllPoints()
     self.controls:SetPoint("TOP", 0, top - (side and 8 or 14))
-    -- Minimize (or Maximize) and Close, unless the frame has its own.
-    local buttons, count = self.controlButtons, self.framed and 0 or 2
+    -- Minimize (or Maximize) and Close, unless the frame has its own; Pause and Stop auto mode
+    -- while it is on.
+    local buttons, x = self.controlButtons, 0
     buttons[1]:SetText(side and "Maximize" or "Minimize")
     for i, b in ipairs(buttons) do
-        b:SetShown(i <= count)
-        b:ClearAllPoints()
-        b:SetPoint("LEFT", (i - 1) * BUTTON_STEP, 0)
+        local shown = (i <= 2 and not self.framed) or (i >= 3 and self.auto == true)
+        b:SetShown(shown)
+        if shown then
+            b:ClearAllPoints()
+            b:SetPoint("LEFT", x, 0)
+            x = x + b:GetWidth() + BUTTON_GAP
+        end
     end
-    self.controls:SetWidth(math.max(1, count * BUTTON_STEP - 4))
+    self.controls:SetWidth(math.max(1, x - BUTTON_GAP))
     self.holdBar:ClearAllPoints()
     self.holdBar:SetPoint("TOP", self.controls, "BOTTOM", 0, -12)
     self:PlaceMessages(side, h)

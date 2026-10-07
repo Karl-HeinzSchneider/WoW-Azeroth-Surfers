@@ -164,11 +164,11 @@ be listed**. The order follows these rules:
   `profile.legend` (option "Show hotkeys").
 - `src/game/messages.lua` — what the game says in the middle of the view, over everything else
   (`messages` in the draw order, HIGH strata in both modes): the status panel while a run is
-  ready (the start screen: best score, the seed, Start game / Options / Close), paused or over
+  ready (the start screen: best score, the seed, Start game / Auto mode / Options / Close), paused or over
   (a `DialogBorderTemplate` panel like the legend's: score with its
   multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the difficulty between the spell book's page arrows (while paused a change is for the next run and says so), the seed in a box (editable only
   with the "Fixed seed" checkbox under it checked, otherwise read-only but copyable),
-  and a button per next action, Go on / Start over / Run again, each behind the legend's key
+  and a button per next action, Go on / Start over / Run again (and Auto mode in every one; while it is on, a paused run offers Go on and Stop auto mode, a finished one only Stop auto mode), each behind the legend's key
   cap of the game key that does the same, `DoAction(key)`), and announcements:
   `overlay:Announce(text, seconds, small)` shows big zone-text-style letters (`ZoneTextFont`,
   `small` in `SubZoneTextFont` above) that fade in, stay `seconds` (2 by default) and fade
@@ -179,8 +179,23 @@ be listed**. The order follows these rules:
   bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
   runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
   is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds
-  restarts a running or paused one. Q (without modifiers) pauses and goes on. `overlay.pilot`
-  (Surfer_Dev's `/surfer bot`) plays the run in the simulation's stead.
+  restarts a running or paused one. Q (without modifiers) pauses and goes on. Auto mode
+  (`overlay:SetAuto(on)`; the menus' "Auto mode" button, `/surfer auto`): the autopilot plays
+  the run (`StepAuto`), the game takes no keys at all (they all go on to WoW), there is no
+  legend, the top row shows Pause (Go on while paused; the paused panel offers Go on and Stop
+  auto mode) and "Stop auto mode" (which pauses the run), a finished run starts over
+  after 3 seconds, and a run it played (`state.piloted`) saves no best score. Closing the game
+  ends it.
+- `src/game/autopilot.lua` — `app.autopilot`, auto mode's player. `Play(s, elapsed)` plays the
+  run in `simulation.Update`'s stead: a depth-first search through copies of the simulation
+  (like the "can be run through" test's) plans an input every 0.05 s for 1.4 s ahead (crates and
+  enemies lane-wide), replanned every 0.25 s; each frame is split at the input times, so the run
+  follows the plan to the tick. A plan heads for one lane (its own while a coin in it is near,
+  else the nearest coin's), goes on with the previous one while that lane stays, and is smoothed:
+  lane changes (an out and back first) and jumps are dropped where it still gets through with
+  as many coins. Copies leave out the run's coins (they would collect them) and never lay out
+  track (it would draw from the run's generator). All its tables are reused (pooled branches,
+  numeric state keys), so it allocates nothing once grown.
 
 global.bestScore stores the account high score. tests/\*.lua run without the client through
 npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.

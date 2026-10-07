@@ -499,8 +499,10 @@ function overlay:Create()
     self.controls = controls
     self:Stack(controls, "controls")
     controls:SetHeight(24)
-    -- Minimize and Close, shown only without the window frame, which has its own (window.lua
-    -- lays the row out). Restarting and pausing are keys (the legend lists them).
+    -- Minimize and Close, shown only without the window frame, which has its own, and Pause (Go
+    -- on while paused) and Stop auto mode while auto mode is on, when no key does anything
+    -- (window.lua lays the row out). Restarting and pausing are keys (the
+    -- legend lists them).
     local buttons = {
         {
             "Minimize",
@@ -514,12 +516,25 @@ function overlay:Create()
                 f:Hide()
             end,
         },
+        {
+            "Pause",
+            function()
+                self:Action("P")
+            end,
+        },
+        {
+            "Stop auto mode",
+            function()
+                self:SetAuto(false)
+            end,
+        },
     }
     self.controlButtons = {}
     for i, spec in ipairs(buttons) do
         local b = CreateFrame("Button", nil, controls, "UIPanelButtonTemplate")
         b:SetSize(84, 24)
         b:SetText(spec[1])
+        b:SetWidth(math.max(84, b:GetFontString():GetStringWidth() + 24))
         b:SetScript("OnClick", spec[2])
         self.controlButtons[i] = b
     end
@@ -535,6 +550,8 @@ function overlay:Create()
         self:OnKeyRelease(key)
     end)
     f:SetScript("OnHide", function()
+        -- Closing the game (or combat) ends auto mode.
+        self:SetAuto(false)
         self.holding = nil
         self:ForgetPosition()
         self.state.forward = false
