@@ -76,6 +76,9 @@ local function attach(self, o, item, along)
         -- the road, for `ground` items).
         x = value(looks, item.x, 0),
         z = (item.ground and 0 or o.layer * LAYER) + value(looks, item.z, 0),
+        -- Its size, picked here like the rest (a range draws, a number does not): `fit` uses them.
+        height = value(looks, item.height, nil),
+        size = value(looks, item.scale, nil),
         alpha = false,
         attacking = false,
         sound = sound,
@@ -109,6 +112,7 @@ local function attachRamp(self, o, item)
                 pieces = pieces,
                 yaw = 0,
                 x = (k - (count + 1) / 2) * width / count,
+                size = value(looks, item.scale, nil),
                 alpha = false,
             }
         end
@@ -177,7 +181,7 @@ local function fit(self, o, entry)
         local rise = o.layers * LAYER
         local angle = math.atan2(rise, o.ramp)
         local length = math.sqrt(o.ramp ^ 2 + rise ^ 2) / entry.pieces
-        entry.scale = item.scale or length / math.max(bounds[4] - bounds[1], 0.01)
+        entry.scale = entry.size or length / math.max(bounds[4] - bounds[1], 0.01)
         local thickness = (bounds[6] - bounds[3]) * entry.scale
         local middle = (entry.piece - 0.5) / entry.pieces
         entry.along = o.at + o.ramp * middle + thickness / 2 * math.sin(angle)
@@ -188,7 +192,7 @@ local function fit(self, o, entry)
         entry.shiftX, entry.shiftY = 0, 0
         return true
     end
-    entry.scale = item.scale or (item.height or o.layers * LAYER) / math.max(bounds[6], 0.01)
+    entry.scale = entry.size or (entry.height or o.layers * LAYER) / math.max(bounds[6], 0.01)
     entry.actor:SetScale(entry.scale)
     entry.shiftX, entry.shiftY = self.TurnShift(bounds, entry.yaw)
     return true

@@ -77,7 +77,9 @@ app.biomes.Register("elwynn", {
                 weight = 2,
                 items = { { model = { 198165, 198167 }, height = 0.85, yaw = { -12, 12 } } },
             },
-            { layers = 1, items = { { model = 189810, height = 0.85, yaw = { -12, 12 } } } },
+            -- The haystack a little bigger still (10 to 20 percent over the crates): it reads
+            -- better. Its box stays one layer.
+            { layers = 1, items = { { model = 189810, height = { 0.94, 1.02 }, yaw = { -12, 12 } } } },
             -- crates/stormwindcrate01 (1.24), or two small crates.
             { layers = 2, weight = 2, items = { { model = 198168, yaw = { -8, 8 } } } },
             {
@@ -97,6 +99,11 @@ app.biomes.Register("elwynn", {
             },
             -- Or one big beerkegs/beerkeg01, scaled to the wall's height.
             { layers = 4, items = { { model = 198004, yaw = { 0, 360 } } } },
+            -- Or Goldshire's training grounds: a target dummy (woodendummies/
+            -- stormwindwoodendummy01 or generalwoodendummy02), or an archery target
+            -- (archerytargets/stormwindarcherytarget01), turned toward the runner.
+            { layers = 4, items = { { model = { 198666, 198665 }, height = 2.2, yaw = { 165, 195 } } } },
+            { layers = 4, items = { { model = 197849, height = 2.1, yaw = { 170, 190 } } } },
         },
         -- Elwynn's creatures facing the runner, display ids of the NPCs. Those that have it wait
         -- in their ready stance (animation 25), and all attack (16) when the runner comes close
