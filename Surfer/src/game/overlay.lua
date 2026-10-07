@@ -647,10 +647,11 @@ end
 -- The real character's animation cannot be read, so the twin mirrors how it moves: walking or
 -- running at its speed, its body turned toward a strafe or diagonal as WoW turns it,
 -- backpedalling, and a jump's start, air and landing while it (or the twin on the track) is in
--- the air. A lane change turns it like a strafe.
+-- the air. A lane change turns it like a strafe. In auto mode it follows only the run: the
+-- keys go on to WoW, and the real character's jumps are not the runner's.
 function overlay:AnimateTwin(elapsed)
     local actor, s, motion = self.twinActor, self.state, self.motion or {}
-    local airborne = IsFalling("player") or s.height > s.floor
+    local airborne = s.height > s.floor or (not self.auto and IsFalling("player"))
     self.airTime = airborne and (self.airTime or 0) + elapsed or 0
     if self.wasAirborne and not airborne then
         self.landTime = 0
