@@ -19,6 +19,7 @@ src\core\minimapbutton.lua
 src\game\biomes.lua
 src\biomes\default.lua
 src\biomes\elwynn.lua
+src\game\random.lua
 src\game\simulation.lua
 src\game\light.lua
 src\game\shapes.lua

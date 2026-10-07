@@ -1,6 +1,7 @@
 ---@type string, Surfer
 local _, app = ...
 local shapes = app.shapes
+local random = app.random
 local light = app.light
 -- Decorations: the biome's 3D models along both sides of the road (biomes/default.lua describes
 -- them), added to the view that overlay.lua creates. All of them are actors in one ModelScene
@@ -11,35 +12,36 @@ local cam = overlay.camera
 local ground = shapes.Ground
 local unchanged = overlay.Unchanged
 
--- A value from a biome: a number, or a { min, max } range picked at random.
-local function value(v, default)
+-- A value from a biome: a number, or a { min, max } range picked with generator `r`
+-- (random.lua).
+local function value(r, v, default)
     if v == nil then
         return default
     end
     if type(v) == "table" then
-        return v[1] + math.random() * (v[2] - v[1])
+        return v[1] + r() * (v[2] - v[1])
     end
     return v
 end
 
--- A model from a biome: a file id, or a list of them picked at random.
-local function choose(v)
+-- A model from a biome: a file id, or a list of them picked with `r`.
+local function choose(r, v)
     if type(v) == "table" then
-        return v[math.random(#v)]
+        return v[r(#v)]
     end
     return v
 end
 
--- A group by weight.
-local function pick(groups)
+-- A group by weight, picked with `r`.
+local function pick(r, groups)
     local total = 0
     for _, group in ipairs(groups) do
         total = total + (group.weight or 1)
     end
-    local r = math.random() * total
+    local roll = r() * total
     for _, group in ipairs(groups) do
-        r = r - (group.weight or 1)
-        if r <= 0 then
+        roll = roll - (group.weight or 1)
+        if roll <= 0 then
             return group
         end
     end
@@ -59,6 +61,9 @@ function overlay:CreateDecorations(f)
     -- Placed decorations, and spare ones: their tables and, by model, their actors.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}
     self.decorNext, self.decorLens, self.modelBounds = {}, {}, {}
+    -- Each side draws from its own stream of the run's seed, in order along the road, so the
+    -- same seed decorates the same whatever the frame rate.
+    self.decorRandom = { [-1] = random.New(1, random.LEFT), [1] = random.New(1, random.RIGHT) }
 end
 
 -- An actor of the world scene showing `model`: a spare one that showed it before, or a new one.
@@ -197,21 +202,21 @@ end
 -- One decoration of a group starting `at` yards along the run, on `side` (1 right, -1 left).
 -- The left side's group is the right side's turned round about its middle: each model turned
 -- round, and its place along the group reversed, so parts that join up on the right still do.
-local function place(self, length, item, at, side)
-    local model = choose(item.model)
+local function place(self, r, length, item, at, side)
+    local model = choose(r, item.model)
     local actor = self:AcquireActor(model)
     local d = self.spareDecor[#self.spareDecor] or {}
     self.spareDecor[#self.spareDecor] = nil
-    local along = value(item.d, 0)
+    local along = value(r, item.d, 0)
     if side < 0 then
         along = length - along
     end
     d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
-    d.side, d.x, d.overhang, d.fitted = side, value(item.x, 6), item.overhang, false
+    d.side, d.x, d.overhang, d.fitted = side, value(r, item.x, 6), item.overhang, false
     d.shiftX, d.shiftY = 0, 0
     d.y = -side * d.x
     -- Built for the right side; the left side's are turned round to face the road too.
-    d.yaw, d.scale = math.rad(value(item.yaw, 0)) + (side < 0 and math.pi or 0), value(item.scale, 1)
+    d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (side < 0 and math.pi or 0), value(r, item.scale, 1)
     actor:SetYaw(d.yaw)
     actor:SetScale(d.scale)
     self.decor[#self.decor + 1] = d
@@ -258,21 +263,23 @@ function overlay:UpdateDecorations()
         self.decorState = s
         -- From behind the camera, each side starting at its own place.
         for side = -1, 1, 2 do
-            self.decorNext[side] = s.distance - 15 + math.random() * value(look.spacing, 0)
+            local r = self.decorRandom[side]:Seed(s.seed, side < 0 and random.LEFT or random.RIGHT)
+            self.decorNext[side] = s.distance - 15 + r() * value(r, look.spacing, 0)
         end
     end
     local groups = look.groups
     if #groups > 0 then
         for side = -1, 1, 2 do
+            local r = self.decorRandom[side]
             while self.decorNext[side] < s.distance + fade.to do
-                local group, at = pick(groups), self.decorNext[side]
-                local length = value(group.length, 0)
+                local group, at = pick(r, groups), self.decorNext[side]
+                local length = value(r, group.length, 0)
                 for _, item in ipairs(group.items) do
-                    if not item.chance or math.random() < item.chance then
-                        place(self, length, item, at, side)
+                    if not item.chance or r() < item.chance then
+                        place(self, r, length, item, at, side)
                     end
                 end
-                self.decorNext[side] = at + length + value(look.spacing, 0)
+                self.decorNext[side] = at + length + value(r, look.spacing, 0)
             end
         end
     end

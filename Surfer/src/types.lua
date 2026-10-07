@@ -6,6 +6,7 @@
 -- When a file adds something to `app`, add a matching ---@field here.
 
 ---@class Surfer
+---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
 ---@field simulation table
 ---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfer subcommands of Surfer_Dev
 ---@field biomes table  # the registered biomes (src/biomes/*.lua) and the current one

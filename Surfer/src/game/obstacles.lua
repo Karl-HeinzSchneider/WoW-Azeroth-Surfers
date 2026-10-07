@@ -2,6 +2,7 @@
 local _, app = ...
 local sim = app.simulation
 local shapes = app.shapes
+local random = app.random
 -- Obstacles as 3D models: for each box of the track (obstacle, barrier, platform) the biome's
 -- models, actors of the world scene like the decorations (biomes/default.lua describes them).
 -- A kind without models in the biome stays a flat box; so does a ramp without ramp models.
@@ -15,6 +16,10 @@ local ATTACK_RANGE = 7
 
 -- Reused while picking a variant.
 local fitting = {}
+
+-- Picks a box's looks, seeded by the box (`o.seed`): it looks the same whenever and in whatever
+-- order it comes into sight.
+local looks = random.New(1, random.LOOK)
 
 -- The biome's look for box `o`: one of its kind's variants for its height, picked once and kept
 -- on the box; false when the biome has none, so it stays flat.
@@ -33,7 +38,7 @@ function overlay:ObstacleLook(o)
                 end
             end
             if #fitting > 0 then
-                look = pick(fitting)
+                look = pick(looks:Seed(o.seed or 1, random.LOOK), fitting)
             end
         end
         o.surferLook = look
@@ -44,7 +49,7 @@ end
 -- One actor of a box: `along` yards along the track, its item's other values picked.
 local function attach(self, o, item, along)
     -- A creature by its display id, kept as minus the id (AcquireActor).
-    local model = item.creature and -choose(item.creature) or choose(item.model)
+    local model = item.creature and -choose(looks, item.creature) or choose(looks, item.model)
     local actor = self:AcquireActor(model)
     if item.creature then
         actor:SetAnimation(item.animation or 0, 0, 1, 0)
@@ -54,7 +59,7 @@ local function attach(self, o, item, along)
     actor:SetAlpha(0)
     actor:SetUseCenterForOrigin(false, false, false)
     actor:SetPitch(0)
-    local yaw = math.rad(value(item.yaw, 0))
+    local yaw = math.rad(value(looks, item.yaw, 0))
     actor:SetYaw(yaw)
     o.surferActors[#o.surferActors + 1] = {
         model = model,
@@ -64,8 +69,8 @@ local function attach(self, o, item, along)
         yaw = yaw,
         -- Yards to the screen's right of the lane's middle, and up from the box's bottom (or
         -- the road, for `ground` items).
-        x = value(item.x, 0),
-        z = (item.ground and 0 or o.layer * LAYER) + value(item.z, 0),
+        x = value(looks, item.x, 0),
+        z = (item.ground and 0 or o.layer * LAYER) + value(looks, item.z, 0),
         alpha = false,
         attacking = false,
     }
@@ -77,7 +82,7 @@ local function attachRamp(self, o, item)
     local count = item.across or 1
     local width = 2 * sim.geometry.halfWidth.platform
     for k = 1, count do
-        local model = choose(item.model)
+        local model = choose(looks, item.model)
         local actor = self:AcquireActor(model)
         actor:SetAlpha(0)
         actor:SetUseCenterForOrigin(true, true, true)
@@ -99,6 +104,9 @@ end
 -- its ramp's models.
 local function attachAll(self, o, look)
     o.surferActors = {}
+    -- Past the look's own pick.
+    looks:Seed(o.seed or 1, random.LOOK)
+    looks()
     if o.ramp and look.ramp then
         for _, item in ipairs(look.ramp) do
             attachRamp(self, o, item)
@@ -113,7 +121,7 @@ local function attachAll(self, o, look)
                 attach(self, o, item, from + length * (k - 0.5) / count)
             end
         else
-            attach(self, o, item, o.at + value(item.d, o.length / 2))
+            attach(self, o, item, o.at + value(looks, item.d, o.length / 2))
         end
     end
     self.modelled[#self.modelled + 1] = o

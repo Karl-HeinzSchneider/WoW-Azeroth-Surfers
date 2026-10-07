@@ -67,6 +67,11 @@ The window frame's minimize button switches from full screen to the side window,
 button back. The game opens on a start dialog with your best score. **R** starts over: press it
 once after a run, or hold it for a moment during one. **Q** pauses and goes on.
 
+Every run comes from a **seed**: the same seed always lays out the same track, obstacles and
+roadside. The start dialog shows this run's seed; type a number into its Seed box to play that one
+on every run (empty: a new seed each run). `/surfer seed <number>` and `/surfer seed random` do
+the same, and the paused and finished screens show the seed of the run.
+
 The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
 `/surfer help` lists them.
 
