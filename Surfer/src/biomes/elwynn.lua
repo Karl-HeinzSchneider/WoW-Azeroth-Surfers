@@ -94,13 +94,14 @@ app.biomes.Register("elwynn", {
         },
         -- Elwynn's creatures facing the runner, display ids of the NPCs. Those that have it wait
         -- in their ready stance (animation 25), and all attack (16) when the runner comes close
-        -- (/surfer animations in Surfer_Dev lists what each has).
+        -- (/surfer animations in Surfer_Dev lists what each has), with their classic attack
+        -- sound.
         enemy = {
             -- Low enough to jump: a Timber Wolf (604) or a Stonetusk Boar (503, no ready stance).
-            { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16 } } },
-            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16 } } },
+            { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16, sound = 391 } } },
+            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = 380 } } },
             -- Too tall: the Defias Thug (5035), Bandit (2357), Footpad (2333) and Cutpurse
-            -- (2361), and Morgaine the Sly (3320).
+            -- (2361), and Morgaine the Sly (3320); the men and the women sound different.
             {
                 layers = 4,
                 weight = 2,
@@ -111,22 +112,37 @@ app.biomes.Register("elwynn", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
+                        sound = { [5035] = 2941, [2357] = 2941, [2361] = 2941, [2333] = 2937, [3320] = 2937 },
                     },
                 },
             },
             -- Riverpaw gnolls: the Outrunner (512), Taskmaster (376) and Runt (10791).
             {
                 layers = 4,
-                items = { { creature = { 512, 376, 10791 }, height = 2.1, yaw = 180, animation = 25, attack = 16 } },
+                items = {
+                    {
+                        creature = { 512, 376, 10791 },
+                        height = 2.1,
+                        yaw = 180,
+                        animation = 25,
+                        attack = 16,
+                        sound = 306,
+                    },
+                },
             },
             -- Hogger (384), bigger and rarer.
             {
                 layers = 4,
                 weight = 0.4,
-                items = { { creature = 384, height = 2.6, yaw = 180, animation = 25, attack = 16 } },
+                items = { { creature = 384, height = 2.6, yaw = 180, animation = 25, attack = 16, sound = 306 } },
             },
-            -- A cow (1060), just standing there.
-            { layers = 4, weight = 0.6, items = { { creature = 1060, height = 1.9, yaw = { 150, 210 } } } },
+            -- A cow (1060), just standing there, mooing as the runner passes (its classic
+            -- wound sound, the only moo it has).
+            {
+                layers = 4,
+                weight = 0.6,
+                items = { { creature = 1060, height = 1.9, yaw = { 150, 210 }, sound = 1467 } },
+            },
         },
         -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).
         barrier = {

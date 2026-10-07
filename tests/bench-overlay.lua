@@ -158,6 +158,7 @@ function InCombatLockdown()
     return false
 end
 function PlaySoundFile() end
+function PlaySound() end
 function debugprofilestop()
     return os.clock() * 1000
 end

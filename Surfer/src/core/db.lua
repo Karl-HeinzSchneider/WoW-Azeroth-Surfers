@@ -16,6 +16,8 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
+    -- Enemies' attack sounds as the runner passes them (obstacles.lua).
+    enemySound = true,
     -- The hotkey legend beside the road (legend.lua).
     legend = true,
     biome = "elwynn", -- how the game looks: a file in src/biomes/

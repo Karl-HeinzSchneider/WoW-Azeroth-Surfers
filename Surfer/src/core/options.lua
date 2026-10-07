@@ -147,6 +147,19 @@ local options = {
                 app.db.profile.coinSound = value
             end,
         },
+        enemySound = {
+            type = "toggle",
+            order = 6.1,
+            width = "full",
+            name = "Enemy sounds",
+            desc = "Play an enemy's attack sound when you run past it.",
+            get = function()
+                return app.db.profile.enemySound
+            end,
+            set = function(_, value)
+                app.db.profile.enemySound = value
+            end,
+        },
         legend = {
             type = "toggle",
             order = 6.5,

@@ -11,7 +11,8 @@ local cam = overlay.camera
 local ground = shapes.Ground
 local LANE, LAYER = sim.geometry.laneWidth, sim.LAYER
 local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
--- A creature switches to its item's `attack` animation once the runner is this many yards away.
+-- A creature switches to its item's `attack` animation, and plays its `sound` (one without an
+-- attack only that), once the runner is this many yards away.
 local ATTACK_RANGE = 7
 
 -- Reused while picking a variant.
@@ -51,8 +52,12 @@ local function attach(self, o, item, along)
     -- A creature by its display id, kept as minus the id (AcquireActor).
     local model = item.creature and -choose(looks, item.creature) or choose(looks, item.model)
     local actor = self:AcquireActor(model)
+    local sound = item.sound
     if item.creature then
         actor:SetAnimation(item.animation or 0, 0, 1, 0)
+        if type(sound) == "table" then
+            sound = sound[-model]
+        end
     end
     -- Invisible until its model has loaded and been fitted; by its own origin, upright (a ramp's
     -- model may have been this actor before).
@@ -73,6 +78,7 @@ local function attach(self, o, item, along)
         z = (item.ground and 0 or o.layer * LAYER) + value(looks, item.z, 0),
         alpha = false,
         attacking = false,
+        sound = sound,
     }
 end
 
@@ -212,9 +218,17 @@ function overlay:UpdateObstacles()
                             entry.alpha = alpha
                         end
                         local attack = entry.item.attack
-                        if attack and not entry.attacking and d < ATTACK_RANGE then
-                            entry.actor:SetAnimation(attack, 0, 1, 0)
+                        if (attack or entry.sound) and not entry.attacking and d < ATTACK_RANGE then
+                            if attack then
+                                entry.actor:SetAnimation(attack, 0, 1, 0)
+                            end
                             entry.attacking = true
+                            -- Heard only as the runner passes it, not when it comes into view
+                            -- already behind (a new biome).
+                            if entry.sound and s.status == "running" and d > 0 and app.db.profile.enemySound then
+                                -- The SFX channel follows the game's sound effects volume.
+                                PlaySound(entry.sound, "SFX")
+                            end
                         end
                     end
                 end

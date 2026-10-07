@@ -96,6 +96,9 @@ app.biomes.Register("default", {
     --   creature  instead of `model`: a creature display id (or a list), the creature with its
     --           skin, playing animation `animation` (0, standing, if left out) and `attack` once
     --           the runner is close
+    --   sound   the sound kit a creature plays once the runner is close, as it attacks (its
+    --           CreatureSoundData exertion) or just so, or a table of them by display id;
+    --           silent if left out
     -- Any number may instead be a { min, max } range. A platform variant's `ramp` items cover
     -- its ramp (4 yards long per layer of height, about 8.5 degrees): each model is scaled to
     -- the slope's length, turned up to it with its top on it, and laid `across` times side by
