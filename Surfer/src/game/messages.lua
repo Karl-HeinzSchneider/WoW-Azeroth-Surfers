@@ -298,7 +298,17 @@ function overlay:FillStatus(status)
             r.name:SetPoint("LEFT", panel, "TOPLEFT", PAD, y - ROW / 2)
             r.value:ClearAllPoints()
             r.value:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, y - ROW / 2)
-            r.value:SetText(i == 3 and string.format("%d yd", values[i]) or tostring(values[i]))
+            if i == 2 and s.coinTotal > 0 then
+                -- Of the coins it came past; 100% only with every one.
+                r.value:SetFormattedText(
+                    "%d / %d  |cffaaaaaa%d%%|r",
+                    s.coins,
+                    s.coinTotal,
+                    math.floor(100 * s.coins / s.coinTotal)
+                )
+            else
+                r.value:SetText(i == 3 and string.format("%d yd", values[i]) or tostring(values[i]))
+            end
             y = y - ROW
         end
     end

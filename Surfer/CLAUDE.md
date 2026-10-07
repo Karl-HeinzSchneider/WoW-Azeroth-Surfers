@@ -75,7 +75,8 @@ be listed**. The order follows these rules:
   its looks.
   The score adds up as the run goes (`s.points` per yard, `s.bonus` per coin), each at the
   multiplier of its moment: `SetMultiplier(s, n)` (whole, at least 1; events raise it) scales
-  only what is earned from then on. `Score(s)` is the total. `DIFFICULTIES` (easy, normal, hard,
+  only what is earned from then on. `Score(s)` is the total. `s.coinTotal` counts the coins the run has come past, collected or
+  missed (the status panel shows the share collected). `DIFFICULTIES` (easy, normal, hard,
   expert; `New(seed, difficulty)`, `profile.difficulty`, set by `overlay:SetDifficulty(id)` /
   `StepDifficulty(±1)` from the option and the status panel's arrows) set the speed (start,
   top, how fast it rises), the free road between patterns and, through the patterns' weights,

@@ -102,6 +102,8 @@ function game.New(seed, difficulty)
         distance = 0,
         forward = false,
         coins = 0,
+        -- The coins the run has come past, collected or missed: what share it collected.
+        coinTotal = 0,
         -- The score so far: distance points (fractional) and coin points, each earned at the
         -- multiplier of its moment.
         points = 0,
@@ -204,6 +206,11 @@ local function tick(s)
                 s.status = "over"
                 return
             end
+        end
+        -- A coin counts once collected, or once the runner is past it.
+        if o.kind == "coin" and not o.passed and (o.hit or o.at + o.length < s.distance - bounds.playerHalfDepth) then
+            o.passed = true
+            s.coinTotal = s.coinTotal + 1
         end
         if o.at + o.length < s.distance - 4 then
             table.remove(s.objects, i)
