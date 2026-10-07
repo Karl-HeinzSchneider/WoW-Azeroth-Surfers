@@ -207,8 +207,9 @@ function overlay:StepAuto(s, elapsed)
     end
 end
 
--- Turns auto mode on (the game plays the run, or the next one after a finished run) or off
--- (the run it played pauses, for you to go on with or start over).
+-- Turns auto mode on (the game plays on with your run, or a new one after a finished run) or
+-- off. A run it played is never yours to go on with: off, an unfinished one gives way to the
+-- start screen (a finished one stays, to run again).
 function overlay:SetAuto(on)
     if not on == not self.auto then
         return
@@ -221,8 +222,8 @@ function overlay:SetAuto(on)
         elseif s.status == "over" then
             self:Restart()
         end
-    elseif s.status == "running" then
-        sim.Pause(s)
+    elseif s.status ~= "over" then
+        self.state = self:NewState()
     end
     -- The stop button, and no legend while no key does anything.
     self:Layout()

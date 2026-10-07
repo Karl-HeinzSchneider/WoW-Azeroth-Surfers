@@ -183,7 +183,8 @@ be listed**. The order follows these rules:
   (`overlay:SetAuto(on)`; the menus' "Auto mode" button, `/surfer auto`): the autopilot plays
   the run (`StepAuto`), the game takes no keys at all (they all go on to WoW), there is no
   legend, the top row shows Pause (Go on while paused; the paused panel offers Go on and Stop
-  auto mode) and "Stop auto mode" (which pauses the run), a finished run starts over
+  auto mode) and "Stop auto mode" (back to the start screen: a run it played cannot be gone on
+  with by hand; it can take over yours, from the paused panel), a finished run starts over
   after 3 seconds, and a run it played (`state.piloted`) saves no best score. Closing the game
   ends it.
 - `src/game/autopilot.lua` — `app.autopilot`, auto mode's player. `Play(s, elapsed)` plays the
