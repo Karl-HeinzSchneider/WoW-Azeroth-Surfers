@@ -153,6 +153,11 @@ Only classic-era files (see the biomes): the original game's files have the low 
 doodads are in the 18xxxx–20xxxx range); a much higher id beside a similar path is usually a
 later expansion's remake. Read it, never edit it, and never copy it into the repo.
 
+Creatures (enemies, wildlife) are named by display id, which the listfile does not have. A
+Wowhead classic NPC page carries it in its HTML as `dataset.displayId = <id>`, e.g.
+`curl -sL -A "Mozilla/5.0" https://www.wowhead.com/classic/npc=3098 | grep -o "dataset.displayId = [0-9]*"`
+(the Mottled Boar: 503). `/surfer animations <id>` (Surfer_Dev) then shows which animations it has.
+
 ## Textures and Blizzard frames: reuse art, remake code
 
 - **Don't create new textures unless there is no other way.** Prefer the game's own textures

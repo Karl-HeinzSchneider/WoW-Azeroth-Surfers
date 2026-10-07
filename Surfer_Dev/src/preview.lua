@@ -74,7 +74,8 @@ frame:SetScript("OnUpdate", function(_, elapsed)
             bounds[6]
         )
     end
-    shown.actor:SetPosition(AHEAD + shown.shiftX, shown.shiftY, app.shapes.Ground(AHEAD))
+    -- The world scene's camera runs along the track (FollowWorldCamera): ahead of it.
+    shown.actor:SetPosition(app.overlay.sceneRunner + AHEAD + shown.shiftX, shown.shiftY, app.shapes.Ground(AHEAD))
     if shown.cycle then
         shown.clock = shown.clock + elapsed
         if shown.clock > CYCLE then

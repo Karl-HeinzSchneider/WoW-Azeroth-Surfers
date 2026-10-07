@@ -126,8 +126,11 @@ be listed**. The order follows these rules:
 - `src/game/decorations.lua` — the biome's roadside models (`decorations.groups`, weighted
   groups of items, any number a `{ min, max }` range): all actors of one full-screen square
   ModelScene whose camera is the road's camera (one render pass for all; the square makes the FOV
-  axis irrelevant). Placed up to the ground's far fade, moved every frame, dropped behind the
-  camera; actors are pooled by model and instance tables reused. Models are placed by their own
+  axis irrelevant). Placed up to the ground's far fade, dropped behind the camera. The scene stands still
+  along the track and its camera runs along (`FollowWorldCamera`: a model's x is its track
+  distance, every 16384 yards starting over; the runner is at `sceneRunner`), so particles (a
+  brazier's flames) rise where their model is instead of trailing behind it; obstacles, coins
+  and wildlife in the same scene do the same. Only the ground's curve still moves them, slowly, up; actors are pooled by model and instance tables reused. Models are placed by their own
   origin (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
   biome's `clear` by their measured, turned bounds unless an item is `overhang`. Each side draws
   from its own stream of the run's seed in road order, and an obstacle's look from its box's

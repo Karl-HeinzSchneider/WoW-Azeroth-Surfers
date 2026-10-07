@@ -86,7 +86,7 @@ dev.Command("debug", "debug: cameras, lens calibration, model bounds", function(
     -- A point on the road's edge 20 yards ahead, the scene's in its own units.
     local lens = o.decorLens
     local x, y = o:Project(20, 4.3, ground(20))
-    local px, py = o.worldScene:Project3DPointTo2D(20, -4.3, ground(20))
+    local px, py = o.worldScene:Project3DPointTo2D(o.sceneRunner + 20, -4.3, ground(20))
     log:chat(
         "world scene: span %s, calibrated %s, last ratio %s, scene scale %.3f, middle %s, %s",
         tostring(lens.span),

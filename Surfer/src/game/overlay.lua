@@ -763,7 +763,11 @@ function overlay:PlaceCoin(i, o)
     local d = o.at + o.length / 2 - self.state.distance
     -- The scene's y points left; an actor's position is scaled with it.
     local scale = self.coinScale
-    actor:SetPosition(d / scale, o.lane * LANE / scale, ((o.layer + 0.5) * sim.LAYER + ground(d)) / scale)
+    actor:SetPosition(
+        (d + self.sceneRunner) / scale,
+        o.lane * LANE / scale,
+        ((o.layer + 0.5) * sim.LAYER + ground(d)) / scale
+    )
     actor:SetYaw(GetTime() * 3 + o.at)
     local fade = self.biome.ground.fade
     local alpha = math.min(1, math.max(0, (fade.to - d) / (fade.to - fade.from)))
@@ -800,6 +804,8 @@ function overlay:Render(lap)
     lap = self:Lap("twin", lap)
     self:ScrollGround()
     if self.worldScene then
+        -- The scene's camera runs along; its models stand still (decorations.lua).
+        self:FollowWorldCamera()
         self:UpdateDecorations()
         self:UpdateObstacles()
         self:UpdateAmbient()

@@ -58,6 +58,8 @@ function overlay:CreateDecorations(f)
     scene:SetCameraNearClip(overlay.CLIP_NEAR)
     scene:SetCameraFarClip(overlay.CLIP_FAR)
     self.worldScene = scene
+    -- Where the runner is along the scene's x (FollowWorldCamera).
+    self.sceneRunner, self.sceneCamera = 0, {}
     -- Placed decorations, and spare ones: their tables and, by model, their actors.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}
     self.decorNext, self.decorLens, self.modelBounds = {}, {}, {}
@@ -130,8 +132,9 @@ end
 -- cannot project yet.
 local function measure(self, scene, pitch)
     local c, s = math.cos(pitch), math.sin(pitch)
-    local mx, my = scene:Project3DPointTo2D(cam.x + 10 * c, cam.offset, cam.z - 10 * s)
-    local px, py = scene:Project3DPointTo2D(20, -4.3, ground(20))
+    local runner = self.sceneRunner
+    local mx, my = scene:Project3DPointTo2D(runner + cam.x + 10 * c, cam.offset, cam.z - 10 * s)
+    local px, py = scene:Project3DPointTo2D(runner + 20, -4.3, ground(20))
     local rx, ry = self:Project(20, 4.3, ground(20))
     if type(mx) ~= "number" or type(px) ~= "number" or not rx then
         return nil
@@ -147,14 +150,35 @@ local function measure(self, scene, pitch)
     return seen / road
 end
 
+-- Track distance repeats along the world scene's x every REBASE yards, so its numbers stay
+-- small however long a run goes (auto mode runs for hours).
+local REBASE = 16384
+
+-- The world scene stands still along the track: a model's x is its place on the track (less a
+-- whole number of REBASE yards), and the scene's camera runs along with the runner, its x
+-- `sceneRunner` + the road camera's. Moving the models toward the camera instead would leave
+-- their particles behind (a brazier's flames in a trail). Every few minutes the numbers start
+-- over: models and camera move back together, only particles in the air jump once. Once a
+-- frame, before the models are placed; the camera only when it moved (or `force`).
+function overlay:FollowWorldCamera(force)
+    self.sceneRunner = self.state.distance % REBASE
+    -- The scene's y points left: the road's lane offset moves its camera.
+    local x, last = self.sceneRunner + cam.x, self.sceneCamera
+    local same = unchanged(last, "x", x)
+    same = unchanged(last, "y", cam.offset) and same
+    same = unchanged(last, "z", cam.z) and same
+    if force or not same then
+        self.worldScene:SetCameraPosition(x, cam.offset, cam.z)
+    end
+end
+
 -- The scene covers the screen and shows what the road's camera sees: its camera, and its lens,
 -- calibrated once for this screen size and UI scale (in a few rounds, should it not be a plain
 -- pinhole).
 function overlay:AimDecorations()
     local scene, w, h = self.worldScene, self.frame:GetSize()
     local pitch = math.rad(app.db.profile.overlay.pitch)
-    -- The scene's y points left: the road's lane offset moves its camera.
-    scene:SetCameraPosition(cam.x, cam.offset, cam.z)
+    self:FollowWorldCamera(true)
     scene:SetCameraOrientationByYawPitchRoll(0, pitch, 0)
     local last = self.decorLens
     local same = unchanged(last, "w", w)
@@ -295,7 +319,11 @@ function overlay:UpdateDecorations()
             end
             -- An actor's position is scaled with it: divided out, so every size stands in place.
             local scale = d.scale
-            d.actor:SetPosition(ahead / scale + d.shiftX, d.y / scale + d.shiftY, ground(ahead) / scale)
+            d.actor:SetPosition(
+                (ahead + self.sceneRunner) / scale + d.shiftX,
+                d.y / scale + d.shiftY,
+                ground(ahead) / scale
+            )
             local alpha = math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
             if not d.alpha or math.abs(alpha - d.alpha) > 0.02 then
                 d.actor:SetAlpha(alpha)

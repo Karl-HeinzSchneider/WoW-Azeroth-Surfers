@@ -250,7 +250,11 @@ function overlay:UpdateAmbient()
                 c.actor:SetAnimation(item.animation or 5, 0, moving and rate or 0)
             end
             local scale = c.scale
-            c.actor:SetPosition(ahead / scale + c.shiftX, -c.x / scale + c.shiftY, (ground(ahead) + c.z) / scale)
+            c.actor:SetPosition(
+                (ahead + self.sceneRunner) / scale + c.shiftX,
+                -c.x / scale + c.shiftY,
+                (ground(ahead) + c.z) / scale
+            )
             local gone = math.abs(c.x - c.start)
             local edge = math.min(1, gone / EDGE, left / EDGE)
             local alpha = edge * math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))

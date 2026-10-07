@@ -225,7 +225,7 @@ function overlay:UpdateObstacles()
                     if entry.scale or fit(self, o, entry) then
                         local d, scale = entry.along - s.distance, entry.scale
                         entry.actor:SetPosition(
-                            d / scale + entry.shiftX,
+                            (d + self.sceneRunner) / scale + entry.shiftX,
                             (lane - entry.x) / scale + entry.shiftY,
                             (entry.z + ground(d)) / scale
                         )
