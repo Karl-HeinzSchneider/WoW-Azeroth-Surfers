@@ -28,10 +28,10 @@ local bush = {
 }
 
 -- A ramp's planks: world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01 (21.6
--- yards long) scaled down to pieces of about 4 yards of slope, four side by side over the
--- platform's width, as many pieces end to end as the slope is long; a long ramp has more
--- planks, not bigger ones.
-local RAMP = { { model = 190091, across = 4, segment = 4 } }
+-- yards long) scaled down to pieces of about 3 yards of slope (narrow and thin: a model scales
+-- the same every way), three side by side over a ramp narrower than its platform, as many
+-- pieces end to end as the slope is long; a long ramp has more planks, not bigger ones.
+local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
 
 -- A fence group with `...` added to it, picked by `weight`.
 local function fenceWith(weight, ...)

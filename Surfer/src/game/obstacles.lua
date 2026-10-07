@@ -82,13 +82,14 @@ local function attach(self, o, item, along)
     }
 end
 
--- A ramp's models, `across` of them side by side over the platform's width and, with
+-- A ramp's models, `across` of them side by side over its `width` (the platform's when left
+-- out) and, with
 -- `segment`, as many end to end up the slope as make each about that many yards long (one
 -- otherwise): placed by their centers (each is turned up to the slope about it), scaled and
 -- turned once loaded (`fit`).
 local function attachRamp(self, o, item)
     local count = item.across or 1
-    local width = 2 * sim.geometry.halfWidth.platform
+    local width = item.width or 2 * sim.geometry.halfWidth.platform
     local slope = math.sqrt(o.ramp ^ 2 + (o.layers * LAYER) ^ 2)
     local pieces = item.segment and math.max(1, math.floor(slope / item.segment + 0.5)) or 1
     for piece = 1, pieces do

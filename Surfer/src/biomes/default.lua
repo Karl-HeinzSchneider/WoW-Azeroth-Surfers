@@ -103,9 +103,10 @@ app.biomes.Register("default", {
     -- Any number may instead be a { min, max } range. A platform variant's `ramp` items cover
     -- its ramp (4 yards long per layer of height, about 8.5 degrees): each model is scaled to
     -- the slope's length, turned up to it with its top on it, and laid `across` times side by
-    -- side over the platform's width; with `segment` (yards), the slope is laid with as many
-    -- models end to end as make each about that long instead, so a long ramp gets more
-    -- pieces, not bigger ones. A kind without variants stays a flat box (in `shapes`'
+    -- side over the platform's width (or `width` yards, centred); with `segment` (yards), the
+    -- slope is laid with as many models end to end as make each about that long instead, so a
+    -- long ramp gets more pieces, not bigger ones. A model scales the same in every direction:
+    -- shorter pieces are also narrower and thinner. A kind without variants stays a flat box (in `shapes`'
     -- colors), as does a ramp without `ramp` items. None by default.
     obstacles = {},
 
