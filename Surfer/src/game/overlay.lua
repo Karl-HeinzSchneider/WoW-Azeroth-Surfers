@@ -26,10 +26,14 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 -- The addon's draw order by mode, bottom to top. The overlay frame (`view`) draws the ground
 -- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin above all of them, the window frame over its edges
--- (window.lua), and the buttons, the start dialog and the restart bar above that (menu.lua).
+-- decorations and coins; the twin above all of them, the score display (hud.lua) and the hotkey
+-- legend (legend.lua) above it, the
+-- window frame over its edges (window.lua), and the buttons, the start dialog and the restart
+-- bar above that (menu.lua).
 -- Full screen, the game lies under the rest of the UI (BACKGROUND, the twin a strata up), but
--- its frame and buttons stay above it, wherever the minimap or a raised panel is. The side
+-- its frame and buttons stay above it, wherever the minimap or a raised panel is; the legend
+-- too, a strata over the player frame (LOW) in the corner it shares with it, which would
+-- otherwise draw between the legend's background and border. The side
 -- window is one window above the UI, all of it in one strata. Levels count from the overlay
 -- frame's; all are fixed, so nothing the client or another frame does changes them.
 local ORDER = {
@@ -37,16 +41,22 @@ local ORDER = {
         view = { "BACKGROUND" },
         world = { "BACKGROUND", 2 },
         twin = { "LOW", 10 },
+        hud = { "LOW", 15 },
+        legend = { "MEDIUM", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
+        messages = { "HIGH", 24 },
         menu = { "HIGH", 25 },
     },
     side = {
         view = { "HIGH" },
         world = { "HIGH", 2 },
         twin = { "HIGH", 10 },
+        hud = { "HIGH", 15 },
+        legend = { "HIGH", 15 },
         window = { "HIGH", 20 },
         controls = { "HIGH", 21 },
+        messages = { "HIGH", 24 },
         menu = { "HIGH", 25 },
     },
 }
@@ -439,12 +449,6 @@ function overlay:UpdateCoinModel(elapsed)
     end
 end
 
-local function label(parent, font, point, y)
-    local f = parent:CreateFontString(nil, "OVERLAY", font)
-    f:SetPoint(point, 0, y)
-    return f
-end
-
 function overlay:Create()
     self.state = self:NewState()
     self.height, self.lastRoad = 2, {}
@@ -484,31 +488,16 @@ function overlay:Create()
     self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
 
-    self.score = label(f, "GameFontNormalLarge", "TOP", -14)
-    self.message = label(f, "GameFontNormalHuge", "CENTER", 220)
-    self.hint = label(f, "GameFontHighlight", "CENTER", 175)
-    self.hint:SetWidth(700)
+    self:CreateHud(f)
+    self:CreateLegend(f)
+    self:CreateMessages(f)
     local controls = CreateFrame("Frame", nil, f)
     self.controls = controls
     self:Stack(controls, "controls")
     controls:SetHeight(24)
-    -- Minimize and Close show only without the window frame, which has its own (window.lua
-    -- lays the row out).
+    -- Minimize and Close, shown only without the window frame, which has its own (window.lua
+    -- lays the row out). Restarting and pausing are keys (the legend lists them).
     local buttons = {
-        {
-            "Restart",
-            function()
-                if not InCombatLockdown() then
-                    self:Restart()
-                end
-            end,
-        },
-        {
-            "Pause",
-            function()
-                self:Action("P")
-            end,
-        },
         {
             "Minimize",
             function()
@@ -530,7 +519,7 @@ function overlay:Create()
         b:SetScript("OnClick", spec[2])
         self.controlButtons[i] = b
     end
-    self:CreateMenu(f)
+    self:CreateHoldBar(f)
 
     f:EnableKeyboard(true)
     f:SetPropagateKeyboardInput(true)
@@ -762,52 +751,13 @@ function overlay:Render(lap)
     end
     lap = self:Lap("boxes, coins", lap)
     self:ShowStatus()
-    self:ShowHint()
-    self:ShowMenu()
+    self:ShowBanner()
+    self:ShowHud()
+    self:ShowLegend()
     self:Lap("texts", lap)
     if self.timing then
         self.timing.frames = self.timing.frames + 1
     end
-end
-
--- How to play: in the start dialog while a run is ready, under the status message what to do
--- while it is paused or over; rebuilt only when something it shows changes.
-function overlay:ShowHint()
-    local hint, status = self.lastHint or {}, self.state.status
-    self.lastHint = hint
-    local distance = math.floor(cam.distance * 10 + 0.5)
-    local same = unchanged(hint, "status", status)
-    same = unchanged(hint, "zoomRead", cam.zoomRead) and same
-    same = unchanged(hint, "distance", distance) and same
-    same = unchanged(hint, "seed", self.state.seed) and same
-    if same then
-        return
-    end
-    -- The seed, to play the run again.
-    if status == "paused" then
-        self.hint:SetText(string.format("Seed %d. Press Q to go on. Hold R to start over.", self.state.seed))
-    elseif status == "over" then
-        self.hint:SetText(string.format("Seed %d. Press R to run again.", self.state.seed))
-    else
-        self.hint:SetText("")
-    end
-    if status ~= "ready" then
-        return
-    end
-    local text = self.capture
-            and "Forward or jump key: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over\nYour character stays where it is."
-        or "Run forward: start\nTurn or strafe keys: change lanes\nJump key: jump\nQ: pause\nHold R: start over"
-    if not self.side then
-        text = text
-            .. "\n\nLine the see-through copy up with your character in /surfer options. "
-            .. string.format(
-                cam.zoomRead and "Camera zoom %.1f, read from the game."
-                    or "The game does not report its zoom: Camera distance (%.1f) must match yours.",
-                distance / 10
-            )
-    end
-    self.menuHelp:SetText(text)
-    self:FitMenu()
 end
 
 -- Adds the time since `since` to `part` of a frame and starts the next lap, into `timing` while

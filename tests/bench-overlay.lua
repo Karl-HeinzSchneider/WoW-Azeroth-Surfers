@@ -30,6 +30,10 @@ function special.GetStringHeight()
     count("GetStringHeight")
     return 12
 end
+function special.GetStringWidth()
+    count("GetStringWidth")
+    return 60
+end
 function special.GetSize()
     count("GetSize")
     return 1920, 1080
@@ -121,6 +125,10 @@ function CreateFrame(kind, _, _, template)
 end
 UIParent = stub("Frame")
 function ButtonFrameTemplate_HidePortrait() end
+function GetBindingKey() end
+function GetBindingText(key)
+    return key
+end
 function CreateColor()
     return stub("Color")
 end
@@ -176,6 +184,9 @@ for _, file in ipairs({
     "game/obstacles",
     "game/window",
     "game/menu",
+    "game/hud",
+    "game/legend",
+    "game/messages",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)

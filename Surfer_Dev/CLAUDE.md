@@ -22,5 +22,5 @@ Files (load order in the TOC):
 - `src/animations.lua` — `/surfer animations [display id]`: which of `dev.ANIMATIONS` the
   biome's enemies (or one creature) have, from an invisible PlayerModel (`HasAnimation`; model
   scenes cannot tell).
-- `src/playtest.lua` — `/surfer light day|dusk|night|auto`, `/surfer god` (invincible),
+- `src/playtest.lua` — `/surfer light day|dusk|night|auto`, `/surfer god` (invincible), `/surfer multiplier <n>` (the score multiplier),
   `/surfer spawn <pattern>` (30 yards ahead; names in simulation.lua's order).

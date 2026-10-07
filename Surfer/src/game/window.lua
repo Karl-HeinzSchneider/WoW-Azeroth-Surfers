@@ -19,10 +19,10 @@ local INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM = 2, 21, 2, 2
 -- edges; the side window keeps them on the screen when clamped. Fitted by eye in the game, not
 -- the textures' own offsets.
 local OUT_LEFT, OUT_TOP, OUT_RIGHT, OUT_BOTTOM = -1, 5, 3, 5
--- The smallest side window: room for the buttons and the score line.
+-- The smallest side window: room for the score display and the legend.
 local MIN_WIDTH, MIN_HEIGHT = 360, 300
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
--- The buttons' row under the score: its buttons' width and spacing.
+-- The buttons' row at the top (without the window frame): its buttons' width and spacing.
 local BUTTON_STEP = 88
 
 -- The frame (a sibling of the view, so the side window's clipping does not cut it off), its
@@ -180,7 +180,8 @@ function overlay:ApplyMode()
     end
     chrome:SetShown(self.framed and f:IsShown())
     -- Everything is placed, shaded and written again.
-    self.lastRoad, self.groundLight, self.lastHint, self.shown = {}, nil, nil, nil
+    self.lastRoad, self.groundLight, self.shown, self.hudShown = {}, nil, nil, nil
+    self.legendState = nil
     self:Layout()
     self:ApplyHideReal()
 end
@@ -190,39 +191,22 @@ function overlay:Layout()
     local side, w, h = self.side, self.frame:GetSize()
     -- Full screen, a frame's title bar covers the top of the screen.
     local top = (not side and self.framed) and -(OUT_TOP + INSET_TOP) or 0
-    self.score:SetFontObject(side and GameFontNormal or GameFontNormalLarge)
-    self.score:ClearAllPoints()
-    self.score:SetPoint("TOP", 0, top - (side and 8 or 14))
+    self:PlaceHud(side, w, h, top)
+    self:PlaceLegend(side, top)
     self.controls:ClearAllPoints()
-    self.controls:SetPoint("TOP", 0, top - (side and 26 or 38))
-    -- Restart and Pause; Minimize (or Maximize) and Close too without the frame's buttons.
-    local buttons, count = self.controlButtons, self.framed and 2 or 4
-    buttons[3]:SetText(side and "Maximize" or "Minimize")
+    self.controls:SetPoint("TOP", 0, top - (side and 8 or 14))
+    -- Minimize (or Maximize) and Close, unless the frame has its own.
+    local buttons, count = self.controlButtons, self.framed and 0 or 2
+    buttons[1]:SetText(side and "Maximize" or "Minimize")
     for i, b in ipairs(buttons) do
         b:SetShown(i <= count)
         b:ClearAllPoints()
         b:SetPoint("LEFT", (i - 1) * BUTTON_STEP, 0)
     end
-    self.controls:SetWidth(count * BUTTON_STEP - 4)
+    self.controls:SetWidth(math.max(1, count * BUTTON_STEP - 4))
     self.holdBar:ClearAllPoints()
     self.holdBar:SetPoint("TOP", self.controls, "BOTTOM", 0, -12)
-    self.message:ClearAllPoints()
-    self.hint:ClearAllPoints()
-    if side then
-        self.message:SetFontObject(GameFontNormalLarge)
-        self.message:SetPoint("TOP", 0, -h * 0.22)
-        self.hint:SetFontObject(GameFontHighlightSmall)
-        self.hint:SetPoint("TOP", self.message, "BOTTOM", 0, -8)
-        self.hint:SetWidth(w - 24)
-    else
-        self.message:SetFontObject(GameFontNormalHuge)
-        self.message:SetPoint("CENTER", 0, 220)
-        self.hint:SetFontObject(GameFontHighlight)
-        self.hint:SetPoint("CENTER", 0, 175)
-        self.hint:SetWidth(700)
-    end
-    -- A narrow view gets the short score line.
-    self.narrow = w < 560
+    self:PlaceMessages(side, h)
 end
 
 -- The horizon between the sky and the land: where a point straight ahead, endlessly far,

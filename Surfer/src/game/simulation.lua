@@ -79,6 +79,11 @@ function game.New(seed)
         distance = 0,
         forward = false,
         coins = 0,
+        -- The score so far: distance points (fractional) and coin points, each earned at the
+        -- multiplier of its moment.
+        points = 0,
+        bonus = 0,
+        multiplier = 1,
         speed = 30,
         accumulator = 0,
         nextRow = 22,
@@ -87,8 +92,17 @@ function game.New(seed)
     }
 end
 
+-- Points for a coin, at multiplier 1; a yard run is one point.
+local COIN_POINTS = 25
+
 function game.Score(s)
-    return math.floor(s.distance) + s.coins * 25
+    return math.floor(s.points) + s.bonus
+end
+
+-- Scores everything from now on `multiplier` times (a whole number, at least 1), e.g. for a
+-- special event; the score earned so far stays.
+function game.SetMultiplier(s, multiplier)
+    s.multiplier = math.max(1, math.floor(multiplier))
 end
 
 function game.Start(s)
@@ -234,7 +248,9 @@ end
 local function tick(s)
     s.speed = math.min(42, 30 + s.distance / 180)
     if s.forward then
-        s.distance = s.distance + s.speed * STEP
+        local step = s.speed * STEP
+        s.distance = s.distance + step
+        s.points = s.points + step * s.multiplier
     end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
@@ -269,6 +285,7 @@ local function tick(s)
             if o.kind == "coin" then
                 o.hit = true
                 s.coins = s.coins + 1
+                s.bonus = s.bonus + COIN_POINTS * s.multiplier
             elseif not game.invincible then
                 -- `invincible`: Surfer_Dev's /surfer god.
                 s.status = "over"

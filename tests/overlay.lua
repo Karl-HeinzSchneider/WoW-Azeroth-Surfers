@@ -12,6 +12,9 @@ for _, file in ipairs({
     "game/decorations",
     "game/window",
     "game/menu",
+    "game/hud",
+    "game/legend",
+    "game/messages",
     "game/controls",
 }) do
     assert(loadfile("Surfer/src/" .. file .. ".lua"))("Surfer", app)
@@ -154,7 +157,42 @@ o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
 o.twin, o.twinActor = scene, actor
-o.score, o.message, o.hint = texture(), texture(), texture()
+-- The score display, the start dialog and the restart bar: a widget's Create* methods make
+-- another widget, its Get* methods answer 0, the rest do nothing.
+local function zero()
+    return 0
+end
+local function nothing() end
+local widgetMeta = {}
+local function widget()
+    return setmetatable({}, widgetMeta)
+end
+widgetMeta.__index = function(_, name)
+    if name:find("^Create") then
+        return widget
+    end
+    return name:find("^Get") and zero or nothing
+end
+function CreateFrame()
+    return widget()
+end
+o.frame.GetFrameLevel = zero
+o:CreateHud(widget())
+-- The hotkey legend, with the default movement bindings.
+local BINDINGS = { MOVEFORWARD = { "W", "UP" }, TURNLEFT = { "A", "LEFT" }, STRAFELEFT = { "Q" }, JUMP = { "SPACE" } }
+function GetBindingKey(binding)
+    local keys = BINDINGS[binding]
+    if keys then
+        return keys[1], keys[2]
+    end
+end
+function GetBindingText(key)
+    return key
+end
+app.db.profile.legend = true
+o:CreateLegend(widget())
+o:CreateMessages(widget())
+o:CreateHoldBar(widget())
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
     return o.faces[1]
@@ -423,6 +461,26 @@ o:ApplyHideReal()
 assert(calls[2] == "out 9" and zoom == 9 and not o.zoomedIn, "zoomed back out to the previous zoom")
 settings.hideReal = false
 print("PASS hiding the real character zooms into first person and back")
+
+-- An announcement lives through its first frame (made and shown at the same time), its fades
+-- and its hold, and no longer.
+local now = 100
+function GetTime()
+    return now
+end
+o:Announce("Elwynn Forest", 2)
+o:ShowBanner()
+assert(o.banner.start, "an announcement survives the frame it was made in")
+now = 100 + 0.3 + 2 + 0.6
+o:ShowBanner()
+assert(o.banner.start, "still fading out")
+now = 100 + 0.3 + 2 + 0.7
+o:ShowBanner()
+assert(not o.banner.start, "gone after its fade out")
+function GetTime()
+    return 0
+end
+print("PASS announcements fade in, stay their time and fade out")
 
 -- A running frame allocates nothing: no new tables or strings, so no garbage piles up.
 o.state = g.New()

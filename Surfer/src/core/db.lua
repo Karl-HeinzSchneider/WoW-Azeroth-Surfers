@@ -16,6 +16,8 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
+    -- The hotkey legend beside the road (legend.lua).
+    legend = true,
     biome = "elwynn", -- how the game looks: a file in src/biomes/
     -- "full": the game covers the screen around the real character; "side": a window of its own.
     mode = "full",

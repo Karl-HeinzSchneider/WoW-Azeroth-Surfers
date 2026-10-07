@@ -25,6 +25,20 @@ dev.Command("god", "god: run through everything (toggles)", function()
     log:chat("Invincible: %s", app.simulation.invincible and "on" or "off")
 end)
 
+dev.Command("multiplier", "multiplier <n>: score n times from now on (the HUD's star)", function(rest)
+    local n = dev.Words(rest)[1]
+    if type(n) ~= "number" then
+        log:chat("/surfer multiplier <n>")
+        return
+    end
+    local o = dev.Overlay()
+    if not o then
+        return
+    end
+    app.simulation.SetMultiplier(o.state, n)
+    log:chat("Multiplier: x%d", o.state.multiplier)
+end)
+
 -- The simulation's patterns in their order (simulation.lua).
 local PATTERNS = { "jump", "hurdle", "wall", "barriers", "platform", "enemy" }
 

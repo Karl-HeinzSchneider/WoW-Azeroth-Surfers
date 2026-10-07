@@ -147,6 +147,50 @@ local options = {
                 app.db.profile.coinSound = value
             end,
         },
+        legend = {
+            type = "toggle",
+            order = 6.5,
+            width = "full",
+            name = "Show hotkeys",
+            desc = "List the game's keys beside the road: your own movement keys, and Q and R.",
+            get = function()
+                return app.db.profile.legend
+            end,
+            set = function(_, value)
+                app.db.profile.legend = value
+            end,
+        },
+        fixedSeed = {
+            type = "toggle",
+            order = 6.6,
+            width = "full",
+            name = "Fixed seed",
+            desc = "Every run lays out the same track, from the seed below. Off: a new seed every run.",
+            get = function()
+                return app.db.profile.seed ~= false
+            end,
+            set = function(_, value)
+                app.overlay:SetFixedSeed(value)
+            end,
+        },
+        seed = {
+            type = "input",
+            order = 6.7,
+            name = "Seed",
+            desc = "The seed every run starts from: a whole number. Checked first: the current run's.",
+            hidden = function()
+                return app.db.profile.seed == false
+            end,
+            get = function()
+                return tostring(app.db.profile.seed)
+            end,
+            validate = function(_, value)
+                return tonumber(value) ~= nil or "Enter a whole number."
+            end,
+            set = function(_, value)
+                app.overlay:SetSeed(tonumber(value))
+            end,
+        },
         biome = {
             type = "select",
             order = 7,
@@ -162,6 +206,10 @@ local options = {
                 app.db.profile.biome = value
                 if app.overlay.frame then
                     app.overlay:ApplyBiome()
+                    -- During a run, as when entering a zone.
+                    if app.overlay.state.status ~= "ready" then
+                        app.overlay:WelcomeBiome()
+                    end
                 end
             end,
         },
