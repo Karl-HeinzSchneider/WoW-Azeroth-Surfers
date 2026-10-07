@@ -73,6 +73,10 @@ local COIN_SIZE = 0.5
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
 local WALK_SPEED, RUN_SPEED, BACKWARDS_SPEED = 2.5, 7, 4.5
 local AIR_LOOP = 1.1
+-- Changing lanes, the twin's body turns this far toward the next lane (WoW's diagonal), for at
+-- least this many seconds, and turns there and back this much quicker than otherwise (a lane
+-- change takes about 0.14 seconds).
+local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
@@ -626,7 +630,7 @@ end
 -- The real character's animation cannot be read, so the twin mirrors how it moves: walking or
 -- running at its speed, its body turned toward a strafe or diagonal as WoW turns it,
 -- backpedalling, and a jump's start, air and landing while it (or the twin on the track) is in
--- the air.
+-- the air. A lane change turns it like a strafe.
 function overlay:AnimateTwin(elapsed)
     local actor, s, motion = self.twinActor, self.state, self.motion or {}
     local airborne = IsFalling("player") or s.height > s.floor
@@ -642,12 +646,16 @@ function overlay:AnimateTwin(elapsed)
     self.towardForward = (self.towardForward or 0) + ((motion.forward or 0) - (self.towardForward or 0)) * k
     self.towardLeft = (self.towardLeft or 0) + ((motion.left or 0) - (self.towardLeft or 0)) * k
     local speed = motion.speed or 0
+    -- 0 straight ahead, positive to the left; pushing against a wall runs on the spot.
+    local direction = math.atan2(self.towardLeft, self.towardForward)
     local animation, rate, yaw = STAND, 1, self.twinYaw or 0
     if airborne then
         animation = self.airTime < AIR_LOOP and JUMP_START or JUMP
+        -- Turned toward its way through the air; a jump backwards keeps its turn.
+        if speed > 0 and self.towardForward >= 0 then
+            yaw = direction
+        end
     elseif speed > 0 then
-        -- 0 straight ahead, positive to the left; pushing against a wall runs on the spot.
-        local direction = math.atan2(self.towardLeft, self.towardForward)
         if self.towardForward < -0.1 and math.abs(direction) > math.pi * 0.6 then
             animation, rate = BACKWARDS, speed / BACKWARDS_SPEED
             yaw = direction - (direction > 0 and math.pi or -math.pi)
@@ -664,9 +672,28 @@ function overlay:AnimateTwin(elapsed)
     else
         yaw = 0
     end
-    -- Turn the body smoothly, the short way round.
+    -- Changing lanes in a run is a strafe: the body turns toward the next lane, as WoW turns it
+    -- running diagonally, on the ground and in the air alike. Held a little past the lane change
+    -- (which is quicker than the turn), then it turns back.
+    local toward = s.lane - s.lateral
+    if s.status == "running" and math.abs(toward) > 0.01 then
+        -- Positive lanes are on the left, as is a positive yaw.
+        self.strafeYaw, self.strafeTime = toward > 0 and STRAFE_YAW or -STRAFE_YAW, STRAFE_HOLD
+    elseif self.strafeTime then
+        self.strafeTime = self.strafeTime - elapsed
+        if self.strafeTime <= 0 or s.status ~= "running" then
+            self.strafeTime = nil
+        end
+    end
+    -- Turn the body smoothly, the short way round; into a strafe and back out of it quickly.
+    local quick = self.strafeTime ~= nil or self.strafeBack
+    if self.strafeTime then
+        yaw = self.strafeYaw
+    end
     local turn = (yaw - (self.twinYaw or 0) + math.pi) % (2 * math.pi) - math.pi
-    self.twinYaw = (self.twinYaw or 0) + turn * math.min(1, elapsed * 10)
+    self.twinYaw = (self.twinYaw or 0) + turn * math.min(1, elapsed * 10 * (quick and STRAFE_TURN or 1))
+    -- Back out of a strafe: quick until the body faces its way again.
+    self.strafeBack = self.strafeTime ~= nil or quick and math.abs(turn) > 0.05
     actor:SetYaw(self.twinYaw)
     -- Setting an animation restarts it: only when it or its speed really changes.
     if animation ~= self.twinAnimation or math.abs(rate - (self.twinRate or 1)) > 0.1 then
