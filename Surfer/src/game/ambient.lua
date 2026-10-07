@@ -26,6 +26,9 @@ local CLEAR = 2
 local SAFETY = 1.25
 -- Yards between the lines of two of a group crossing each other the other way.
 local PASS = 1.5
+-- Yards per second a creature's move animation is made for at its own size, when its item has
+-- no `pace`: a character's run.
+local PACE = 7
 -- Yards a creature fades in and out over at the ends of its way.
 local EDGE = 1.5
 
@@ -137,7 +140,7 @@ local function place(self, r, item, at, side, delay, speed, from)
     self.spareCritters[#self.spareCritters] = nil
     c.model, c.actor, c.item, c.at, c.delay = model, actor, item, at, delay
     -- Its way across, in yards to the screen's right of the road's middle.
-    c.start, c.x, c.to, c.step = side * from, side * from, -side * from, -side * speed
+    c.start, c.x, c.to, c.step, c.speed = side * from, side * from, -side * from, -side * speed, speed
     c.z = item.move == "fly" and value(r, item.z, 10) or 0
     -- The scene's y points left: running left (from the right) is +y, a quarter turn.
     c.yaw = side > 0 and math.pi / 2 or -math.pi / 2
@@ -236,11 +239,15 @@ function overlay:UpdateAmbient()
                 c.alpha = 0
             end
         elseif c.fitted or fit(self, c) then
-            local moving = seconds > 0
+            -- Still while the run is. Not by this frame's seconds: the simulation steps 120 times a
+            -- second, so a fast frame may have none, and each SetAnimation starts it over.
+            local moving = s.status == "running"
             if moving ~= c.moving then
                 c.moving = moving
+                -- Its legs at its speed: its animation's pace grows with its size.
                 local item = c.item
-                c.actor:SetAnimation(item.animation or 5, 0, moving and (item.rate or 1) or 0)
+                local rate = c.speed / ((item.pace or PACE) * c.scale) * (item.rate or 1)
+                c.actor:SetAnimation(item.animation or 5, 0, moving and rate or 0)
             end
             local scale = c.scale
             c.actor:SetPosition(ahead / scale + c.shiftX, -c.x / scale + c.shiftY, (ground(ahead) + c.z) / scale)

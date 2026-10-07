@@ -122,8 +122,11 @@ app.biomes.Register("default", {
     --              a slow one at a fast run has to cross so far ahead it may find no spot.
     --   from       yards off the road's middle it starts from (and runs to on the other side),
     --              9 if left out: behind the roadside's bushes
-    --   animation  the animation it moves with, 5 (run) if left out; `rate` its speed, 1 if
-    --              left out
+    --   animation  the animation it moves with, 5 (run) if left out
+    --   pace       yards per second its animation is made for at its own size (7, a character's
+    --              run, if left out): it plays at `speed` / `pace`, faster for a bigger size, so
+    --              its feet keep to the ground. Feet sliding forward: lower it; running on the
+    --              spot: raise it. `rate` adds a factor on top (1 if left out).
     --   height     yards its top is scaled to; or `scale`, its size (1, its own, if left out)
     --   z, ahead   a flyer's height over the road (10) and how far ahead it crosses (50)
     --   group      several at once, for more motion; one if left out:

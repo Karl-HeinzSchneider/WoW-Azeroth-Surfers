@@ -211,12 +211,16 @@ app.biomes.Register("elwynn", {
                 creature = 347,
                 move = "cross",
                 speed = { 11, 14 },
+                -- Long bounds: its run covers more ground than a character's.
+                pace = 9,
                 group = { count = { 1, 3 }, gap = { 2, 4 }, offset = { 0, 3 }, opposite = 0.2 },
             },
             {
                 creature = 139885,
                 move = "cross",
                 speed = { 8, 10 },
+                -- Short hops: its run covers little ground, so it plays fast.
+                pace = 3.5,
                 from = 7,
                 weight = 1.5,
                 group = { count = { 1, 2 }, gap = { 1, 3 }, offset = { 1.5, 3 }, opposite = 0.5 },
