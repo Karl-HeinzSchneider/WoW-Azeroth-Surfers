@@ -1,5 +1,8 @@
 local app = {}
-dofile("tests/load.lua")(app, { "game/random", "game/simulation", "game/track", "patterns/patterns.xml" })
+dofile("tests/load.lua")(
+    app,
+    { "game/random", "game/simulation", "game/track", "patterns/patterns.xml", "game/autopilot" }
+)
 local random = app.random
 local g = app.simulation
 local track = app.track
@@ -476,6 +479,20 @@ test("a seed always lays out the same track", function()
     assert(layout(1234) == layout(1234))
     assert(layout(1234) ~= layout(1235))
     assert(g.New(99).seed == 99 and g.New().seed >= 1)
+end)
+-- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
+-- rate, collecting coins on the way; its runs save no best score.
+test("the autopilot plays generated tracks", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        local s, frame = g.New(7, difficulty.id), 0
+        while s.status ~= "over" and s.distance < 1000 do
+            s.forward = s.status == "running"
+            frame = frame + 1
+            app.autopilot.Play(s, frame % 3 == 0 and 1 / 30 or 1 / 90)
+        end
+        assert(s.status == "running", difficulty.id .. ": the autopilot got through")
+        assert(s.coins > 0 and s.piloted, difficulty.id .. ": collects coins, marks the run")
+    end
 end)
 print(string.format("%d simulation tests passed", count))
 

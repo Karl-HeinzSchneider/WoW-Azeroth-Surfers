@@ -87,13 +87,24 @@ function addon:OnSlashCommand(input)
         if overlay.state and overlay.state.seed ~= fixed then
             log:chat("This run: seed %d", overlay.state.seed)
         end
+    elseif cmd == "auto" then
+        -- Auto mode on (opening the game) or off.
+        local overlay = app.overlay
+        if not overlay.frame or not overlay.frame:IsShown() then
+            overlay:Toggle()
+        end
+        if overlay.frame and overlay.frame:IsShown() then
+            overlay:SetAuto(not overlay.auto)
+        end
     elseif cmd == "reset" then
         self.db:ResetProfile()
         log:chat("Profile reset")
     elseif app.devCommands[cmd] then
         app.devCommands[cmd].run(input:match("^%s*%S+%s*(.-)%s*$"))
     else
-        log:chat("Commands: /surfer [options], /surfer loglevel <level>, /surfer seed [<number>|random], /surfer reset")
+        log:chat(
+            "Commands: /surfer [options], /surfer auto, /surfer loglevel <level>, /surfer seed [<number>|random], /surfer reset"
+        )
         local names = {}
         for name in pairs(app.devCommands) do
             names[#names + 1] = name

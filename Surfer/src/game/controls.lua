@@ -4,8 +4,10 @@ local sim = app.simulation
 -- The game's input, movement sampling, per-frame step and scoring, added to the view that
 -- overlay.lua creates. Keys are only observed: WoW still gets them, so the real character
 -- moves and jumps too, unless the game captures the movement keys (`profile.capture`): then
--- they stop here, the character stays put and the runner runs by itself.
+-- they stop here, the character stays put and the runner runs by itself. In auto mode the game
+-- plays itself (autopilot.lua) and takes no keys at all: you can play on, or just watch.
 local overlay = app.overlay
+local autopilot = app.autopilot
 
 -- The bindings a captured key may have: they move the character.
 local MOVEMENT = {
@@ -27,8 +29,14 @@ local RESTART_KEY, RESTART_HOLD = "R", 0.75
 local PAUSE_KEY = "Q"
 -- The game's own keys, for the hotkey legend (legend.lua).
 overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
+-- Seconds a run auto mode finished stays on screen before the next one starts.
+local AUTO_RESTART = 3
 
 function overlay:SaveBest()
+    -- A run auto mode played (a part of) is not the player's.
+    if self.state.piloted then
+        return
+    end
     local score = sim.Score(self.state)
     if score > app.db.global.bestScore then
         app.db.global.bestScore = score
@@ -148,7 +156,7 @@ local COIN_SOUND_FILE = 567428
 -- One frame of the game: movement, simulation, best score, coin sound.
 function overlay:Step(elapsed)
     local s = self.state
-    if self.capture then
+    if self.capture or self.auto then
         s.forward = self:AutoRun()
     else
         s.forward = self:IsMovingForward(elapsed)
@@ -157,7 +165,11 @@ function overlay:Step(elapsed)
         sim.Start(s)
     end
     local status, coins = s.status, s.coins
-    sim.Update(s, elapsed)
+    if self.auto then
+        self:StepAuto(s, elapsed)
+    else
+        sim.Update(s, elapsed)
+    end
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end
@@ -169,6 +181,55 @@ function overlay:Step(elapsed)
             PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120, "SFX")
         end
     end
+end
+
+-- Auto mode's frame: the autopilot plays the run; a finished one stays a moment, then the next
+-- one starts.
+function overlay:StepAuto(s, elapsed)
+    if s.status ~= "over" then
+        autopilot.Play(s, elapsed)
+        return
+    end
+    if self.autoEnded ~= s then
+        self.autoEnded, self.autoWait = s, 0
+        app.logger:debug(
+            "Auto mode: over at %d yards, score %d (%s, seed %d)%s",
+            math.floor(s.distance),
+            sim.Score(s),
+            s.difficulty.name,
+            s.seed,
+            autopilot.lost and string.format(", found no way through from %d yards on", autopilot.lost) or ""
+        )
+    end
+    self.autoWait = self.autoWait + elapsed
+    if self.autoWait >= AUTO_RESTART then
+        self:Restart()
+    end
+end
+
+-- Turns auto mode on (the game plays on with your run, or a new one after a finished run) or
+-- off. A run it played is never yours to go on with: off, an unfinished one gives way to the
+-- start screen (a finished one stays, to run again).
+function overlay:SetAuto(on)
+    if not on == not self.auto then
+        return
+    end
+    self.auto = on or nil
+    local s = self.state
+    if on then
+        if s.status == "paused" then
+            sim.Pause(s)
+        elseif s.status == "over" then
+            self:Restart()
+        end
+    elseif s.status ~= "over" then
+        self.state = self:NewState()
+    end
+    -- The stop button, and no legend while no key does anything.
+    self:Layout()
+    self.legendState = nil
+    -- The status panel's buttons (messages.lua).
+    self.status.shownStatus = nil
 end
 
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
@@ -230,7 +291,8 @@ function overlay:OnKey(key)
     if InCombatLockdown() then
         return
     end
-    if GetCurrentKeyBoardFocus() then
+    -- Typing goes to the focused box; in auto mode every key goes on to WoW.
+    if GetCurrentKeyBoardFocus() or self.auto then
         self.frame:SetPropagateKeyboardInput(true)
         return
     end

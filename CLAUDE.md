@@ -32,7 +32,7 @@ WoW addons are plain Lua/XML files loaded by the game; there is no build step. T
 `/surfer loglevel debug` shows the debug log. With `Surfer_Dev` enabled, `/surfer help` lists its
 tools: `/surfer profile` (twice) reports the addon's milliseconds per frame by part,
 `/surfer preview creature|model <id>` shows a model on the road, `/surfer animations` lists the
-enemies' animations. `npm run bench:overlay` counts the WoW API calls per frame offline.
+enemies' animations. `/surfer auto` (or the menu's "Auto mode") lets the game play itself. `npm run bench:overlay` counts the WoW API calls per frame offline.
 
 ## Commands (Node 20+, run from the root after `npm install` once)
 

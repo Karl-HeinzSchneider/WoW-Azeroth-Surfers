@@ -5,7 +5,7 @@ local sim = app.simulation
 -- drawn over everything else of the game (and full screen, over the rest of the UI too):
 --
 -- * The status panel while a run is ready to start (the start screen: the best score, Start
---   game, Options, Close), paused or over: a classic dialog (framed like the hotkey legend)
+--   game, Auto mode, Options, Close), paused or over: a classic dialog (framed like the hotkey legend)
 --   with the run's numbers (score, coins, distance, best; "New best!" after one), the
 --   difficulty between page arrows (as in the addon options; while paused, for the next run),
 --   its seed in a box and the seed option ("Fixed seed", as in the addon options; checked, the box
@@ -42,20 +42,27 @@ local TITLES = { ready = appName, paused = "Paused", over = "Run complete" }
 local ROWS = { ready = { false, false, false, true } }
 -- What to do next, by state: what the button does (`DoAction`), the key that does the same (a
 -- game key, `overlay.GAME_KEYS`, or the first bound key of `bindings`; none: no key cap),
--- whether the key is held for it, and the button's text.
+-- whether the key is held for it, and the button's text. Auto mode (the game plays itself,
+-- controls.lua) is in every one; while it is on, a paused run offers to go on (no key: the
+-- keys all go to WoW) and to stop it, a finished run only to stop it.
 local START = { "MOVEFORWARD", "JUMP" }
+local AUTO = { act = "auto", text = "Auto mode" }
 local ACTIONS = {
     ready = {
         { act = "start", bindings = START, text = "Start game" },
+        AUTO,
         { act = "options", text = "Options" },
         { act = "close", text = "Close" },
     },
     paused = {
         { act = "pause", key = "pause", text = "Go on" },
         { act = "restart", key = "restart", hold = true, text = "Start over" },
+        AUTO,
     },
-    over = { { act = "restart", key = "restart", text = "Run again" } },
+    over = { { act = "restart", key = "restart", text = "Run again" }, AUTO },
 }
+local STOP = { act = "manual", text = "Stop auto mode" }
+local AUTO_ACTIONS = { paused = { { act = "pause", text = "Go on" }, STOP }, over = { STOP } }
 
 -- A row of the status panel: a name on the left, its value on the right.
 local function row(panel, name)
@@ -81,8 +88,8 @@ local function actionRow(o, panel)
     return r
 end
 
--- A button's action: start the run, go on with it (pause again toggles), start a new one, open
--- the addon options, or close the game.
+-- A button's action: start the run, go on with it (pause again toggles), start a new one, turn
+-- auto mode on or off, open the addon options, or close the game.
 function overlay:DoAction(act)
     if act == "start" then
         sim.Start(self.state)
@@ -90,6 +97,8 @@ function overlay:DoAction(act)
         self:Action("P")
     elseif act == "restart" and not InCombatLockdown() then
         self:Restart()
+    elseif act == "auto" or act == "manual" then
+        self:SetAuto(act == "auto")
     elseif act == "options" then
         app.options:Open()
     elseif act == "close" then
@@ -149,7 +158,10 @@ function overlay:CreateMessages(f)
         trims[i]:SetTexture(TRIM)
         trims[i]:SetHeight(TRIM_HEIGHT)
     end
-    local actions = { actionRow(self, panel), actionRow(self, panel), actionRow(self, panel) }
+    local actions = {}
+    for i = 1, 4 do
+        actions[i] = actionRow(self, panel)
+    end
 
     -- The difficulty, the setting `profile.difficulty` (SetDifficulty shows a change here).
     local difficultyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -340,7 +352,7 @@ function overlay:FillStatus(status)
     st.fixed:SetPoint("LEFT", panel, "TOPLEFT", (WIDTH - width) / 2, y - OPTION_ROW / 2)
     y = y - OPTION_ROW - 8
     -- Each action row: the button centered, ["Hold"] [key] against it.
-    local actions = ACTIONS[status]
+    local actions = self.auto and AUTO_ACTIONS[status] or ACTIONS[status]
     for i, r in ipairs(st.actions) do
         local action = actions[i]
         local key = action and actionKey(self, action)
@@ -377,6 +389,13 @@ function overlay:ShowStatus()
         return
     end
     st.shownStatus, st.shownState = s.status, s
+    -- Auto mode's pause button (the top row's third, window.lua; SetAuto shows it anew): Go on
+    -- while paused, nothing to pause between two runs.
+    if self.auto then
+        local pause = self.controlButtons[3]
+        pause:SetText(s.status == "paused" and "Go on" or "Pause")
+        pause:SetEnabled(s.status == "running" or s.status == "paused")
+    end
     local shown = TITLES[s.status] ~= nil
     if shown then
         self:FillStatus(s.status)
