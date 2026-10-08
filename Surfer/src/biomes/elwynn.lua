@@ -47,6 +47,8 @@ end
 
 app.biomes.Register("elwynn", {
     name = "Elwynn Forest",
+    -- A starter zone.
+    tier = 1,
 
     ground = {
         surfaces = {

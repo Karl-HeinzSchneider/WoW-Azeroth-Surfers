@@ -60,10 +60,12 @@ function game.Overlaps(s, o)
 end
 
 local STEP = 1 / 120
--- Yards ahead the track is laid out: as far as the views show anything (shapes.lua draws boxes
--- up to it, overlay.lua lays the ground to it, a biome's `ground.fade` ends short of it), so
--- nothing comes into sight before it exists.
-game.AHEAD = 140
+-- Yards ahead the views show anything (shapes.lua draws boxes up to it, overlay.lua lays the
+-- ground to it, a biome's `ground.fade` ends short of it), and the track is laid out further
+-- still: nothing comes into sight before it exists, nor before a gate (patterns/gate.lua) that
+-- a roadside group placed there could reach.
+game.VIEW = 140
+game.AHEAD = game.VIEW + 20
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
 local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 -- Seconds a jump from a floor to the same height lasts.
@@ -89,12 +91,24 @@ end
 -- The track speed the twin's run animation is paced for (overlay.lua): faster legs above it.
 game.RUN_PACE = game.DIFFICULTIES.normal.startSpeed
 
+-- With `zones`, a run goes through zones (the views' biomes change, auto): one ends every
+-- ZONE_LENGTH yards (from and to) of the run, at a gate (patterns/gate.lua) where the next one
+-- starts, from its own stream of the seed. `s.gates` are where they start, laid out with the
+-- track; the run's first zone has none.
+game.ZONE_LENGTH = { 1500, 2500 }
+
+-- Yards from a gate to the next one's.
+function game.ZoneLength(s)
+    local from, to = game.ZONE_LENGTH[1], game.ZONE_LENGTH[2]
+    return from + s.gateRandom() * (to - from)
+end
+
 -- A run from `seed` (any whole number), or from a new one when left out, at difficulty
--- `difficulty` (an id; normal when left out or unknown).
-function game.New(seed, difficulty)
+-- `difficulty` (an id; normal when left out or unknown), through zones with `zones`.
+function game.New(seed, difficulty, zones)
     seed = random.Normalize(seed or random.Seed())
     difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
-    return {
+    local s = {
         difficulty = difficulty,
         seed = seed,
         status = "ready",
@@ -119,6 +133,12 @@ function game.New(seed, difficulty)
         objects = {},
         random = random.New(seed, random.TRACK),
     }
+    if zones then
+        s.gates, s.gateRandom = {}, random.New(seed, random.GATES)
+        -- Where the track lays out the next gate (track.lua), at the next pattern from there.
+        s.nextGate = game.ZoneLength(s)
+    end
+    return s
 end
 
 -- Points for a coin, at multiplier 1; a yard run is one point.

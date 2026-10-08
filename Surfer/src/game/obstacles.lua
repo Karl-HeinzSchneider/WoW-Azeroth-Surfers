@@ -24,11 +24,23 @@ local looks = random.New(1, random.LOOK)
 
 -- The biome's look for box `o`: one of its kind's variants for its height, picked once and kept
 -- on the box; false when the biome has none, so it stays flat.
+-- A gate's walls (patterns/gate.lua) wear the `wall` look of the transition into the next zone
+-- (a variant like a biome's obstacles'), or none.
+local GATE = { items = {} }
+
 function overlay:ObstacleLook(o)
+    if o.gate then
+        if o.surferLook == nil then
+            local transition = app.biomes.Transition(self:BiomeAt(o.rim + 1).entrance)
+            o.surferLook = transition.wall or GATE
+        end
+        return o.surferLook
+    end
     local look = o.surferLook
     if look == nil then
         look = false
-        local variants = self.biome.obstacles[o.kind]
+        -- The zone's it stands in (auto), so the next zone's boxes come into sight.
+        local variants = self:BiomeAt(o.at).obstacles[o.kind]
         if variants then
             for i = #fitting, 1, -1 do
                 fitting[i] = nil
@@ -229,7 +241,7 @@ function overlay:UpdateObstacles()
                             (lane - entry.x) / scale + entry.shiftY,
                             (entry.z + ground(d)) / scale
                         )
-                        local alpha = math.min(1, math.max(0, (fade.to - d) / (fade.to - fade.from)))
+                        local alpha = self:FadeAlpha(d)
                         if not entry.alpha or math.abs(alpha - entry.alpha) > 0.02 then
                             entry.actor:SetAlpha(alpha)
                             entry.alpha = alpha

@@ -15,4 +15,6 @@
     <Script file="slalom.lua"/>
     <Script file="rooftops.lua"/>
     <Script file="gauntlet.lua"/>
+    <!-- Never picked by weight: the track lays it out where a zone ends. -->
+    <Script file="gate.lua"/>
 </Ui>

@@ -29,6 +29,9 @@ local PASS = 1.5
 -- Yards per second a creature's move animation is made for at its own size, when its item has
 -- no `pace`: a character's run.
 local PACE = 7
+-- About how many yards ahead a creature comes into sight: the zone there is the one whose
+-- creatures come (auto).
+local SEEN = 60
 -- Yards a creature fades in and out over at the ends of its way.
 local EDGE = 1.5
 
@@ -208,15 +211,15 @@ function overlay:UpdateAmbient()
         r:Seed(s.seed, random.AMBIENT)
         self.ambientNext = s.distance + value(r, look.every, 100)
     end
-    local creatures = look.creatures
-    if #creatures > 0 then
-        while self.ambientNext <= s.distance do
-            local base = self.ambientNext
-            spawn(self, r, pick(r, creatures), base)
-            self.ambientNext = base + value(r, look.every, 100)
+    while self.ambientNext <= s.distance do
+        -- The creatures of the zone they come up in (auto), about where they cross.
+        local base = self.ambientNext
+        local here = self:BiomeAt(base + SEEN).ambient
+        if #here.creatures > 0 then
+            spawn(self, r, pick(r, here.creatures), base)
         end
+        self.ambientNext = base + value(r, here.every, 100)
     end
-    local fade = self.biome.ground.fade
     local list = self.critters
     for i = #list, 1, -1 do
         local c = list[i]
@@ -257,7 +260,7 @@ function overlay:UpdateAmbient()
             )
             local gone = math.abs(c.x - c.start)
             local edge = math.min(1, gone / EDGE, left / EDGE)
-            local alpha = edge * math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
+            local alpha = edge * self:FadeAlpha(ahead)
             if not c.alpha or math.abs(alpha - c.alpha) > 0.02 then
                 c.actor:SetAlpha(alpha)
                 c.alpha = alpha

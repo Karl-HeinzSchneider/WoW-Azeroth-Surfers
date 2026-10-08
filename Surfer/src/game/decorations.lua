@@ -66,6 +66,8 @@ function overlay:CreateDecorations(f)
     -- Each side draws from its own stream of the run's seed, in order along the road, so the
     -- same seed decorates the same whatever the frame rate.
     self.decorRandom = { [-1] = random.New(1, random.LEFT), [1] = random.New(1, random.RIGHT) }
+    -- A gate's entrance draws from its own: the seed and the gate's number.
+    self.gateRandom, self.gatesPlaced = random.New(1, random.LOOK), 0
 end
 
 -- An actor of the world scene showing `model`: a spare one that showed it before, or a new one.
@@ -215,6 +217,9 @@ local function release(self, i)
     list[#list] = nil
 end
 
+-- Yards of roadside left bare where a biome has no decorations.
+local EMPTY = 10
+
 -- Clears the road's decorations, for a new run or biome; the next frame places new ones.
 function overlay:ResetDecorations()
     for i = #self.decor, 1, -1 do
@@ -226,7 +231,7 @@ end
 -- One decoration of a group starting `at` yards along the run, on `side` (1 right, -1 left).
 -- The left side's group is the right side's turned round about its middle: each model turned
 -- round, and its place along the group reversed, so parts that join up on the right still do.
-local function place(self, r, length, item, at, side)
+local function place(self, r, length, item, at, side, clear)
     local model = choose(r, item.model)
     local actor = self:AcquireActor(model)
     local d = self.spareDecor[#self.spareDecor] or {}
@@ -237,10 +242,33 @@ local function place(self, r, length, item, at, side)
     end
     d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
     d.side, d.x, d.overhang, d.fitted = side, value(r, item.x, 6), item.overhang, false
-    d.shiftX, d.shiftY, d.lift, d.raise = 0, 0, item.lift, 0
+    d.shiftX, d.shiftY, d.lift, d.raise, d.clear = 0, 0, item.lift, 0, clear
+    d.z = value(r, item.z, 0)
+    d.height = value(r, item.height, nil)
     d.y = -side * d.x
     -- Built for the right side; the left side's are turned round to face the road too.
     d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (side < 0 and math.pi or 0), value(r, item.scale, 1)
+    actor:SetYaw(d.yaw)
+    actor:SetScale(d.scale)
+    self.decor[#self.decor + 1] = d
+end
+
+-- One model of a gate's entrance (a biome's `entrance`), its gate's rim at track distance `at`:
+-- `x` yards to the screen's right of the road's middle, as the item says (both sides alike, not
+-- mirrored), and kept where it is put (`overhang`: no `clear`).
+local function placeEntrance(self, r, item, at)
+    local model = choose(r, item.model)
+    local actor = self:AcquireActor(model)
+    local d = self.spareDecor[#self.spareDecor] or {}
+    self.spareDecor[#self.spareDecor] = nil
+    d.model, d.actor, d.at, d.alpha = model, actor, at + value(r, item.d, 0), nil
+    d.side, d.x, d.overhang, d.fitted = 1, value(r, item.x, 0), true, false
+    d.shiftX, d.shiftY, d.lift, d.raise, d.clear = 0, 0, item.lift, 0, 0
+    d.z = value(r, item.z, 0)
+    d.y = -d.x
+    d.yaw, d.scale = math.rad(value(r, item.yaw, 0)), value(r, item.scale, 1)
+    -- Or scaled so its top is that many yards up, once its model has loaded (FitDecoration).
+    d.height = value(r, item.height, nil)
     actor:SetYaw(d.yaw)
     actor:SetScale(d.scale)
     self.decor[#self.decor + 1] = d
@@ -255,6 +283,11 @@ function overlay:FitDecoration(d, clear)
         return
     end
     d.fitted = true
+    -- A model of unknown size, scaled to a height.
+    if d.height then
+        d.scale = d.height / math.max(bounds[6], 0.01)
+        d.actor:SetScale(d.scale)
+    end
     -- Standing on its lowest point: the part a model sinks into the world's terrain would show
     -- here, over the flat ground, and seem to slide as it comes nearer. In its own units.
     if d.lift then
@@ -289,27 +322,54 @@ function overlay:UpdateDecorations()
     end
     if self.decorState ~= s then
         self:ResetDecorations()
-        self.decorState = s
+        self.decorState, self.gatesPlaced = s, 0
         -- From behind the camera, each side starting at its own place.
         for side = -1, 1, 2 do
             local r = self.decorRandom[side]:Seed(s.seed, side < 0 and random.LEFT or random.RIGHT)
             self.decorNext[side] = s.distance - 15 + r() * value(r, look.spacing, 0)
         end
     end
-    local groups = look.groups
-    if #groups > 0 then
-        for side = -1, 1, 2 do
-            local r = self.decorRandom[side]
-            while self.decorNext[side] < s.distance + fade.to do
-                local group, at = pick(r, groups), self.decorNext[side]
+    for side = -1, 1, 2 do
+        local r = self.decorRandom[side]
+        while self.decorNext[side] < s.distance + fade.to do
+            -- The roadside of the zone it stands in (auto): the next zone's comes into sight.
+            -- None in a gate's strip, which its transition dresses.
+            local at = self.decorNext[side]
+            local here = self:BiomeAt(at).decorations
+            local strip = self:StripEnd(at)
+            if strip then
+                self.decorNext[side] = strip
+            elseif #here.groups == 0 then
+                self.decorNext[side] = at + EMPTY
+            else
+                local group = pick(r, here.groups)
                 local length = value(r, group.length, 0)
-                for _, item in ipairs(group.items) do
-                    if not item.chance or r() < item.chance then
-                        place(self, r, length, item, at, side)
+                -- A group that would reach into a gate's strip is left out; the roadside starts
+                -- again past the strip.
+                local into = self:StripEnd(at, at + length)
+                if into then
+                    self.decorNext[side] = into
+                else
+                    for _, item in ipairs(group.items) do
+                        if not item.chance or r() < item.chance then
+                            place(self, r, length, item, at, side, here.clear)
+                        end
                     end
+                    self.decorNext[side] = at + length + value(r, here.spacing, 0)
                 end
-                self.decorNext[side] = at + length + value(r, look.spacing, 0)
             end
+        end
+    end
+    -- Each gate (a run through zones, auto), once it comes into sight: the entrance of the zone
+    -- it leads into.
+    local gates = s.gates
+    while gates and self.gatesPlaced < #gates and gates[self.gatesPlaced + 1] < s.distance + fade.to do
+        local k = self.gatesPlaced + 1
+        self.gatesPlaced = k
+        local r = self.gateRandom:Seed(s.seed + k, random.LOOK)
+        local transition = app.biomes.Transition(self:BiomeAt(gates[k] + 1).entrance)
+        for _, item in ipairs(transition.items) do
+            placeEntrance(self, r, item, gates[k])
         end
     end
     local list = self.decor
@@ -320,16 +380,16 @@ function overlay:UpdateDecorations()
             release(self, i)
         else
             if not d.fitted then
-                self:FitDecoration(d, look.clear)
+                self:FitDecoration(d, d.clear)
             end
             -- An actor's position is scaled with it: divided out, so every size stands in place.
             local scale = d.scale
             d.actor:SetPosition(
                 (ahead + self.sceneRunner) / scale + d.shiftX,
                 d.y / scale + d.shiftY,
-                ground(ahead) / scale + d.raise
+                (ground(ahead) + d.z) / scale + d.raise
             )
-            local alpha = math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
+            local alpha = self:FadeAlpha(ahead)
             if not d.alpha or math.abs(alpha - d.alpha) > 0.02 then
                 d.actor:SetAlpha(alpha)
                 d.alpha = alpha
@@ -338,9 +398,12 @@ function overlay:UpdateDecorations()
     end
 end
 
--- The biome's decorations and their light; called by ApplyBiome.
-function overlay:ApplyDecorations(biome)
+-- The biome's decorations and their light; called by ApplyBiome. Placed anew, unless the runner
+-- is `entering` a zone (auto), where they already stand.
+function overlay:ApplyDecorations(biome, entering)
     local look = biome.decorations
     light.AddScene(self.worldScene, look.ambient, look.diffuse)
-    self:ResetDecorations()
+    if not entering then
+        self:ResetDecorations()
+    end
 end

@@ -234,9 +234,11 @@ local options = {
             type = "select",
             order = 7,
             name = "Biome",
-            desc = "How the game looks: its ground, obstacles and coins.",
+            desc = "How the game looks: its ground, obstacles and coins. Auto goes from zone to zone as you run, starter zones first, the way set by the seed.",
             values = function()
-                return app.biomes.Names()
+                local names = app.biomes.Names()
+                names[app.biomes.AUTO] = "Auto: zone to zone"
+                return names
             end,
             get = function()
                 return app.db.profile.biome

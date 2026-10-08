@@ -62,6 +62,46 @@ dev.Command(
     end
 )
 
+dev.Command(
+    "zonelength",
+    "zonelength <yards> [<max yards>]: how long auto's zones last (zonelength alone: the zones so far)",
+    function(rest)
+        local sim, words, o = app.simulation, dev.Words(rest), app.overlay
+        local low, high = words[1], words[2] or words[1]
+        if type(low) == "number" and type(high) == "number" and low >= 50 and high >= low then
+            sim.ZONE_LENGTH = { low, high }
+            -- The next gate at most that far, from the end of the track laid out so far.
+            local s = o.state
+            if s and s.nextGate then
+                s.nextGate = math.min(s.nextGate, s.nextRow + low)
+            end
+            log:chat("Zones last %d to %d yards", low, high)
+        elseif rest ~= "" then
+            log:chat("/surfer zonelength <yards> [<max yards>], at least 50")
+            return
+        end
+        log:chat("Zone length %d to %d yards", sim.ZONE_LENGTH[1], sim.ZONE_LENGTH[2])
+        local s = o.state
+        if not s or not s.gates then
+            log:chat("This run has no zones: the biome option is not Auto (or was not when it began).")
+            return
+        end
+        o:BiomeIdAt(s.distance)
+        log:chat("At %d yards; next gate laid out at %d:", math.floor(s.distance), math.floor(s.nextGate))
+        for k, zone in ipairs(o.route.zones) do
+            local from, to = s.gates[k - 1] or 0, s.gates[k]
+            log:chat(
+                "  %d. %s (tier %d) from %d to %s",
+                k,
+                zone.id,
+                zone.tier or 0,
+                from,
+                to and tostring(math.floor(to)) or "..."
+            )
+        end
+    end
+)
+
 -- The registered patterns' names (src/patterns/), in their order.
 local function patternNames()
     local names = {}

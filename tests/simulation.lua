@@ -414,6 +414,57 @@ test("generated tracks always leave a way through", function()
     end
 end)
 
+-- A run through zones lays out a gate where each zone ends, about every ZONE_LENGTH yards,
+-- none at its start; the track keeps its rules there. Without zones, none.
+test("a run through zones has a gate between each two", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for seed = 1, 10 do
+            local s, objects, seen = g.New(seed, difficulty.id, true), {}, {}
+            g.Start(s)
+            for _ = 1, 120 do
+                s.distance, s.height = s.nextRow - 80, 100
+                g.Update(s, 1 / 120)
+                s.status = "running"
+                for _, o in ipairs(s.objects) do
+                    if not seen[o] then
+                        seen[o] = true
+                        objects[#objects + 1] = o
+                    end
+                end
+            end
+            local label = string.format("%s seed %d with zones", difficulty.id, seed)
+            assert(#s.gates >= 2, label .. ": gates")
+            assert(s.gates[1] >= g.ZONE_LENGTH[1], label .. ": none at the start")
+            for k = 2, #s.gates do
+                local apart = s.gates[k] - s.gates[k - 1]
+                assert(apart >= g.ZONE_LENGTH[1] and apart <= g.ZONE_LENGTH[2] + 200, label .. ": zone lengths")
+            end
+            local walls = 0
+            for _, o in ipairs(objects) do
+                assert(not o.gate or o.lane ~= 0, label .. ": the middle lane runs through a gate")
+                walls = walls + (o.gate and 1 or 0)
+            end
+            assert(walls == 2 * #s.gates, label .. ": two walls at each gate")
+            -- Empty road to each rim and away from it, at least the strip, and at least `clear`
+            -- seconds at the difficulty's slowest (the speed only rises): nothing to dodge at
+            -- the gate, and time to see the next zone after it.
+            local gate = track.GATE
+            local before = math.max(gate.before, difficulty.startSpeed * gate.clear[1])
+            local after = math.max(gate.after, difficulty.startSpeed * gate.clear[2])
+            for _, o in ipairs(objects) do
+                if not o.gate and o.kind ~= "coin" then
+                    for _, rim in ipairs(s.gates) do
+                        local inside = o.at + o.length > rim - before and o.at < rim + after
+                        assert(not inside, label .. ": a box on the empty road around a gate")
+                    end
+                end
+            end
+            checkTrack(objects, label)
+        end
+    end
+    assert(g.New(1).gates == nil, "without zones, no gates")
+end)
+
 -- The pick honors a pattern's weight by difficulty and its `from`; a run's speed follows its
 -- difficulty.
 test("difficulties pick their patterns and set the speed", function()

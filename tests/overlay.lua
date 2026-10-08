@@ -4,6 +4,7 @@ dofile("tests/load.lua")(app, {
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
+    "biomes/durotar",
     "game/random",
     "game/simulation",
     "game/track",
@@ -410,6 +411,61 @@ app.db.profile.biome = "elwynn"
 o:ApplyBiome()
 assert(piece("road", 0, 5).texture == 187099, "back to Elwynn's cobbles")
 print("PASS biomes override the default, and switching re-skins the running game")
+
+-- Auto: a run goes from zone to zone, its way set by its seed. Two zones more per tier here.
+for _, extra in ipairs({ { "hills", 2 }, { "marsh", 2 }, { "peaks", 3 }, { "wastes", 3 } }) do
+    biomes.Register(extra[1], { name = extra[1], tier = extra[2] })
+end
+local tierOf = { elwynn = 1, durotar = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
+-- Gates every 1000 yards, as a run through zones lays them out (simulation.lua).
+local gates = {}
+for k = 1, 40 do
+    gates[k] = k * 1000
+end
+local function route(seed, count)
+    local r, ids = biomes.Route(seed, gates), {}
+    for k = 1, count do
+        ids[k] = biomes.ZoneAt(r, k * 1000 - 500)
+    end
+    return ids, r
+end
+for seed = 1, 200 do
+    local ids, r = route(seed, 30)
+    assert(tierOf[ids[1]] == 1, "a run starts in a starter zone")
+    local since = {}
+    for k = 2, #ids do
+        assert(ids[k] ~= ids[k - 1], "never the zone just left again")
+        assert(tierOf[ids[k]] <= tierOf[ids[k - 1]] + 1, "no tier skipped on the way up")
+    end
+    -- Within a tier, both zones before either one a third time.
+    for _, id in ipairs(ids) do
+        since[id] = (since[id] or 0) + 1
+        for other, tier in pairs(tierOf) do
+            if tier == tierOf[id] and other ~= id then
+                assert(since[id] - (since[other] or 0) <= 1, "unvisited zones of a tier first")
+            end
+        end
+    end
+    local zone = biomes.Zone(r, 2500)
+    assert(
+        zone.id == ids[3] and zone.from == 2000 and zone.to == 3000,
+        "a zone runs from gate to gate, also going back"
+    )
+    assert(biomes.Zone(r, -5).from == -math.huge, "the first zone has no gate")
+end
+local a, b = route(7, 20), route(7, 20)
+assert(table.concat(a, " ") == table.concat(b, " "), "a seed always goes the same way")
+local climbed = 0
+for seed = 1, 200 do
+    local ids = route(seed, 3)
+    climbed = climbed + (tierOf[ids[2]] == 2 and 1 or 0)
+end
+assert(climbed > 120, "mostly up a tier after the first zone")
+for _, id in ipairs({ "hills", "marsh", "peaks", "wastes" }) do
+    biomes.list[id] = nil
+end
+biomes.merged, biomes.zones = {}, nil
+print("PASS auto: starter zones first, up the tiers, unvisited zones first, the seed's way")
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
 local falling = false

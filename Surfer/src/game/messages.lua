@@ -33,6 +33,9 @@ local SIDE_SCALE = 0.8
 -- Seconds an announcement shows by default (not counting its fades), and its fades.
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
+-- Jumping through a gate: the screen flashes this strong in the transition's color, fading out
+-- over this many seconds.
+local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
@@ -249,6 +252,16 @@ function overlay:CreateMessages(f)
     text:SetPoint("TOP", banner, "CENTER", 0, 0)
     text:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
     self.banner = { frame = banner, text = text, small = small }
+
+    -- The flash of jumping through a gate, over the world and the twin, under the score.
+    local flash = CreateFrame("Frame", nil, f)
+    self:Stack(flash, "flash")
+    flash:SetAllPoints(f)
+    flash:Hide()
+    local glow = flash:CreateTexture(nil, "BACKGROUND")
+    glow:SetAllPoints(flash)
+    glow:SetColorTexture(1, 1, 1, 1)
+    self.flash = { frame = flash, texture = glow }
 end
 
 -- Where the panel and announcements stand for the view's mode and size (window.lua's Layout).
@@ -425,6 +438,35 @@ function overlay:Announce(text, seconds, small)
     b.start, b.hold = GetTime(), seconds or ANNOUNCE_SECONDS
     b.frame:SetAlpha(0)
     b.frame:Show()
+end
+
+-- Flashes the screen in `color` ({ red, green, blue }, white when left out), fading out: the
+-- runner jumped through a gate (UpdateZone).
+function overlay:Flash(color)
+    local flash = self.flash
+    if not flash then
+        return
+    end
+    color = color or { 1, 1, 1 }
+    flash.texture:SetColorTexture(color[1], color[2], color[3], 1)
+    flash.start = GetTime()
+    flash.frame:SetAlpha(FLASH_ALPHA)
+    flash.frame:Show()
+end
+
+-- Once a frame: a flash fading out.
+function overlay:ShowFlash()
+    local flash = self.flash
+    if not flash or not flash.start then
+        return
+    end
+    local t = GetTime() - flash.start
+    if t >= FLASH_SECONDS then
+        flash.start = nil
+        flash.frame:Hide()
+        return
+    end
+    flash.frame:SetAlpha(FLASH_ALPHA * (1 - t / FLASH_SECONDS))
 end
 
 -- The current biome's name, as the game names a zone you enter.
