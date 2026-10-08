@@ -33,6 +33,18 @@ local bush = {
 -- pieces end to end as the slope is long; a long ramp has more planks, not bigger ones.
 local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
 
+-- The enemies' attack sounds, the files of their classic sound kits (one picked at random):
+-- sound/creature/wolf/mwolfattack1 to 6 (kit 391), boar/mwildboarattack1 to 3 (380), gnoll/
+-- mgnollattack1 to 7 (306), a human man's and woman's, sound/character/playerexertions/
+-- humanmalefinal/humanmalemainattacka to c (2941) and humanfemalefinal/humanfeamlemainattacka
+-- to d (2937), and the cow's wound, sound/creature/cow/cowwound (1467).
+local WOLF = { 564212, 564210, 564213, 564216, 564209, 564230 }
+local BOAR = { 545136, 545135, 545129 }
+local GNOLL = { 550350, 550345, 550339, 550333, 550335, 550337, 550336 }
+local MAN = { 542374, 542370, 542373 }
+local WOMAN = { 542361, 542360, 542368, 542362 }
+local COW = 546420
+
 -- A fence group with `...` added to it, picked by `weight`.
 local function fenceWith(weight, ...)
     local items = {}
@@ -113,8 +125,8 @@ app.biomes.Register("elwynn", {
         -- sound.
         enemy = {
             -- Low enough to jump: a Timber Wolf (604) or a Stonetusk Boar (503, no ready stance).
-            { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16, sound = 391 } } },
-            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = 380 } } },
+            { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16, sound = WOLF } } },
+            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = BOAR } } },
             -- Too tall: the Defias Thug (5035), Bandit (2357), Footpad (2333) and Cutpurse
             -- (2361), and Morgaine the Sly (3320); the men and the women sound different.
             {
@@ -127,7 +139,7 @@ app.biomes.Register("elwynn", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
-                        sound = { [5035] = 2941, [2357] = 2941, [2361] = 2941, [2333] = 2937, [3320] = 2937 },
+                        sound = { [5035] = MAN, [2357] = MAN, [2361] = MAN, [2333] = WOMAN, [3320] = WOMAN },
                     },
                 },
             },
@@ -141,7 +153,7 @@ app.biomes.Register("elwynn", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
-                        sound = 306,
+                        sound = GNOLL,
                     },
                 },
             },
@@ -149,14 +161,14 @@ app.biomes.Register("elwynn", {
             {
                 layers = 4,
                 weight = 0.4,
-                items = { { creature = 384, height = 2.6, yaw = 180, animation = 25, attack = 16, sound = 306 } },
+                items = { { creature = 384, height = 2.6, yaw = 180, animation = 25, attack = 16, sound = GNOLL } },
             },
             -- A cow (1060), just standing there, mooing as the runner passes (its classic
             -- wound sound, the only moo it has).
             {
                 layers = 4,
                 weight = 0.6,
-                items = { { creature = 1060, height = 1.9, yaw = { 150, 210 }, sound = 1467 } },
+                items = { { creature = 1060, height = 1.9, yaw = { 150, 210 }, sound = COW } },
             },
         },
         -- lumberpiles/deadminelumberpilesmall across two elwynnwoodpost01 posts (1.9 tall).

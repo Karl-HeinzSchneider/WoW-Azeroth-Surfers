@@ -8,6 +8,18 @@ local _, app = ...
 -- A ramp's planks, as Elwynn's (redridgedocksplank01), until Durotar has its own.
 local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
 
+-- The enemies' attack sounds, the files of their classic sound kits (one picked at random):
+-- sound/creature/boar/mwildboarattack1 to 3 (kit 380), silithidwasp/msilithidwaspattacka to c
+-- (715), tiger/mtigerattacka to d (643), quillboar/quillboarattacka to d (1176), centaur/
+-- centaurattacka to d (1040), and an orc's, sound/character/orc/orcmalenpc/orcmalenpc1/
+-- orcwarriormale1attacka to c (1341).
+local BOAR = { 545136, 545135, 545129 }
+local SCORPID = { 560307, 560304, 560313 }
+local TIGER = { 562394, 562385, 562393, 562386 }
+local QUILBOAR = { 558709, 558714, 558716, 558717 }
+local ORC = { 541311, 541309, 541314 }
+local CENTAUR = { 546042, 546048, 546051, 546046 }
+
 app.biomes.Register("durotar", {
     name = "Durotar",
     -- A starter zone.
@@ -63,9 +75,9 @@ app.biomes.Register("durotar", {
         enemy = {
             -- Low enough to jump: a Mottled Boar (503), a Venomtail, Armored or Clattering
             -- Scorpid (2732, 2487, 2486), or a Durotar Tiger (598), each with its kind's attack.
-            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = 380 } } },
-            { layers = 2, items = { { creature = { 2732, 2487, 2486 }, yaw = 180, attack = 16, sound = 715 } } },
-            { layers = 2, weight = 0.5, items = { { creature = 598, yaw = 180, attack = 16, sound = 643 } } },
+            { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = BOAR } } },
+            { layers = 2, items = { { creature = { 2732, 2487, 2486 }, yaw = 180, attack = 16, sound = SCORPID } } },
+            { layers = 2, weight = 0.5, items = { { creature = 598, yaw = 180, attack = 16, sound = TIGER } } },
             -- Too tall: the Razormane quilboar (Quilboar 1218, Scout 1252, Dustrunner 6088,
             -- Battleguard 1964), all with the quilboar's attack.
             {
@@ -78,7 +90,7 @@ app.biomes.Register("durotar", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
-                        sound = 1176,
+                        sound = QUILBOAR,
                     },
                 },
             },
@@ -92,7 +104,7 @@ app.biomes.Register("durotar", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
-                        sound = 1341,
+                        sound = ORC,
                     },
                 },
             },
@@ -100,7 +112,7 @@ app.biomes.Register("durotar", {
             {
                 layers = 4,
                 weight = 0.5,
-                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 25, attack = 16, sound = 1040 } },
+                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 25, attack = 16, sound = CENTAUR } },
             },
         },
         -- deadminelumberpilesmall across two orcfence/orcfencepost posts.

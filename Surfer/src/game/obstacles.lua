@@ -59,10 +59,14 @@ local function attach(self, o, item, along)
     local sound = item.sound
     if item.creature then
         actor:SetAnimation(item.animation or 0, 0, 1, 0)
-        if type(sound) == "table" then
+        -- A table by display id (not a list of files): the one for its creature.
+        if type(sound) == "table" and not sound[1] then
             sound = sound[-model]
         end
     end
+    -- One of its files, picked once (a file, not a sound kit: a kit may not play again while it
+    -- still plays, so two of a kind passed in a row would be heard once).
+    sound = sound and choose(looks, sound)
     -- Invisible until its model has loaded and been fitted; by its own origin, upright (a ramp's
     -- model may have been this actor before).
     actor:SetAlpha(0)
@@ -248,7 +252,7 @@ function overlay:UpdateObstacles()
                             -- already behind (a new biome).
                             if entry.sound and s.status == "running" and d > 0 and app.db.profile.enemySound then
                                 -- The SFX channel follows the game's sound effects volume.
-                                PlaySound(entry.sound, "SFX")
+                                PlaySoundFile(entry.sound, "SFX")
                             end
                         end
                     end
