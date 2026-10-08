@@ -144,6 +144,9 @@ app.biomes.Register("default", {
     --                (0 if left out): side by side on parallel lines
     --     opposite   from 0 to 1: how often one crosses the other way, from the other side, past
     --                the others (0 if left out), at least 1.5 yards off the first one's line
+    --   voice      a sound file id, or a list to pick one from at random, said once as the
+    --              runner passes it (the "Creature sounds" option); silent if left out
+    --   talks      from 0 to 1: how often one says its `voice` (1 if left out)
     --              A group needs every member's line clear, and its last one off the road
     --              before the runner comes. A flock of flyers is a group too.
     -- Any number may instead be a { min, max } range. Actors of the decorations' scene, lit like

@@ -16,7 +16,8 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
-    -- Enemies' attack sounds as the runner passes them (obstacles.lua).
+    -- Enemies' attack sounds as the runner passes them (obstacles.lua), and wildlife's voices
+    -- (ambient.lua).
     enemySound = true,
     -- A gate's sound as the runner goes through its portal (messages.lua).
     portalSound = true,

@@ -34,6 +34,8 @@ local PACE = 7
 local SEEN = 60
 -- Yards a creature fades in and out over at the ends of its way.
 local EDGE = 1.5
+-- Yards from the runner to a creature's line when it says its `voice`: as the runner passes.
+local VOICE_RANGE = 12
 
 function overlay:CreateAmbient()
     -- The creatures under way, and spare tables for them.
@@ -150,6 +152,8 @@ local function place(self, r, item, at, side, delay, speed, from)
     c.height, c.scale = item.height and value(r, item.height, 1), value(r, item.scale, 1)
     c.fitted, c.shiftX, c.shiftY, c.alpha, c.moving = false, 0, 0, false, nil
     c.distance = self.state.distance
+    -- What it says, if anything, picked now (drawing only for creatures with a `voice`).
+    c.voice = item.voice and r() < (item.talks or 1) and choose(r, item.voice) or false
     actor:SetAlpha(0)
     actor:SetUseCenterForOrigin(false, false, false)
     actor:SetPitch(0)
@@ -264,6 +268,14 @@ function overlay:UpdateAmbient()
             if not c.alpha or math.abs(alpha - c.alpha) > 0.02 then
                 c.actor:SetAlpha(alpha)
                 c.alpha = alpha
+            end
+            -- Its voice, once, as the runner passes it (the "Creature sounds" option).
+            if c.voice and ahead < VOICE_RANGE and moving then
+                if app.db.profile.enemySound then
+                    -- The SFX channel follows the game's sound effects volume.
+                    PlaySoundFile(c.voice, "SFX")
+                end
+                c.voice = false
             end
         end
     end

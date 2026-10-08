@@ -151,8 +151,8 @@ local options = {
             type = "toggle",
             order = 6.1,
             width = "full",
-            name = "Enemy sounds",
-            desc = "Play an enemy's attack sound when you run past it.",
+            name = "Creature sounds",
+            desc = "Play an enemy's attack sound when you run past it, and what a creature crossing the road says.",
             get = function()
                 return app.db.profile.enemySound
             end,

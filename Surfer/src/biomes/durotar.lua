@@ -138,6 +138,35 @@ app.biomes.Register("durotar", {
         },
     },
 
+    -- Durotar's wildlife: now and then a snake (2914, display 1206) slithering over from close
+    -- by, and a peon of the Valley of Trials (the Lazy Peon, 10556, display 10038) hurrying
+    -- across, now and then two, most of them saying one of their lines as the runner passes,
+    -- each as likely (sound/creature/peon/: peonyes1 to 4, "Work, work." among them, and
+    -- peonready1). /surfer preview creature in Surfer_Dev shows them.
+    ambient = {
+        every = { 70, 180 },
+        creatures = {
+            {
+                creature = 1206,
+                move = "cross",
+                speed = { 6, 8 },
+                -- Small and low: its slither covers little ground.
+                pace = 3,
+                from = 6.5,
+                weight = 1.5,
+                group = { count = { 1, 2 }, gap = { 2, 4 }, offset = { 1.5, 3 }, opposite = 0.3 },
+            },
+            {
+                creature = 10038,
+                move = "cross",
+                speed = { 7, 9 },
+                group = { count = { 1, 2 }, gap = { 1.5, 3 }, offset = { 0, 2 } },
+                voice = { 558136, 558139, 558147, 558140, 558137 },
+                talks = 0.8,
+            },
+        },
+    },
+
     -- The roadside: dry bushes and cactus by the road, rocks, an orc brazier lamp or a Horde
     -- banner now and then. Durotar's twisted trees (trees/durotartree01 to 06: 201803 to
     -- 201808) are left out for now: too big beside the road.
