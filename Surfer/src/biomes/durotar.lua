@@ -10,6 +10,8 @@ local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
 
 app.biomes.Register("durotar", {
     name = "Durotar",
+    -- A starter zone.
+    tier = 1,
 
     ground = {
         surfaces = {

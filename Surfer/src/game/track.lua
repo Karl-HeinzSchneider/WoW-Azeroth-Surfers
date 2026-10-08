@@ -37,6 +37,7 @@ function track.Add(s, kind, lane, at, length, layer, layers, ramp)
     local o = game.Box(kind, lane, at, length, layer, layers, ramp)
     o.seed = s.random(random.MAX)
     s.objects[#s.objects + 1] = o
+    return o
 end
 local add, SPACING = track.Add, track.COIN_SPACING
 
@@ -140,8 +141,17 @@ end
 -- the track ahead is too short).
 function game.Spawn(s)
     local r, at = s.random, s.nextRow
-    local pattern = track.Pick(s, at)
+    -- A zone used up (simulation.lua's `zones`): its gate, and the next one's length from it.
+    local pattern
+    if s.nextGate and at >= s.nextGate then
+        pattern = track.byName.gate
+    else
+        pattern = track.Pick(s, at)
+    end
     local length = pattern and pattern.place(s, at, r) or 0
+    if pattern == track.byName.gate and s.gates then
+        s.nextGate = s.gates[#s.gates] + game.ZoneLength(s)
+    end
     local gap = s.difficulty.gap
     s.nextRow = at + length + math.max(MIN_GAP, s.speed * (gap[1] + (gap[2] - gap[1]) * r()))
 end

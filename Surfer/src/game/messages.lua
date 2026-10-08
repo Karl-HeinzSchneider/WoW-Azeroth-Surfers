@@ -33,6 +33,34 @@ local SIDE_SCALE = 0.8
 -- Seconds an announcement shows by default (not counting its fades), and its fades.
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
+-- Jumping through a gate: the screen flashes this strong in the transition's color, fading out
+-- over this many seconds.
+local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
+-- A gate's pull (a transition's `vortex`), by how far the portal is from the camera (not the
+-- runner: the camera, behind it, goes through last): from VORTEX_FROM yards it builds up to its
+-- height as the camera goes through, then fades over VORTEX_THROUGH yards. The last
+-- VORTEX_AROUND yards before, the opening grows past the screen's edges: the wind comes from all
+-- round the screen into its middle.
+local VORTEX_FROM, VORTEX_THROUGH, VORTEX_AROUND = 50, 14, 8
+-- The opening's size on the screen once the wind comes from all round, in the screen's sizes.
+local VORTEX_AROUND_SIZE = 1.2
+-- A transition's `sounds`: `approach` from the pull's start, cut off over HUM_FADE
+-- milliseconds as it ends (or the run stops); `through`, THROUGH_LEAD seconds before the camera
+-- goes through (the teleport's whoosh builds up into it).
+local HUM_FADE, THROUGH_LEAD = 1000, 0.4
+-- The screen's edges closing in, darkest at the full pull.
+local VORTEX_EDGES, VORTEX_EDGES_ALPHA = "Interface\\FullScreenTextures\\OutOfControl", 0.8
+-- Radians a second the pull turns round without pull and at the full pull (the wind's lines
+-- turn WIND_TWIST of it).
+local VORTEX_SPIN = { 1, 9 }
+-- The wind's lines rushing into the portal: how many, from how far out (in the opening's
+-- sizes) to where they vanish in it, their length (in sizes, at no pull and at the full pull),
+-- their width in pixels at their head (tails taper to nothing), the trips a second each makes
+-- without pull and at the full pull, and how far the lines turn round (a little).
+local WIND_LINES, WIND_FROM, WIND_TO = 28, 2.2, 0.15
+local WIND_LENGTH, WIND_WIDTH, WIND_TRIPS, WIND_TWIST = { 0.25, 0.8 }, 3, { 0.5, 2.2 }, 0.12
+-- Two colors reused for the lines' gradients (read only during the call).
+local windTail, windHead
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
@@ -249,6 +277,51 @@ function overlay:CreateMessages(f)
     text:SetPoint("TOP", banner, "CENTER", 0, 0)
     text:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
     self.banner = { frame = banner, text = text, small = small }
+
+    -- The flash of jumping through a gate, over the world and the twin, under the score.
+    local flash = CreateFrame("Frame", nil, f)
+    self:Stack(flash, "flash")
+    flash:SetAllPoints(f)
+    flash:Hide()
+    local glow = flash:CreateTexture(nil, "BACKGROUND")
+    glow:SetAllPoints(flash)
+    glow:SetColorTexture(1, 1, 1, 1)
+    self.flash = { frame = flash, texture = glow }
+
+    -- The pull of a gate's portal (ShowVortex), over the world and the twin like the flash: the
+    -- screen's edges closing in, and the wind rushing into the portal's opening.
+    local vortex = CreateFrame("Frame", nil, f)
+    self:Stack(vortex, "flash")
+    vortex:SetAllPoints(f)
+    vortex:Hide()
+    local edges = vortex:CreateTexture(nil, "BACKGROUND")
+    edges:SetAllPoints(vortex)
+    edges:SetTexture(VORTEX_EDGES)
+    -- The wind's lines: quads drawn by their corners (SetVertexOffset) from a point at the
+    -- view's corner, so they can point any way.
+    local lines, phases = {}, {}
+    for i = 1, WIND_LINES do
+        -- Its own time in its trip, scattered (a hash of its number: one that grew with it would
+        -- line the lines up in a spiral with their angles).
+        local hash = math.sin(i * 12.9898) * 43758.5453
+        phases[i] = hash - math.floor(hash)
+        local line = vortex:CreateTexture(nil, "ARTWORK")
+        line:SetColorTexture(1, 1, 1, 1)
+        line:SetBlendMode("ADD")
+        line:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
+        line:SetSize(1, 1)
+        lines[i] = line
+    end
+    windTail, windHead = CreateColor(1, 1, 1, 0), CreateColor(1, 1, 1, 1)
+    self.vortex = {
+        frame = vortex,
+        parent = f,
+        edges = edges,
+        lines = lines,
+        phases = phases,
+        angle = 0,
+        flow = 0,
+    }
 end
 
 -- Where the panel and announcements stand for the view's mode and size (window.lua's Layout).
@@ -425,6 +498,167 @@ function overlay:Announce(text, seconds, small)
     b.start, b.hold = GetTime(), seconds or ANNOUNCE_SECONDS
     b.frame:SetAlpha(0)
     b.frame:Show()
+end
+
+-- Flashes the screen in `color` ({ red, green, blue }, white when left out), fading out: the
+-- runner jumped through a gate (UpdateZone).
+function overlay:Flash(color)
+    local flash = self.flash
+    if not flash then
+        return
+    end
+    color = color or { 1, 1, 1 }
+    flash.texture:SetColorTexture(color[1], color[2], color[3], 1)
+    flash.start = GetTime()
+    flash.frame:SetAlpha(FLASH_ALPHA)
+    flash.frame:Show()
+end
+
+-- Once a frame: a gate's pull, when the next gate (or the one just gone through) has a
+-- transition with a `vortex` ({ center, radius, color }: its portal's opening, `center` yards
+-- up from the road and `radius` yards round). The wind rushes into the opening, faster,
+-- longer and brighter the nearer the runner comes, and the screen's edges darken; from the rim
+-- on it spreads from the opening over the whole screen and fades. Still while paused.
+function overlay:ShowVortex()
+    local vortex = self.vortex
+    if not vortex then
+        return
+    end
+    local s = self.state
+    local strips, looks = self.strips, self.stripLooks
+    local look, ahead, transition, rim
+    for i = 1, strips and #strips or 0 do
+        local d = strips[i] - s.distance
+        if d - self.camera.x < VORTEX_FROM and d - self.camera.x > -VORTEX_THROUGH and looks[i].vortex then
+            look, ahead, transition, rim = looks[i].vortex, d, looks[i], strips[i]
+            break
+        end
+    end
+    self:PortalSounds(transition, rim, ahead and ahead - self.camera.x)
+    local now = GetTime()
+    local elapsed = now - (vortex.time or now)
+    vortex.time = now
+    if not look then
+        if vortex.shown then
+            vortex.frame:Hide()
+            vortex.shown = false
+        end
+        return
+    end
+    if not vortex.shown then
+        vortex.frame:Show()
+        vortex.shown = true
+    end
+    -- The portal's yards ahead of the camera; how strong the pull is, building up to its height
+    -- as the camera goes through, then fading (slowly at first); and how far round the screen
+    -- the wind has come.
+    local camera = self.camera.x
+    local before = ahead - camera
+    local pull = math.max(0, math.min(1, 1 - before / VORTEX_FROM)) ^ 1.4
+    local past = math.max(0, math.min(1, -before / VORTEX_THROUGH))
+    local fade = past * past * (3 - 2 * past)
+    local around = math.max(0, math.min(1, 1 - before / VORTEX_AROUND))
+    around = around * around * (3 - 2 * around)
+    if s.status == "running" then
+        vortex.angle = vortex.angle + elapsed * (VORTEX_SPIN[1] + (VORTEX_SPIN[2] - VORTEX_SPIN[1]) * pull)
+        vortex.flow = vortex.flow + elapsed * (WIND_TRIPS[1] + (WIND_TRIPS[2] - WIND_TRIPS[1]) * pull)
+    end
+    -- The opening on the screen (held where it still projects once the camera is nearly at
+    -- it), then toward the screen's middle and past its edges.
+    local at = math.max(ahead, camera + VORTEX_AROUND / 2)
+    local x, y, scale = self:Project(at, 0, app.shapes.Ground(at) + look.center)
+    if not x then
+        vortex.frame:Hide()
+        vortex.shown = false
+        return
+    end
+    local w, h = vortex.parent:GetSize()
+    local size = 2 * look.radius * scale * (1 + 0.2 * pull)
+    size = size + (VORTEX_AROUND_SIZE * math.max(w, h) - size) * around
+    x, y = x + (w / 2 - x) * around, y + (h / 2 - y) * around
+    local strength = pull * (1 - fade)
+    vortex.edges:SetAlpha(strength * VORTEX_EDGES_ALPHA)
+    self:ShowWind(x, y, size, pull, strength, look.color)
+end
+
+-- A gate's sounds (its transition's `sounds`, the "Portal sounds" option), each once a gate and
+-- only while running: the approach's hum from the pull's start, cut off as it ends, and the
+-- going through as the camera nears the portal, `before` yards ahead of it.
+function overlay:PortalSounds(transition, rim, before)
+    local vortex, s = self.vortex, self.state
+    local sounds = transition and transition.sounds
+    if not sounds or s.status ~= "running" then
+        if vortex.hum then
+            StopSound(vortex.hum, HUM_FADE)
+            vortex.hum = nil
+        end
+        return
+    end
+    -- A new gate (or run): each of its sounds once.
+    if vortex.soundState ~= s or vortex.soundRim ~= rim then
+        vortex.soundState, vortex.soundRim, vortex.hummed, vortex.through = s, rim, false, false
+    end
+    local on = app.db.profile.portalSound
+    if sounds.approach and not vortex.hummed then
+        vortex.hummed = true
+        if on then
+            -- The SFX channel follows the game's sound effects volume.
+            local _, handle = PlaySoundFile(sounds.approach, "SFX")
+            vortex.hum = handle
+        end
+    end
+    if sounds.through and not vortex.through and before < s.speed * THROUGH_LEAD then
+        vortex.through = true
+        if on then
+            PlaySoundFile(sounds.through, "SFX")
+        end
+    end
+end
+
+-- The wind's lines into the opening at (`x`, `y`), `size` across: each its own way round
+-- (the golden angle apart) and its own time in its trip (`phases`), from far out in to the
+-- opening, fading in and out, its tail tapering behind it; lighter than the transition's color.
+function overlay:ShowWind(x, y, size, pull, strength, color)
+    local vortex = self.vortex
+    local length = size * (WIND_LENGTH[1] + (WIND_LENGTH[2] - WIND_LENGTH[1]) * pull)
+    local half = WIND_WIDTH / 2
+    local r, g, b = (color[1] + 1) / 2, (color[2] + 1) / 2, (color[3] + 1) / 2
+    for i, line in ipairs(vortex.lines) do
+        local trip = (vortex.flow + vortex.phases[i]) % 1
+        local angle = i * 2.399963 + vortex.angle * WIND_TWIST
+        local ux, uy = math.cos(angle), math.sin(angle)
+        local head = size * (WIND_FROM - (WIND_FROM - WIND_TO) * trip)
+        local tail = head + length
+        -- Corners: the tail's (left of the texture, a point) and the head's (right).
+        local tx, ty = x + ux * tail, y + uy * tail
+        local hx, hy = x + ux * head, y + uy * head
+        local nx, ny = -uy * half, ux * half
+        -- From the 1 by 1 square at the view's corner: upper left, lower left, upper right,
+        -- lower right.
+        line:SetVertexOffset(1, tx, ty - 1)
+        line:SetVertexOffset(2, tx, ty)
+        line:SetVertexOffset(3, hx + nx - 1, hy + ny - 1)
+        line:SetVertexOffset(4, hx - nx - 1, hy - ny)
+        local alpha = strength * math.sin(math.pi * trip)
+        windTail:SetRGBA(r, g, b, 0)
+        windHead:SetRGBA(r, g, b, alpha)
+        line:SetGradient("HORIZONTAL", windTail, windHead)
+    end
+end
+
+-- Once a frame: a flash fading out.
+function overlay:ShowFlash()
+    local flash = self.flash
+    if not flash or not flash.start then
+        return
+    end
+    local t = GetTime() - flash.start
+    if t >= FLASH_SECONDS then
+        flash.start = nil
+        flash.frame:Hide()
+        return
+    end
+    flash.frame:SetAlpha(FLASH_ALPHA * (1 - t / FLASH_SECONDS))
 end
 
 -- The current biome's name, as the game names a zone you enter.

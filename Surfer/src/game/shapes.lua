@@ -10,7 +10,7 @@ local LANE = bounds.laneWidth
 local shapes = {}
 app.shapes = shapes
 -- Faces closer than this are not drawn; farther than DRAW_DISTANCE neither.
-local NEAR, DRAW_DISTANCE = -3, sim.AHEAD
+local NEAR, DRAW_DISTANCE = -3, sim.VIEW
 
 -- The track curves down and away toward the horizon: it drops `curve` times the distance
 -- squared, in yards. The overlay sets it (the biome's `ground.curve`, or the fixed one).
@@ -61,9 +61,12 @@ local function post(o, near, left, z)
     add(o, "post", "front", near, near, left, z, near, left, floor, near, right, z, near, right, floor)
 end
 
+-- How far faces are drawn this frame: DRAW_DISTANCE, or nearer where the view ends (a gate).
+local limit = DRAW_DISTANCE
+
 local function box(o, s, viewX)
     local near, far = o.at - s.distance, o.at + o.length - s.distance
-    if far < NEAR or near > DRAW_DISTANCE then
+    if far < NEAR or near > limit then
         return
     end
     local x = -o.lane * LANE
@@ -82,7 +85,7 @@ local function box(o, s, viewX)
         end
     end
     -- A ramp's slope and the flat top after it are separate faces.
-    local a, b = math.max(near, NEAR), math.min(far, DRAW_DISTANCE)
+    local a, b = math.max(near, NEAR), math.min(far, limit)
     local rampEnd = o.ramp and near + o.ramp
     if rampEnd and rampEnd > a and rampEnd < b then
         segment(o, s, viewX, x1, x2, a, rampEnd)
@@ -94,7 +97,7 @@ end
 
 local function coin(o, s)
     local d = o.at + o.length / 2 - s.distance
-    if d < NEAR or d > DRAW_DISTANCE then
+    if d < NEAR or d > limit then
         return
     end
     local x, z = -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d)
@@ -104,9 +107,11 @@ local function coin(o, s)
 end
 
 -- The faces of every box and coin in view, reusing the same tables every frame. `viewX` is
--- the camera's position to the screen's right, which decides the sides it sees.
-function shapes.Collect(s, viewX)
+-- the camera's position to the screen's right, which decides the sides it sees; `far`, how far
+-- ahead the view goes this frame (DRAW_DISTANCE when left out).
+function shapes.Collect(s, viewX, far)
     count = 0
+    limit = math.min(DRAW_DISTANCE, far or DRAW_DISTANCE)
     for _, o in ipairs(s.objects) do
         if not o.hit then
             if o.kind == "coin" then

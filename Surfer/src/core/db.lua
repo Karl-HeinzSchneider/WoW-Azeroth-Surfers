@@ -18,9 +18,12 @@ local profile = {
     coinSound = true,
     -- Enemies' attack sounds as the runner passes them (obstacles.lua).
     enemySound = true,
+    -- A gate's sound as the runner goes through its portal (messages.lua).
+    portalSound = true,
     -- The hotkey legend beside the road (legend.lua).
     legend = true,
-    biome = "elwynn", -- how the game looks: a file in src/biomes/
+    -- How the game looks: a file in src/biomes/, or "auto", zone to zone as the run goes.
+    biome = "auto",
     -- "full": the game covers the screen around the real character; "side": a window of its own.
     mode = "full",
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.

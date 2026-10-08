@@ -80,9 +80,8 @@ be listed**. The order follows these rules:
   expert; `New(seed, difficulty)`, `profile.difficulty`, set by `overlay:SetDifficulty(id)` /
   `StepDifficulty(±1)` from the option and the status panel's arrows) set the speed (start,
   top, how fast it rises), the free road between patterns and, through the patterns' weights,
-  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for. `AHEAD` (140 yards) is how far ahead the track is laid out,
-  and so how far the views can show: flat boxes and the ground reach it, a biome's `ground.fade`
-  ends short of it.
+  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for. `VIEW` (140 yards) is how far ahead the views show anything (flat
+  boxes and the ground reach it, a biome's `ground.fade` ends short of it); `AHEAD` (`VIEW` + 20) how far the track is laid out, so a gate exists before a roadside group could reach it.
 - `src/game/track.lua` — `app.track`, the track ahead (`simulation.Spawn`): a stream of
   patterns, weighted by the run's difficulty, each followed by free road measured in seconds at
   the speed of the moment. `Register(pattern)` (`name`, `weight` — a number or a table by
@@ -96,7 +95,43 @@ be listed**. The order follows these rules:
   the tests read it too, `tests/load.lua`). **A new pattern is a new file plus a line in
   `patterns.xml`**, nothing else. A new or changed pattern changes what a seed lays out.
 - `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
-  `Get(id)` (merged over the default), `Current()` (`profile.biome`). `src/biomes/*.lua` hold one
+  `Get(id)` (merged over the default). `profile.biome` is a biome's id or `"auto"` (the
+  default): auto goes zone to zone as the run goes. A biome with a `tier` (1 for starter zones,
+  2 and up for later ones; `weight`, 1 by default) is such a zone; Where a zone ends is the simulation's: a run begun in auto (`New(seed, difficulty,
+zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, a step in every lane
+  (`track.GATE.ramp`, one layer) up to the platform the portal stands on, an arc of coins over
+  the middle one, its boxes marked `o.gate` and dressed by the transition's `obstacles`; empty road `track.GATE.clear` seconds before its rim and after
+  it, and at least the strip and `lead` yards of the zone's own road beyond it) every `simulation.ZONE_LENGTH` yards from its own stream (`random.GATES`), none
+  at its start, and lists where the next zone starts in `s.gates`. Which biome each zone is,
+  biomes.lua's: `Route(seed, gates)` from its own stream (`random.ZONES`), `Zone(route,
+distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance` names its
+  transition (`src/biomes/transitions/*.lua`, `biomes.RegisterTransition`, never a zone; the
+  default's, `dream`: the dragon groves' tree portal, worldtreeportal01, in an overgrown
+  night elf shrine in Feralas' forest, a stone path leading to it, ruins on the left, roots and
+  forest on the right, the Nightmare's purple about the portal, on its zones' ground, the next one's from the portal on).
+  Around a gate's rim (`track.GATE`: 22 yards before it, 18 after), the ground is the transition's (without one, its zones', changing at the rim) and
+  its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it, and a
+  transition keeps its own models inside it. While a gate is ahead the view
+  ends just past its strip (`overlay:UpdateView()` sets `overlay.fade`, which every part of the
+  view fades by, and the strips in sight), so nothing of the next zone shows; jumping through,
+  the next zone appears (and the screen flashes, `overlay:Flash`, if the transition has a
+  `flash` color; the dream one has none). A transition's `vortex` pulls the runner in
+  (`overlay:ShowVortex`, messages.lua): lines of wind rush into the portal's opening
+  (`ShowWind`), faster as it nears, the screen's edges close in; all by the portal's distance
+  from the camera (behind the runner, it goes through last), at its height as the camera goes
+  through, the wind then coming from all round the screen, and fading after; its `sounds` (option
+  "Portal sounds", `profile.portalSound`): `approach` with the pull, cut off as it ends (the
+  dream's: a portal's hum), `through` just before the camera goes through (the mage's teleport); a run starts in the lowest tier,
+  then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
+  one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
+  (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is
+  cut there, its far part drawn by the row's `seam` texture, so the change sits where it is on
+  the ground instead of jumping from row edge to row edge), roadside
+  groups (by their start), obstacle looks and wildlife, so the next zone comes into sight on
+  the horizon and reaches the runner; the ground's curve blends toward the next zone's as it
+  nears (`GroundCurve`). `BiomeId()` is the runner's own (sky, light, ground bands); once it
+  enters the next zone, `UpdateZone()` makes that its own (`ApplyBiome(true)`: nothing on the
+  track is redone) and welcomes it. `src/biomes/*.lua` hold one
   biome each and override only what they change; `default.lua` holds every field, documented, and
   is the reference for writing one. Tables merge field by field, lists (colors, bands, models)
   are replaced whole. **Anything visual a region could change (ground, obstacles, coins,

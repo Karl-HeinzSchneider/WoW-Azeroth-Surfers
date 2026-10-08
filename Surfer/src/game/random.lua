@@ -16,6 +16,9 @@ random.MAX = M - 1
 random.TRACK, random.LEFT, random.RIGHT, random.LOOK = 1, 1583458089, 784588716, 2045073574
 -- The wildlife's (ambient.lua).
 random.AMBIENT = 1209675413
+-- Auto mode's way through the zones (biomes.lua), and where they end (simulation.lua).
+random.ZONES = 1650567391
+random.GATES = 937513201
 
 -- x * c mod M, exactly: c split in two halves keeps every product below 2^53.
 local function times(x, c)

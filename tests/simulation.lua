@@ -414,6 +414,64 @@ test("generated tracks always leave a way through", function()
     end
 end)
 
+-- A run through zones lays out a gate where each zone ends, about every ZONE_LENGTH yards,
+-- none at its start; the track keeps its rules there. Without zones, none.
+test("a run through zones has a gate between each two", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for seed = 1, 10 do
+            local s, objects, seen = g.New(seed, difficulty.id, true), {}, {}
+            g.Start(s)
+            for _ = 1, 120 do
+                s.distance, s.height = s.nextRow - 80, 100
+                g.Update(s, 1 / 120)
+                s.status = "running"
+                for _, o in ipairs(s.objects) do
+                    if not seen[o] then
+                        seen[o] = true
+                        objects[#objects + 1] = o
+                    end
+                end
+            end
+            local label = string.format("%s seed %d with zones", difficulty.id, seed)
+            assert(#s.gates >= 2, label .. ": gates")
+            assert(s.gates[1] >= g.ZONE_LENGTH[1], label .. ": none at the start")
+            for k = 2, #s.gates do
+                local apart = s.gates[k] - s.gates[k - 1]
+                assert(apart >= g.ZONE_LENGTH[1] and apart <= g.ZONE_LENGTH[2] + 200, label .. ": zone lengths")
+            end
+            -- Each gate's ramp: a platform with its ramp in every lane, up to the rim and past it.
+            local gate = track.GATE
+            local lanes = {}
+            for _, o in ipairs(objects) do
+                if o.gate then
+                    assert(o.kind == "platform" and o.ramp and o.layers == gate.ramp.layers, label .. ": a gate's ramp")
+                    assert(o.at < o.rim and o.at + o.length > o.rim, label .. ": the ramp reaches the rim")
+                    lanes[o.rim] = (lanes[o.rim] or 0) + 1
+                end
+            end
+            for _, rim in ipairs(s.gates) do
+                assert(lanes[rim] == 3, label .. ": a ramp in every lane at each gate")
+            end
+            -- Empty road to each rim and away from it in every lane, but for the gate's own ramp:
+            -- the strip and `lead` yards of the zone's road beyond it, and at least `clear` seconds
+            -- at the difficulty's slowest (the speed only rises): nothing to die on at the gate,
+            -- time to see the next zone after it, and none of the zone's boxes at the strip's edge.
+            local before = math.max(gate.before + gate.lead, difficulty.startSpeed * gate.clear[1])
+            local after = math.max(gate.after + gate.lead, difficulty.startSpeed * gate.clear[2])
+            for _, o in ipairs(objects) do
+                if o.kind ~= "coin" and not o.gate then
+                    for _, rim in ipairs(s.gates) do
+                        local inside = o.at + o.length > rim - before and o.at < rim + after
+                        assert(not inside, label .. ": a box on the empty road around a gate")
+                    end
+                end
+            end
+            checkTrack(objects, label)
+        end
+    end
+    assert(g.New(1).gates == nil, "without zones, no gates")
+end)
+
 -- The pick honors a pattern's weight by difficulty and its `from`; a run's speed follows its
 -- difficulty.
 test("difficulties pick their patterns and set the speed", function()

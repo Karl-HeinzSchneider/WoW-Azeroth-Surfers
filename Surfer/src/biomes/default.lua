@@ -42,7 +42,7 @@ app.biomes.Register("default", {
         },
         -- The far ground fades out between these distances ahead instead of ending at a hard
         -- edge; models, decorations and wildlife fade in the same way. `to` must stay short of
-        -- simulation.AHEAD (140), how far ahead the track is laid out.
+        -- simulation.VIEW (140), how far ahead the views show anything.
         fade = { from = 95, to = 135 },
         -- How the ground curves down and away toward the horizon: it drops `curve` times the
         -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85, 9.1
@@ -64,6 +64,7 @@ app.biomes.Register("default", {
     --          into the world's terrain (a rock) would otherwise show its buried part over the
     --          flat ground, and seem to slide as it comes nearer.
     --   d      yards along the road from the group's start, 0 if left out
+    --   z      yards up from the ground, 0 if left out
     --   yaw    degrees the model turns (0 if left out)
     -- Groups are written for the right side of the road (models face the road at yaw 0 when
     -- built facing the model's +y). The left side's are the same group turned round about its
@@ -151,6 +152,21 @@ app.biomes.Register("default", {
         every = { 80, 200 },
         creatures = {},
     },
+
+    -- The transition (src/biomes/transitions/) of the gates where a run enters this biome's zone
+    -- (auto; patterns/gate.lua; a run's first zone has none): empty road through it in every
+    -- lane, an arc of coins over the middle one at the rim. The transition's `items` dress the
+    -- gate, placed like decorations at the rim:
+    --   model  a file id, or a list to pick one from at random
+    --   x      yards to the screen's right of the road's middle (the outer lanes are at -2.4
+    --          and 2.4), the same on both sides: write an item for each side
+    --   d      yards along the road from the rim, 0 if left out
+    --   z      yards up, 0 if left out
+    --   yaw, scale, lift  as for the decorations
+    --   height yards its top is scaled to, once it has loaded, instead of `scale`
+    -- Any number may be a { min, max } range. Here, for every biome until it has its own: the
+    -- Emerald Dream's.
+    entrance = "dream",
 
     -- Behind the road in the side window, where there is no world: the sky from `top` down to
     -- `horizon`, and the land below the horizon, hazing toward `horizon` by `haze` far away.

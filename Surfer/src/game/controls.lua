@@ -48,7 +48,9 @@ end
 -- A run ready to start: from the fixed seed (`profile.seed`), or a new one, at the profile's
 -- difficulty.
 function overlay:NewState()
-    return sim.New(app.db.profile.seed or nil, app.db.profile.difficulty)
+    -- In auto, through zones: gates where the biome changes (patterns/gate.lua).
+    local zones = app.db.profile.biome == app.biomes.AUTO
+    return sim.New(app.db.profile.seed or nil, app.db.profile.difficulty, zones)
 end
 
 function overlay:Restart()
@@ -92,7 +94,7 @@ function overlay:SetDifficulty(id)
         return
     end
     if self.state.status == "ready" then
-        self.state = sim.New(self.state.seed, id)
+        self.state = sim.New(self.state.seed, id, self.state.gates ~= nil)
     end
     -- The status panel's difficulty (messages.lua).
     if self.status.holder:IsShown() then

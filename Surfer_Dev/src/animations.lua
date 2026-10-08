@@ -50,7 +50,7 @@ end)
 -- The creature display ids of the biome's enemies.
 local function enemies()
     local ids, seen = {}, {}
-    for _, variant in ipairs(app.biomes.Current().obstacles.enemy or {}) do
+    for _, variant in ipairs(app.biomes.Get(app.overlay:BiomeId()).obstacles.enemy or {}) do
         for _, item in ipairs(variant.items) do
             local list = type(item.creature) == "table" and item.creature or { item.creature }
             for _, id in ipairs(list) do

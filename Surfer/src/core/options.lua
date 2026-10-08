@@ -160,6 +160,19 @@ local options = {
                 app.db.profile.enemySound = value
             end,
         },
+        portalSound = {
+            type = "toggle",
+            order = 6.2,
+            width = "full",
+            name = "Portal sounds",
+            desc = "Play a teleport sound when you go through a portal between zones.",
+            get = function()
+                return app.db.profile.portalSound
+            end,
+            set = function(_, value)
+                app.db.profile.portalSound = value
+            end,
+        },
         legend = {
             type = "toggle",
             order = 6.5,
@@ -234,9 +247,11 @@ local options = {
             type = "select",
             order = 7,
             name = "Biome",
-            desc = "How the game looks: its ground, obstacles and coins.",
+            desc = "How the game looks: its ground, obstacles and coins. Auto goes from zone to zone as you run, starter zones first, the way set by the seed.",
             values = function()
-                return app.biomes.Names()
+                local names = app.biomes.Names()
+                names[app.biomes.AUTO] = "Auto: zone to zone"
+                return names
             end,
             get = function()
                 return app.db.profile.biome
