@@ -140,4 +140,7 @@ app.biomes.RegisterTransition("dream", {
     -- passivedoodads/rubble/diremaulstonestatue01 to 04), x = -6.8 and 6.8, d = -8, height = 9,
     -- yaw = { 215, 235 } on the left, { 125, 145 } on the right }.
     items = items,
+    -- The portal's pull (messages.lua): its opening, about 6 yards up (on the platform) and 5.7
+    -- round at this height, swirling green.
+    vortex = { center = 6, radius = 5.7, color = { 0.45, 1, 0.6 } },
 })

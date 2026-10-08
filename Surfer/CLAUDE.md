@@ -115,7 +115,10 @@ distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance`
   ends just past its strip (`overlay:UpdateView()` sets `overlay.fade`, which every part of the
   view fades by, and the strips in sight), so nothing of the next zone shows; jumping through,
   the next zone appears (and the screen flashes, `overlay:Flash`, if the transition has a
-  `flash` color; the dream one has none); a run starts in the lowest tier,
+  `flash` color; the dream one has none). A transition's `vortex` pulls the runner in
+  (`overlay:ShowVortex`, messages.lua): swirls spin over the portal's opening, faster as it
+  nears, the screen's edges close in, and going through, the swirls swallow the screen and
+  fade; a run starts in the lowest tier,
   then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
   one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
   (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is

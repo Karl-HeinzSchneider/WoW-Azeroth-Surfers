@@ -71,7 +71,9 @@ biomes.transitions = {}
 -- the same surface names; a surface left out is the zone's; without, the strip has its zones'
 -- ground, changing at the rim); `items`, the models at the gate (see
 -- default.lua's `entrance`); `obstacles`, the looks of the gate's boxes (its ramp and platform),
--- as a biome's `obstacles` (flat boxes without); `flash`, optional, a color the screen flashes in as the runner goes through.
+-- as a biome's `obstacles` (flat boxes without); `flash`, optional, a color the screen flashes in as the runner goes through; `vortex`,
+-- optional, the portal's pull (messages.lua's ShowVortex: its opening's `center` yards up,
+-- `radius`, `color`).
 function biomes.RegisterTransition(id, def)
     biomes.transitions[id] = def
 end

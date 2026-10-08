@@ -36,6 +36,24 @@ local BANNER_SIDE_SCALE = 0.5
 -- Jumping through a gate: the screen flashes this strong in the transition's color, fading out
 -- over this many seconds.
 local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
+-- A gate's pull (a transition's `vortex`): from VORTEX_FROM yards before its rim it grows, all
+-- there at the rim; past it, the swirl swallows the screen and fades over VORTEX_THROUGH yards.
+local VORTEX_FROM, VORTEX_THROUGH = 30, 8
+-- The pull's swirls, over the portal's opening, added on (blend ADD) in the transition's color:
+-- the portal's own nebula (generic/activedoodads/worldtreeportals/twistednether4) cut round by
+-- the portrait mask, the stun swirl (spells/stunwhirl_reverse) and a cloudy swirl
+-- (spells/t_vfx_swirl64) turning the other way. `size`: of the opening; `spin`: turns per
+-- turn of the pull's angle (its sign the direction); `alpha` at the full pull.
+local VORTEX_LAYERS = {
+    { texture = 197066, size = 1, spin = 0.35, alpha = 0.5 },
+    { texture = 166989, size = 1.3, spin = -1, alpha = 0.85 },
+    { texture = 167086, size = 0.95, spin = 1.3, alpha = 0.55 },
+}
+local VORTEX_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+-- The screen's edges closing in, darkest at the full pull.
+local VORTEX_EDGES, VORTEX_EDGES_ALPHA = "Interface\\FullScreenTextures\\OutOfControl", 0.8
+-- Radians a second the swirls turn without pull and at the full pull.
+local VORTEX_SPIN = { 1, 9 }
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
@@ -262,6 +280,28 @@ function overlay:CreateMessages(f)
     glow:SetAllPoints(flash)
     glow:SetColorTexture(1, 1, 1, 1)
     self.flash = { frame = flash, texture = glow }
+
+    -- The pull of a gate's portal (ShowVortex), over the world and the twin like the flash: the
+    -- screen's edges closing in, and swirls over the portal's opening, its own nebula cut round.
+    local vortex = CreateFrame("Frame", nil, f)
+    self:Stack(vortex, "flash")
+    vortex:SetAllPoints(f)
+    vortex:Hide()
+    local edges = vortex:CreateTexture(nil, "BACKGROUND")
+    edges:SetAllPoints(vortex)
+    edges:SetTexture(VORTEX_EDGES)
+    local layers = {}
+    for i, layer in ipairs(VORTEX_LAYERS) do
+        local t = vortex:CreateTexture(nil, "ARTWORK", nil, i)
+        t:SetTexture(layer.texture)
+        t:SetBlendMode("ADD")
+        layers[i] = t
+    end
+    local mask = vortex:CreateMaskTexture()
+    mask:SetTexture(VORTEX_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    mask:SetAllPoints(layers[1])
+    layers[1]:AddMaskTexture(mask)
+    self.vortex = { frame = vortex, parent = f, edges = edges, layers = layers, angle = 0 }
 end
 
 -- Where the panel and announcements stand for the view's mode and size (window.lua's Layout).
@@ -452,6 +492,73 @@ function overlay:Flash(color)
     flash.start = GetTime()
     flash.frame:SetAlpha(FLASH_ALPHA)
     flash.frame:Show()
+end
+
+-- Once a frame: a gate's pull, when the next gate (or the one just gone through) has a
+-- transition with a `vortex` ({ center, radius, color }: its portal's opening, `center` yards
+-- up from the road and `radius` yards round). Swirls spin over the opening, faster, brighter
+-- and a little bigger the nearer the runner comes, and the screen's edges darken; from the rim
+-- on the swirls grow from the opening over the whole screen and fade. Still while paused.
+function overlay:ShowVortex()
+    local vortex = self.vortex
+    if not vortex then
+        return
+    end
+    local s = self.state
+    local strips, looks = self.strips, self.stripLooks
+    local look, ahead
+    for i = 1, strips and #strips or 0 do
+        local d = strips[i] - s.distance
+        if d < VORTEX_FROM and d > -VORTEX_THROUGH and looks[i].vortex then
+            look, ahead = looks[i].vortex, d
+            break
+        end
+    end
+    local now = GetTime()
+    local elapsed = now - (vortex.time or now)
+    vortex.time = now
+    if not look then
+        if vortex.shown then
+            vortex.frame:Hide()
+            vortex.shown = false
+        end
+        return
+    end
+    if not vortex.shown then
+        vortex.frame:Show()
+        vortex.shown = true
+    end
+    -- How strong the pull is (eased in), and how far through the portal the runner is.
+    local pull = math.min(1, (VORTEX_FROM - ahead) / VORTEX_FROM)
+    pull = pull * pull * (3 - 2 * pull)
+    local through = math.max(0, -ahead / VORTEX_THROUGH)
+    if s.status == "running" then
+        vortex.angle = vortex.angle + elapsed * (VORTEX_SPIN[1] + (VORTEX_SPIN[2] - VORTEX_SPIN[1]) * pull)
+    end
+    -- The opening on the screen (at the rim once past it), then toward the screen's middle and
+    -- over all of it.
+    local at = math.max(ahead, 0)
+    local x, y, scale = self:Project(at, 0, app.shapes.Ground(at) + look.center)
+    if not x then
+        vortex.frame:Hide()
+        vortex.shown = false
+        return
+    end
+    local w, h = vortex.parent:GetSize()
+    local k = through ^ 0.6
+    local size = 2 * look.radius * scale * (1 + 0.2 * pull)
+    size = size + (2.4 * math.max(w, h) - size) * k
+    x, y = x + (w / 2 - x) * k, y + (h / 2 - y) * k
+    local strength = pull * (1 - through)
+    local color = look.color
+    for i, layer in ipairs(VORTEX_LAYERS) do
+        local t = vortex.layers[i]
+        t:SetPoint("CENTER", vortex.parent, "BOTTOMLEFT", x, y)
+        t:SetSize(size * layer.size, size * layer.size)
+        t:SetRotation(vortex.angle * layer.spin)
+        t:SetVertexColor(color[1], color[2], color[3], strength * layer.alpha)
+    end
+    vortex.edges:SetAlpha(strength * VORTEX_EDGES_ALPHA)
 end
 
 -- Once a frame: a flash fading out.
