@@ -106,7 +106,7 @@ zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, every lane ope
 distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance` names its
   transition (`src/biomes/transitions/*.lua`, `biomes.RegisterTransition`, never a zone; the
   default's, `dream`: the dragon groves' tree portal, worldtreeportal01, in an overgrown highborne grove
-  (Dire Maul's statues and rubble, Teldrassil trees, Feralas stones), on Ashenvale's
+  (Dire Maul's statues and rubble, the Emerald Dream's trees, Feralas stones), on Ashenvale's
   ground).
   Around a gate's rim (`track.GATE`: 10 yards before it, 18 after), the ground is the transition's and
   its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it. While a gate is ahead the view

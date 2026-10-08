@@ -149,6 +149,10 @@ to its path; look ids up there instead of downloading the listfile or guessing t
   case-insensitively, e.g. `grep -i "woodendummies/.*\.m2$" ../wow-listfile/parts/world.csv`.
 - `listfile.txt` — the paths alone, lowercased, without ids: no use for an id.
 
+Only M2 models (`.m2`) can be shown: every model is an actor of a ModelScene, and **a WMO's
+file id (`world-wmo.csv`, `.wmo`) given to an actor crashes the client** (`/surfer preview model`
+too). Scenery built into a WMO (buildings, the dragon groves' tree and ruins) cannot be used.
+
 Only classic-era files (see the biomes). The path tells, not the id: ids follow the paths,
 so a later expansion's files sit among the original's (`World/Expansion01/...` at 191xxx).
 Leave out anything under an expansion's folder (`Expansion01`, `Expansion02`, ...) and the
