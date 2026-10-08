@@ -61,15 +61,17 @@ end
 
 -- Transitions: what a gate between two zones looks like (src/biomes/transitions/), never a zone
 -- themselves. A biome's `entrance` names the one of the gates into it. Around a gate's rim (the
--- strip of track.GATE, before and after it), the ground is the transition's and its `items`
--- stand; past the strip
--- nothing shows until the runner jumps through (overlay.lua), when the screen flashes in its
--- `flash` color and the next zone appears.
+-- strip of track.GATE, before and after it), the ground is the transition's (or, without one,
+-- its zones': the one before up to the rim, the next one past it) and its `items` stand; past the strip
+-- nothing shows until the runner jumps through (overlay.lua), when the next zone appears (and
+-- the screen flashes in the transition's `flash` color, if it has one).
 biomes.transitions = {}
 
--- Called by each transition file. `def`: `name`; `ground.surfaces` (as a biome's, by the same
--- surface names; a surface left out is the zone's); `items`, the models at the gate (see
--- default.lua's `entrance`); `flash`, a color.
+-- Called by each transition file. `def`: `name`; `ground.surfaces`, optional (as a biome's, by
+-- the same surface names; a surface left out is the zone's; without, the strip has its zones'
+-- ground, changing at the rim); `items`, the models at the gate (see
+-- default.lua's `entrance`); `obstacles`, the looks of the gate's boxes (its ramp and platform),
+-- as a biome's `obstacles` (flat boxes without); `flash`, optional, a color the screen flashes in as the runner goes through.
 function biomes.RegisterTransition(id, def)
     biomes.transitions[id] = def
 end

@@ -23,13 +23,16 @@ local fitting = {}
 local looks = random.New(1, random.LOOK)
 
 -- The biome's look for box `o`: one of its kind's variants for its height, picked once and kept
--- on the box; false when the biome has none, so it stays flat.
+-- on the box; false when the biome has none, so it stays flat. A gate's boxes
+-- (patterns/gate.lua) take the looks of the transition into the next zone (its `obstacles`).
 function overlay:ObstacleLook(o)
     local look = o.surferLook
     if look == nil then
         look = false
         -- The zone's it stands in (auto), so the next zone's boxes come into sight.
-        local variants = self:BiomeAt(o.at).obstacles[o.kind]
+        local obstacles = o.gate and app.biomes.Transition(self:BiomeAt(o.rim + 1).entrance).obstacles
+            or self:BiomeAt(o.at).obstacles
+        local variants = obstacles and obstacles[o.kind]
         if variants then
             for i = #fitting, 1, -1 do
                 fitting[i] = nil

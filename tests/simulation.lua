@@ -439,14 +439,27 @@ test("a run through zones has a gate between each two", function()
                 local apart = s.gates[k] - s.gates[k - 1]
                 assert(apart >= g.ZONE_LENGTH[1] and apart <= g.ZONE_LENGTH[2] + 200, label .. ": zone lengths")
             end
-            -- Empty road to each rim and away from it in every lane, at least the strip, and at
-            -- least `clear` seconds at the difficulty's slowest (the speed only rises): nothing
-            -- to die on at the gate, and time to see the next zone after it.
+            -- Each gate's ramp: a platform with its ramp in every lane, up to the rim and past it.
             local gate = track.GATE
-            local before = math.max(gate.before, difficulty.startSpeed * gate.clear[1])
-            local after = math.max(gate.after, difficulty.startSpeed * gate.clear[2])
+            local lanes = {}
             for _, o in ipairs(objects) do
-                if o.kind ~= "coin" then
+                if o.gate then
+                    assert(o.kind == "platform" and o.ramp and o.layers == gate.ramp.layers, label .. ": a gate's ramp")
+                    assert(o.at < o.rim and o.at + o.length > o.rim, label .. ": the ramp reaches the rim")
+                    lanes[o.rim] = (lanes[o.rim] or 0) + 1
+                end
+            end
+            for _, rim in ipairs(s.gates) do
+                assert(lanes[rim] == 3, label .. ": a ramp in every lane at each gate")
+            end
+            -- Empty road to each rim and away from it in every lane, but for the gate's own ramp:
+            -- the strip and `lead` yards of the zone's road beyond it, and at least `clear` seconds
+            -- at the difficulty's slowest (the speed only rises): nothing to die on at the gate,
+            -- time to see the next zone after it, and none of the zone's boxes at the strip's edge.
+            local before = math.max(gate.before + gate.lead, difficulty.startSpeed * gate.clear[1])
+            local after = math.max(gate.after + gate.lead, difficulty.startSpeed * gate.clear[2])
+            for _, o in ipairs(objects) do
+                if o.kind ~= "coin" and not o.gate then
                     for _, rim in ipairs(s.gates) do
                         local inside = o.at + o.length > rim - before and o.at < rim + after
                         assert(not inside, label .. ": a box on the empty road around a gate")

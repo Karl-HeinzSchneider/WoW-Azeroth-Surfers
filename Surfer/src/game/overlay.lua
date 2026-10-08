@@ -339,14 +339,16 @@ local function addCut(d)
     cuts[i] = d
 end
 
--- The look of the ground `d` yards ahead: its key (a biome id, or a gate strip's transition)
--- and the transition, if it is one.
+-- The look of the ground `d` yards ahead: its key (a biome id, or a gate strip's transition
+-- with a ground of its own) and the transition, if it is one. A strip whose transition has no
+-- ground is its zones': the one before up to the rim, the next one past it.
 function overlay:GroundLookAt(d)
     local at = onGround.distance + d
     local strips, gate = self.strips, app.track.GATE
     for i = 1, #strips do
-        if at > strips[i] - gate.before and at < strips[i] + gate.after then
-            return self.stripLooks[i], self.stripLooks[i]
+        local look = self.stripLooks[i]
+        if look.ground and at > strips[i] - gate.before and at < strips[i] + gate.after then
+            return look, look
         end
     end
     if d < onGround.firstEnd then
@@ -676,13 +678,16 @@ end
 function overlay:UpdateZone()
     if self:BiomeId() ~= self.biomeId then
         self:ApplyBiome(true)
-        -- Through a gate (not a new run's first zone): welcomed, the screen flashes, and the next
-        -- zone appears behind it.
+        -- Through a gate (not a new run's first zone): welcomed, and the screen flashes if its
+        -- transition has a `flash`.
         local s = self.state
         local through = s.gates and app.biomes.Zone(self:Route(), s.distance).from > -math.huge
         if s.status == "running" and through then
             self:WelcomeBiome()
-            self:Flash(app.biomes.Transition(self.biome.entrance).flash)
+            local flash = app.biomes.Transition(self.biome.entrance).flash
+            if flash then
+                self:Flash(flash)
+            end
         end
     end
 end

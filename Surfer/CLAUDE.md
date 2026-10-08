@@ -98,22 +98,24 @@ be listed**. The order follows these rules:
   `Get(id)` (merged over the default). `profile.biome` is a biome's id or `"auto"` (the
   default): auto goes zone to zone as the run goes. A biome with a `tier` (1 for starter zones,
   2 and up for later ones; `weight`, 1 by default) is such a zone; Where a zone ends is the simulation's: a run begun in auto (`New(seed, difficulty,
-zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, every lane open, an arc
-  of coins over the middle one, empty road `track.GATE.clear` seconds before its rim and after
-  it) every `simulation.ZONE_LENGTH` yards from its own stream (`random.GATES`), none
+zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, a step in every lane
+  (`track.GATE.ramp`, one layer) up to the platform the portal stands on, an arc of coins over
+  the middle one, its boxes marked `o.gate` and dressed by the transition's `obstacles`; empty road `track.GATE.clear` seconds before its rim and after
+  it, and at least the strip and `lead` yards of the zone's own road beyond it) every `simulation.ZONE_LENGTH` yards from its own stream (`random.GATES`), none
   at its start, and lists where the next zone starts in `s.gates`. Which biome each zone is,
   biomes.lua's: `Route(seed, gates)` from its own stream (`random.ZONES`), `Zone(route,
 distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance` names its
   transition (`src/biomes/transitions/*.lua`, `biomes.RegisterTransition`, never a zone; the
-  default's, `dream`: the dragon groves' tree portal, worldtreeportal01, in an overgrown highborne grove
-  (Dire Maul's statues and rubble, the Emerald Dream's trees, Feralas stones), on Ashenvale's
-  ground).
-  Around a gate's rim (`track.GATE`: 10 yards before it, 18 after), the ground is the transition's and
-  its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it. While a gate is ahead the view
+  default's, `dream`: the dragon groves' tree portal, worldtreeportal01, in an overgrown
+  night elf shrine in Feralas' forest, a stone path leading to it, ruins on the left, roots and
+  forest on the right, the Nightmare's purple about the portal, on its zones' ground, the next one's from the portal on).
+  Around a gate's rim (`track.GATE`: 22 yards before it, 18 after), the ground is the transition's (without one, its zones', changing at the rim) and
+  its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it, and a
+  transition keeps its own models inside it. While a gate is ahead the view
   ends just past its strip (`overlay:UpdateView()` sets `overlay.fade`, which every part of the
-  view fades by, and the strips in sight), so nothing of the next zone shows; jumping through
-  flashes the screen in the transition's `flash` color (`overlay:Flash`) and the next zone
-  appears; a run starts in the lowest tier,
+  view fades by, and the strips in sight), so nothing of the next zone shows; jumping through,
+  the next zone appears (and the screen flashes, `overlay:Flash`, if the transition has a
+  `flash` color; the dream one has none); a run starts in the lowest tier,
   then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
   one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
   (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is
