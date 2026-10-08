@@ -60,6 +60,9 @@ app.biomes.Register("default", {
     --          world (the road's edge is at 4.3, the grass is solid to 7.9 and fades out by 10.9). Moved farther out if
     --          the model would reach closer to the middle than `clear`.
     --   overhang  true: may reach over the road (a lamp's arm), `clear` does not apply
+    --   lift   true: stands on its lowest point instead of its origin. A model built to sink
+    --          into the world's terrain (a rock) would otherwise show its buried part over the
+    --          flat ground, and seem to slide as it comes nearer.
     --   d      yards along the road from the group's start, 0 if left out
     --   yaw    degrees the model turns (0 if left out)
     -- Groups are written for the right side of the road (models face the road at yaw 0 when

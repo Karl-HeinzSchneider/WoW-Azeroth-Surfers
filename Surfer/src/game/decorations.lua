@@ -237,7 +237,7 @@ local function place(self, r, length, item, at, side)
     end
     d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
     d.side, d.x, d.overhang, d.fitted = side, value(r, item.x, 6), item.overhang, false
-    d.shiftX, d.shiftY = 0, 0
+    d.shiftX, d.shiftY, d.lift, d.raise = 0, 0, item.lift, 0
     d.y = -side * d.x
     -- Built for the right side; the left side's are turned round to face the road too.
     d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (side < 0 and math.pi or 0), value(r, item.scale, 1)
@@ -255,6 +255,11 @@ function overlay:FitDecoration(d, clear)
         return
     end
     d.fitted = true
+    -- Standing on its lowest point: the part a model sinks into the world's terrain would show
+    -- here, over the flat ground, and seem to slide as it comes nearer. In its own units.
+    if d.lift then
+        d.raise = math.max(0, -bounds[3])
+    end
     d.shiftX, d.shiftY = self.TurnShift(bounds, d.yaw)
     if d.overhang then
         return
@@ -322,7 +327,7 @@ function overlay:UpdateDecorations()
             d.actor:SetPosition(
                 (ahead + self.sceneRunner) / scale + d.shiftX,
                 d.y / scale + d.shiftY,
-                ground(ahead) / scale
+                ground(ahead) / scale + d.raise
             )
             local alpha = math.min(1, math.max(0, (fade.to - ahead) / (fade.to - fade.from)))
             if not d.alpha or math.abs(alpha - d.alpha) > 0.02 then

@@ -133,7 +133,8 @@ be listed**. The order follows these rules:
   distance, every 16384 yards starting over; the runner is at `sceneRunner`), so particles (a
   brazier's flames) rise where their model is instead of trailing behind it; obstacles, coins
   and wildlife in the same scene do the same. Only the ground's curve still moves them, slowly, up; actors are pooled by model and instance tables reused. Models are placed by their own
-  origin (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
+  origin (or, with `lift`, on their lowest point: a rock built to sink into the
+  terrain would show its buried part over the flat ground) (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
   biome's `clear` by their measured, turned bounds unless an item is `overhang`. Each side draws
   from its own stream of the run's seed in road order, and an obstacle's look from its box's
   `o.seed` (obstacles.lua), so a seed decorates the same at any frame rate.

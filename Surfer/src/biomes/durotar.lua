@@ -17,6 +17,9 @@ app.biomes.Register("durotar", {
             dirt = { texture = 187019 }, -- tileset/durotar/durotardirtsmooth.blp
             grass = { texture = 187021 }, -- tileset/durotar/durotargrass.blp
         },
+        -- Flatter than the default's: open land, the road dropping 0.7 yards by 50 ahead (the
+        -- options' "Ground curve" shows it so; the default drops 1.25).
+        curve = 0.00028,
     },
 
     -- A hot, hazy sky over red earth.
@@ -178,6 +181,8 @@ app.biomes.Register("durotar", {
                         x = { 5, 8 },
                         yaw = { 0, 360 },
                         scale = { 0.3, 0.6 },
+                        -- Built half buried in the terrain: on the ground instead.
+                        lift = true,
                     },
                 },
             },
