@@ -439,20 +439,14 @@ test("a run through zones has a gate between each two", function()
                 local apart = s.gates[k] - s.gates[k - 1]
                 assert(apart >= g.ZONE_LENGTH[1] and apart <= g.ZONE_LENGTH[2] + 200, label .. ": zone lengths")
             end
-            local walls = 0
-            for _, o in ipairs(objects) do
-                assert(not o.gate or o.lane ~= 0, label .. ": the middle lane runs through a gate")
-                walls = walls + (o.gate and 1 or 0)
-            end
-            assert(walls == 2 * #s.gates, label .. ": two walls at each gate")
-            -- Empty road to each rim and away from it, at least the strip, and at least `clear`
-            -- seconds at the difficulty's slowest (the speed only rises): nothing to dodge at
-            -- the gate, and time to see the next zone after it.
+            -- Empty road to each rim and away from it in every lane, at least the strip, and at
+            -- least `clear` seconds at the difficulty's slowest (the speed only rises): nothing
+            -- to die on at the gate, and time to see the next zone after it.
             local gate = track.GATE
             local before = math.max(gate.before, difficulty.startSpeed * gate.clear[1])
             local after = math.max(gate.after, difficulty.startSpeed * gate.clear[2])
             for _, o in ipairs(objects) do
-                if not o.gate and o.kind ~= "coin" then
+                if o.kind ~= "coin" then
                     for _, rim in ipairs(s.gates) do
                         local inside = o.at + o.length > rim - before and o.at < rim + after
                         assert(not inside, label .. ": a box on the empty road around a gate")

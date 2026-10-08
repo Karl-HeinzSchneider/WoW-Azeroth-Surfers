@@ -69,8 +69,7 @@ biomes.transitions = {}
 
 -- Called by each transition file. `def`: `name`; `ground.surfaces` (as a biome's, by the same
 -- surface names; a surface left out is the zone's); `items`, the models at the gate (see
--- default.lua's `entrance`); `wall`, the look of the walls blocking the outer lanes (a variant
--- like a biome's obstacles': `items` scaled to the wall, 3 yards tall, 2 long); `flash`, a color.
+-- default.lua's `entrance`); `flash`, a color.
 function biomes.RegisterTransition(id, def)
     biomes.transitions[id] = def
 end

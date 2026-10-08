@@ -11,8 +11,7 @@ app.biomes.RegisterTransition("dream", {
             grass = { texture = 186830 }, -- tileset/ashenvale/ashenvaleferns.blp
         },
     },
-    -- generic/activedoodads/worldtreeportals/worldtreeportal01, over the road. Its frame is what
-    -- blocks the outer lanes: no `wall` look of their own.
+    -- generic/activedoodads/worldtreeportals/worldtreeportal01, over the road.
     items = {
         { model = 197068, x = 0, height = 14 },
     },

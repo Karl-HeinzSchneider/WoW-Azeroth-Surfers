@@ -98,8 +98,8 @@ be listed**. The order follows these rules:
   `Get(id)` (merged over the default). `profile.biome` is a biome's id or `"auto"` (the
   default): auto goes zone to zone as the run goes. A biome with a `tier` (1 for starter zones,
   2 and up for later ones; `weight`, 1 by default) is such a zone; Where a zone ends is the simulation's: a run begun in auto (`New(seed, difficulty,
-zones)`) lays out a gate (`patterns/gate.lua`: walled outer lanes, the middle one open
-  with an arc of coins over it, empty road `track.GATE.clear` seconds before its rim and after
+zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, every lane open, an arc
+  of coins over the middle one, empty road `track.GATE.clear` seconds before its rim and after
   it) every `simulation.ZONE_LENGTH` yards from its own stream (`random.GATES`), none
   at its start, and lists where the next zone starts in `s.gates`. Which biome each zone is,
   biomes.lua's: `Route(seed, gates)` from its own stream (`random.ZONES`), `Zone(route,
@@ -107,8 +107,7 @@ distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance`
   transition (`src/biomes/transitions/*.lua`, `biomes.RegisterTransition`, never a zone; the
   default's, `dream`: the dragon groves' tree portal, worldtreeportal01, on Ashenvale's ground).
   Around a gate's rim (`track.GATE`: 10 yards before it, 18 after), the ground is the transition's and
-  its `items` stand (decorations.lua places them as the gate comes into sight; the gate's boxes
-  have no looks, `o.gate`); no roadside group reaches into it. While a gate is ahead the view
+  its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it. While a gate is ahead the view
   ends just past its strip (`overlay:UpdateView()` sets `overlay.fade`, which every part of the
   view fades by, and the strips in sight), so nothing of the next zone shows; jumping through
   flashes the screen in the transition's `flash` color (`overlay:Flash`) and the next zone

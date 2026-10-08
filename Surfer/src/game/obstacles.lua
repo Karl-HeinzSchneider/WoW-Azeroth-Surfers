@@ -24,18 +24,7 @@ local looks = random.New(1, random.LOOK)
 
 -- The biome's look for box `o`: one of its kind's variants for its height, picked once and kept
 -- on the box; false when the biome has none, so it stays flat.
--- A gate's walls (patterns/gate.lua) wear the `wall` look of the transition into the next zone
--- (a variant like a biome's obstacles'), or none.
-local GATE = { items = {} }
-
 function overlay:ObstacleLook(o)
-    if o.gate then
-        if o.surferLook == nil then
-            local transition = app.biomes.Transition(self:BiomeAt(o.rim + 1).entrance)
-            o.surferLook = transition.wall or GATE
-        end
-        return o.surferLook
-    end
     local look = o.surferLook
     if look == nil then
         look = false

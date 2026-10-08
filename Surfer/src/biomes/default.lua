@@ -154,10 +154,9 @@ app.biomes.Register("default", {
     },
 
     -- The transition (src/biomes/transitions/) of the gates where a run enters this biome's zone
-    -- (auto; patterns/gate.lua; a run's first zone has none): walls in the two outer lanes from a
-    -- yard before its rim to a yard past it (the transition's `wall` look), the middle lane
-    -- open, an arc of coins over it at the rim. The transition's `items` dress the gate, placed
-    -- like decorations at the rim:
+    -- (auto; patterns/gate.lua; a run's first zone has none): empty road through it in every
+    -- lane, an arc of coins over the middle one at the rim. The transition's `items` dress the
+    -- gate, placed like decorations at the rim:
     --   model  a file id, or a list to pick one from at random
     --   x      yards to the screen's right of the road's middle (the outer lanes are at -2.4
     --          and 2.4), the same on both sides: write an item for each side
