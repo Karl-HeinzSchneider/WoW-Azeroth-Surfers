@@ -41,13 +41,14 @@ app.biomes.Register("durotar", {
             -- orccrate03, or orcbarrel03.
             { layers = 2, weight = 2, items = { { model = 199096, height = 1.24, yaw = { -8, 8 } } } },
             { layers = 2, items = { { model = 199091, height = 1.24, yaw = { 0, 360 } } } },
-            -- The tall wall, too high to jump: two orc crates stacked, or a tall brazier
-            -- (braziers/tallbrazier01).
+            -- The tall wall, too high to jump: two orc crates stacked, the one with the Horde's
+            -- mark on top smaller (it looked too big at the same size), or a tall brazier
+            -- (braziers/tallbrazier01). The wall's box stays its full height.
             {
                 layers = 4,
                 items = {
                     { model = 199096, height = 1.2, yaw = { -5, 5 } },
-                    { model = { 199094, 199095 }, z = 1.2, height = 1.2, yaw = { -15, 15 } },
+                    { model = { 199094, 199095 }, z = 1.2, height = 0.77, yaw = { -15, 15 } },
                 },
             },
             { layers = 4, items = { { model = 199141, height = 2.3, yaw = { 0, 360 } } } },
@@ -125,7 +126,8 @@ app.biomes.Register("durotar", {
     },
 
     -- The roadside: dry bushes and cactus by the road, rocks, an orc brazier lamp or a Horde
-    -- banner now and then, and Durotar's twisted trees farther back.
+    -- banner now and then. Durotar's twisted trees (trees/durotartree01 to 06: 201803 to
+    -- 201808) are left out for now: too big beside the road.
     decorations = {
         spacing = { 1, 6 },
         groups = {
@@ -178,19 +180,6 @@ app.biomes.Register("durotar", {
                 weight = 1,
                 length = 4,
                 items = { { model = { 199173, 199174, 199175, 199176 }, x = { 6, 7 }, yaw = { -20, 20 } } },
-            },
-            -- trees/durotartree01 to 06, farther back.
-            {
-                weight = 2,
-                length = 5,
-                items = {
-                    {
-                        model = { 201803, 201804, 201805, 201806, 201807, 201808 },
-                        x = { 10, 15 },
-                        yaw = { 0, 360 },
-                        scale = { 0.8, 1.1 },
-                    },
-                },
             },
         },
     },
