@@ -56,13 +56,13 @@ app.biomes.Register("durotar", {
         -- Durotar's creatures facing the runner; all attack (16) when the runner comes close,
         -- the tall ones from their ready stance (25).
         enemy = {
-            -- Low enough to jump: a Mottled Boar (503, with its charge sound), a Venomtail,
-            -- Armored or Clattering Scorpid (2732, 2487, 2486), or a Durotar Tiger (598).
+            -- Low enough to jump: a Mottled Boar (503), a Venomtail, Armored or Clattering
+            -- Scorpid (2732, 2487, 2486), or a Durotar Tiger (598), each with its kind's attack.
             { layers = 2, items = { { creature = 503, yaw = 180, attack = 16, sound = 380 } } },
-            { layers = 2, items = { { creature = { 2732, 2487, 2486 }, yaw = 180, attack = 16 } } },
-            { layers = 2, weight = 0.5, items = { { creature = 598, yaw = 180, attack = 16 } } },
+            { layers = 2, items = { { creature = { 2732, 2487, 2486 }, yaw = 180, attack = 16, sound = 715 } } },
+            { layers = 2, weight = 0.5, items = { { creature = 598, yaw = 180, attack = 16, sound = 643 } } },
             -- Too tall: the Razormane quilboar (Quilboar 1218, Scout 1252, Dustrunner 6088,
-            -- Battleguard 1964).
+            -- Battleguard 1964), all with the quilboar's attack.
             {
                 layers = 4,
                 weight = 2,
@@ -73,21 +73,29 @@ app.biomes.Register("durotar", {
                         yaw = 180,
                         animation = 25,
                         attack = 16,
+                        sound = 1176,
                     },
                 },
             },
-            -- The Burning Blade (Cultist 4194, Thug 4188, Fanatic 4192).
+            -- The Burning Blade (Cultist 4194, Thug 4188, Fanatic 4192), with an orc's attack.
             {
                 layers = 4,
                 items = {
-                    { creature = { 4194, 4188, 4192 }, height = 2, yaw = 180, animation = 25, attack = 16 },
+                    {
+                        creature = { 4194, 4188, 4192 },
+                        height = 2,
+                        yaw = 180,
+                        animation = 25,
+                        attack = 16,
+                        sound = 1341,
+                    },
                 },
             },
             -- A Kolkar Drudge (9442), a centaur: bigger and rarer.
             {
                 layers = 4,
                 weight = 0.5,
-                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 25, attack = 16 } },
+                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 25, attack = 16, sound = 1040 } },
             },
         },
         -- deadminelumberpilesmall across two orcfence/orcfencepost posts.
