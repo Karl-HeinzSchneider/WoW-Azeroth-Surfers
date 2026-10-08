@@ -73,7 +73,8 @@ biomes.transitions = {}
 -- default.lua's `entrance`); `obstacles`, the looks of the gate's boxes (its ramp and platform),
 -- as a biome's `obstacles` (flat boxes without); `flash`, optional, a color the screen flashes in as the runner goes through; `vortex`,
 -- optional, the portal's pull (messages.lua's ShowVortex: its opening's `center` yards up,
--- `radius`, `color`).
+-- `radius`, `color`); `sounds`, optional (with a `vortex`; the "Portal sounds" option), sound
+-- file ids: `approach` from the pull's start until it ends, `through` as the camera goes through.
 function biomes.RegisterTransition(id, def)
     biomes.transitions[id] = def
 end

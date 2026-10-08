@@ -18,6 +18,8 @@ local profile = {
     coinSound = true,
     -- Enemies' attack sounds as the runner passes them (obstacles.lua).
     enemySound = true,
+    -- A gate's sound as the runner goes through its portal (messages.lua).
+    portalSound = true,
     -- The hotkey legend beside the road (legend.lua).
     legend = true,
     -- How the game looks: a file in src/biomes/, or "auto", zone to zone as the run goes.

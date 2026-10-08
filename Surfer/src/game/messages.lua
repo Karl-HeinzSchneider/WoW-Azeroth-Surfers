@@ -44,6 +44,10 @@ local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
 local VORTEX_FROM, VORTEX_THROUGH, VORTEX_AROUND = 50, 14, 8
 -- The opening's size on the screen once the wind comes from all round, in the screen's sizes.
 local VORTEX_AROUND_SIZE = 1.2
+-- A transition's `sounds`: `approach` from the pull's start, cut off over HUM_FADE
+-- milliseconds as it ends (or the run stops); `through`, THROUGH_LEAD seconds before the camera
+-- goes through (the teleport's whoosh builds up into it).
+local HUM_FADE, THROUGH_LEAD = 1000, 0.4
 -- The screen's edges closing in, darkest at the full pull.
 local VORTEX_EDGES, VORTEX_EDGES_ALPHA = "Interface\\FullScreenTextures\\OutOfControl", 0.8
 -- Radians a second the pull turns round without pull and at the full pull (the wind's lines
@@ -522,14 +526,15 @@ function overlay:ShowVortex()
     end
     local s = self.state
     local strips, looks = self.strips, self.stripLooks
-    local look, ahead
+    local look, ahead, transition, rim
     for i = 1, strips and #strips or 0 do
         local d = strips[i] - s.distance
         if d - self.camera.x < VORTEX_FROM and d - self.camera.x > -VORTEX_THROUGH and looks[i].vortex then
-            look, ahead = looks[i].vortex, d
+            look, ahead, transition, rim = looks[i].vortex, d, looks[i], strips[i]
             break
         end
     end
+    self:PortalSounds(transition, rim, ahead and ahead - self.camera.x)
     local now = GetTime()
     local elapsed = now - (vortex.time or now)
     vortex.time = now
@@ -574,6 +579,40 @@ function overlay:ShowVortex()
     local strength = pull * (1 - fade)
     vortex.edges:SetAlpha(strength * VORTEX_EDGES_ALPHA)
     self:ShowWind(x, y, size, pull, strength, look.color)
+end
+
+-- A gate's sounds (its transition's `sounds`, the "Portal sounds" option), each once a gate and
+-- only while running: the approach's hum from the pull's start, cut off as it ends, and the
+-- going through as the camera nears the portal, `before` yards ahead of it.
+function overlay:PortalSounds(transition, rim, before)
+    local vortex, s = self.vortex, self.state
+    local sounds = transition and transition.sounds
+    if not sounds or s.status ~= "running" then
+        if vortex.hum then
+            StopSound(vortex.hum, HUM_FADE)
+            vortex.hum = nil
+        end
+        return
+    end
+    -- A new gate (or run): each of its sounds once.
+    if vortex.soundState ~= s or vortex.soundRim ~= rim then
+        vortex.soundState, vortex.soundRim, vortex.hummed, vortex.through = s, rim, false, false
+    end
+    local on = app.db.profile.portalSound
+    if sounds.approach and not vortex.hummed then
+        vortex.hummed = true
+        if on then
+            -- The SFX channel follows the game's sound effects volume.
+            local _, handle = PlaySoundFile(sounds.approach, "SFX")
+            vortex.hum = handle
+        end
+    end
+    if sounds.through and not vortex.through and before < s.speed * THROUGH_LEAD then
+        vortex.through = true
+        if on then
+            PlaySoundFile(sounds.through, "SFX")
+        end
+    end
 end
 
 -- The wind's lines into the opening at (`x`, `y`), `size` across: each its own way round

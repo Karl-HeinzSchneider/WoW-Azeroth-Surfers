@@ -160,6 +160,19 @@ local options = {
                 app.db.profile.enemySound = value
             end,
         },
+        portalSound = {
+            type = "toggle",
+            order = 6.2,
+            width = "full",
+            name = "Portal sounds",
+            desc = "Play a teleport sound when you go through a portal between zones.",
+            get = function()
+                return app.db.profile.portalSound
+            end,
+            set = function(_, value)
+                app.db.profile.portalSound = value
+            end,
+        },
         legend = {
             type = "toggle",
             order = 6.5,

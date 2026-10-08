@@ -143,4 +143,7 @@ app.biomes.RegisterTransition("dream", {
     -- The portal's pull (messages.lua): its opening, about 6 yards up (on the platform) and 5.7
     -- round at this height, swirling green.
     vortex = { center = 6, radius = 5.7, color = { 0.45, 1, 0.6 } },
+    -- A portal's hum as the pull starts (sound/doodad/portalparticles.ogg), and going through,
+    -- the mage's teleport (sound/spells/teleport.ogg).
+    sounds = { approach = 566073, through = 569735 },
 })

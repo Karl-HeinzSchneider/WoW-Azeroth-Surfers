@@ -119,7 +119,9 @@ distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance`
   (`overlay:ShowVortex`, messages.lua): lines of wind rush into the portal's opening
   (`ShowWind`), faster as it nears, the screen's edges close in; all by the portal's distance
   from the camera (behind the runner, it goes through last), at its height as the camera goes
-  through, the wind then coming from all round the screen, and fading after; a run starts in the lowest tier,
+  through, the wind then coming from all round the screen, and fading after; its `sounds` (option
+  "Portal sounds", `profile.portalSound`): `approach` with the pull, cut off as it ends (the
+  dream's: a portal's hum), `through` just before the camera goes through (the mage's teleport); a run starts in the lowest tier,
   then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
   one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
   (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is
