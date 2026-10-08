@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# StyLua has no "auto" line endings (only Unix or Windows): keep Lua files LF on every platform.
+*.lua text eol=lf
