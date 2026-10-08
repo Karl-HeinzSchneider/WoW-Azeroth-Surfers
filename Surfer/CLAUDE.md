@@ -115,7 +115,9 @@ distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance`
   appears; a run starts in the lowest tier,
   then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
   one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
-  (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround, by their middle), roadside
+  (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is
+  cut there, its far part drawn by the row's `seam` texture, so the change sits where it is on
+  the ground instead of jumping from row edge to row edge), roadside
   groups (by their start), obstacle looks and wildlife, so the next zone comes into sight on
   the horizon and reaches the runner; the ground's curve blends toward the next zone's as it
   nears (`GroundCurve`). `BiomeId()` is the runner's own (sky, light, ground bands); once it

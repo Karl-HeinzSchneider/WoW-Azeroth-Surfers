@@ -225,7 +225,7 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
             local t = pool[n]
             if not t then
                 t = self.groundParent:CreateTexture(nil, "BACKGROUND", nil, band.layer)
-                t.groundLayer = band.layer
+                t.groundLayer, t.seam = band.layer, false
                 pool[n] = t
             end
             if t.groundLayer ~= band.layer then
@@ -235,6 +235,10 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
             -- A column's share of the band, and of its opacity gradient.
             local a, b = (c - 1) / columns, c / columns
             t.kind, t.near, t.far = band.surface, near, segments[i + 1]
+            t.fullFar, t.cut = false, false
+            if t.seam then
+                shapes.Hide(t.seam)
+            end
             t.left, t.right = left + (right - left) * a, left + (right - left) * b
             t.alphaLeft = alphaLeft + (alphaRight - alphaLeft) * a
             t.alphaRight = alphaLeft + (alphaRight - alphaLeft) * b
@@ -262,8 +266,14 @@ function overlay:BuildGround()
         end
     end
     for i = #list + 1, #self.groundPool do
-        shapes.Hide(self.groundPool[i])
+        local t = self.groundPool[i]
+        shapes.Hide(t)
+        if t.seam then
+            shapes.Hide(t.seam)
+        end
     end
+    -- Placed anew: ScrollGround cuts them again.
+    self.groundPlaced = true
 end
 
 function overlay:CreateGround(f)
@@ -308,6 +318,89 @@ end
 function overlay:ShadeGround()
     for _, t in ipairs(self.ground) do
         self:ShadePiece(t)
+        if t.seam then
+            self:ShadePiece(t.seam)
+        end
+    end
+end
+
+-- What lies on the ground this frame (ScrollGround), in yards ahead of the runner: the zone
+-- under the nearest pieces and the next one, by where each ends, and the places where the look
+-- changes (`cuts`, nearest first: zone ends, gate strips' edges).
+local onGround = { distance = 0, firstEnd = math.huge, nextEnd = math.huge, cuts = {} }
+
+local function addCut(d)
+    local cuts = onGround.cuts
+    local i = #cuts + 1
+    while i > 1 and cuts[i - 1] > d do
+        cuts[i] = cuts[i - 1]
+        i = i - 1
+    end
+    cuts[i] = d
+end
+
+-- The look of the ground `d` yards ahead: its key (a biome id, or a gate strip's transition)
+-- and the transition, if it is one.
+function overlay:GroundLookAt(d)
+    local at = onGround.distance + d
+    local strips, gate = self.strips, app.track.GATE
+    for i = 1, #strips do
+        if at > strips[i] - gate.before and at < strips[i] + gate.after then
+            return self.stripLooks[i], self.stripLooks[i]
+        end
+    end
+    if d < onGround.firstEnd then
+        return onGround.firstId
+    elseif d < onGround.nextEnd then
+        return onGround.nextId
+    end
+    return self:BiomeIdAt(at)
+end
+
+-- Gives ground piece (or seam) `t` the look `key` and its texture coordinates.
+function overlay:SkinPiece(t, key, look)
+    if t.skin ~= key then
+        t.skin = key
+        skin(t, look and look.ground or app.biomes.Get(key).ground, self.biome.ground)
+        if self.groundLight then
+            self:ShadePiece(t)
+        end
+    end
+    -- The view's end moves while a gate comes nearer: its rows fade anew.
+    if self.fade.moved and self.groundLight and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01 then
+        self:ShadePiece(t)
+    end
+    local tile = t.tile
+    if tile then
+        local base = onGround.distance % tile
+        t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
+    end
+end
+
+-- A piece's seam: a second texture that takes over the piece from where the look changes in
+-- it, so the change lies where it is on the ground, not at a piece's edge (a piece far ahead
+-- is up to 16 yards deep: a change jumping from edge to edge flickers as the ground scrolls).
+local function seamOf(t, parent)
+    local seam = t.seam
+    if not seam then
+        seam = parent:CreateTexture(nil, "BACKGROUND", nil, t.groundLayer)
+        seam.groundLayer = t.groundLayer
+        t.seam = seam
+    elseif seam.groundLayer ~= t.groundLayer then
+        seam:SetDrawLayer("BACKGROUND", t.groundLayer)
+        seam.groundLayer = t.groundLayer
+    end
+    seam.kind, seam.left, seam.right = t.kind, t.left, t.right
+    seam.alphaLeft, seam.alphaRight = t.alphaLeft, t.alphaRight
+    return seam
+end
+
+-- Back to one texture over its whole depth.
+local function uncut(t)
+    if t.cut then
+        t.cut, t.far = false, t.fullFar
+        face(t, t.left, t.right, t.near, ground(t.near), t.far, ground(t.far))
+        shapes.Hide(t.seam)
     end
 end
 
@@ -315,55 +408,65 @@ end
 -- they move with the road on lane changes. Offsets wrap at a tile, which looks the same.
 function overlay:ScrollGround()
     local distance = self.state.distance
-    if self.scrolled == distance then
+    if self.scrolled == distance and not self.groundPlaced then
         return
     end
-    self.scrolled = distance
-    local own = self.biome.ground
-    -- In auto, the zone under the nearest pieces and the next two, by where each ends (yards
-    -- ahead): once a frame, not once a piece. Without auto, every piece is the runner's biome.
-    local firstId, firstEnd, nextId, nextEnd = self.biomeId, math.huge, nil, math.huge
+    self.scrolled, self.groundPlaced = distance, nil
+    onGround.distance = distance
+    local cuts = onGround.cuts
+    for i = #cuts, 1, -1 do
+        cuts[i] = nil
+    end
+    -- In auto, the zones by where each ends: once a frame, not once a piece. Without auto, every
+    -- piece is the runner's biome.
+    onGround.firstId, onGround.firstEnd, onGround.nextId, onGround.nextEnd = self.biomeId, math.huge, nil, math.huge
     if app.db.profile.biome == app.biomes.AUTO then
         local biomes, route = app.biomes, self:Route()
         local zone = biomes.Zone(route, distance + EDGES[1])
-        firstId, firstEnd = zone.id, zone.to - distance
-        if firstEnd < sim.AHEAD then
+        onGround.firstId, onGround.firstEnd = zone.id, zone.to - distance
+        if onGround.firstEnd < sim.AHEAD then
             local following = biomes.Zone(route, zone.to)
-            nextId, nextEnd = following.id, following.to - distance
+            onGround.nextId, onGround.nextEnd = following.id, following.to - distance
+            addCut(onGround.firstEnd)
+            if onGround.nextEnd < sim.AHEAD then
+                addCut(onGround.nextEnd)
+            end
         end
     end
-    local strips, looks, gate = self.strips, self.stripLooks, app.track.GATE
+    local gate = app.track.GATE
+    for _, rim in ipairs(self.strips) do
+        addCut(rim - gate.before - distance)
+        addCut(rim + gate.after - distance)
+    end
     for _, t in ipairs(self.ground) do
-        -- The look of the zone at its middle (auto): the next zone's ground comes toward the
-        -- runner row by row; in a gate's strip, the transition's.
-        local middle = (t.near + t.far) / 2
-        local at, look = distance + middle, nil
-        for i = 1, #strips do
-            if at > strips[i] - gate.before and at < strips[i] + gate.after then
-                look = looks[i]
+        local near, far = t.near, t.fullFar or t.far
+        t.fullFar = far
+        local key, look = self:GroundLookAt(near + 0.01)
+        -- The first place in the piece where the look changes, if any.
+        local cut, seamKey, seamLook
+        for i = 1, #cuts do
+            local d = cuts[i]
+            if d >= far then
                 break
+            elseif d > near then
+                seamKey, seamLook = self:GroundLookAt(d + 0.01)
+                if seamKey ~= key then
+                    cut = d
+                    break
+                end
             end
         end
-        local key = look
-        if not look then
-            key = middle < firstEnd and firstId or middle < nextEnd and nextId or self:BiomeIdAt(at)
+        if cut then
+            t.cut, t.far = cut, cut
+            face(t, t.left, t.right, near, ground(near), cut, ground(cut))
+            local seam = seamOf(t, self.groundParent)
+            seam.near, seam.far = cut, far
+            face(seam, seam.left, seam.right, cut, ground(cut), far, ground(far))
+            self:SkinPiece(seam, seamKey, seamLook)
+        else
+            uncut(t)
         end
-        if t.skin ~= key then
-            t.skin = key
-            skin(t, look and look.ground or app.biomes.Get(key).ground, own)
-            if self.groundLight then
-                self:ShadePiece(t)
-            end
-        end
-        -- The view's end moves while a gate comes nearer: its rows fade anew.
-        if self.fade.moved and self.groundLight and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01 then
-            self:ShadePiece(t)
-        end
-        local tile = t.tile
-        if tile then
-            local base = distance % tile
-            t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
-        end
+        self:SkinPiece(t, key, look)
     end
 end
 
@@ -987,9 +1090,11 @@ function overlay:Render(lap)
     self:UpdateView()
     if self:UpdateCamera() then
         for _, t in ipairs(self.ground) do
-            local near, far = t.near, t.far
+            local near, far = t.near, t.fullFar or t.far
             face(t, t.left, t.right, near, ground(near), far, ground(far))
         end
+        -- Cut pieces and their seams again (ScrollGround), even with the runner standing.
+        self.groundPlaced = true
         if self.worldScene then
             self:AimDecorations()
         end
