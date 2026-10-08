@@ -1,11 +1,9 @@
 ---@type string, Surfer
 local _, app = ...
 local sim = app.simulation
--- The game's input, movement sampling, per-frame step and scoring, added to the view that
--- overlay.lua creates. Keys are only observed: WoW still gets them, so the real character
--- moves and jumps too, unless the game captures the movement keys (`profile.capture`): then
--- they stop here, the character stays put and the runner runs by itself. In auto mode the game
--- plays itself (autopilot.lua) and takes no keys at all: you can play on, or just watch.
+-- Input, movement sampling, the per-frame step and scoring. Keys are only observed (WoW still
+-- gets them) unless `profile.capture` stops the movement keys here; then the runner runs by
+-- itself. In auto mode the game takes no keys at all.
 local overlay = app.overlay
 local autopilot = app.autopilot
 
@@ -20,35 +18,27 @@ local MOVEMENT = {
     JUMP = true,
     TOGGLEAUTORUN = true,
 }
--- Yards per second the twin runs at while captured, the character's normal running speed.
+-- The twin's speed while captured: a character's normal run.
 local RUN_SPEED = 7
--- The game's own key: pressed once after a run, or held this many seconds during one, it starts
--- a new run.
+-- Pressed once after a run, or held RESTART_HOLD seconds during one, it starts a new run.
 local RESTART_KEY, RESTART_HOLD = "R", 0.75
--- The game's pause key: pauses a run and goes on with it.
 local PAUSE_KEY = "Q"
--- The game's own keys, for the hotkey legend (legend.lua).
 overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
--- Seconds a run auto mode finished stays on screen before the next one starts.
+-- Seconds a finished auto mode run stays on screen.
 local AUTO_RESTART = 3
 
 function overlay:SaveBest()
-    -- A run auto mode played (a part of) is not the player's.
     if self.state.piloted then
         return
     end
     local score = sim.Score(self.state)
     if score > app.db.global.bestScore then
         app.db.global.bestScore = score
-        -- For the status panel (messages.lua).
         self.state.newBest = true
     end
 end
 
--- A run ready to start: from the fixed seed (`profile.seed`), or a new one, at the profile's
--- difficulty.
 function overlay:NewState()
-    -- In auto, through zones: gates where the biome changes (patterns/gate.lua).
     local zones = app.db.profile.biome == app.biomes.AUTO
     return sim.New(app.db.profile.seed or nil, app.db.profile.difficulty, zones)
 end
@@ -59,29 +49,24 @@ function overlay:Restart()
     sim.Start(self.state)
 end
 
--- Fixes the seed (a whole number) or lets every run draw its own (false). A run that has not
--- started yet takes it at once.
+-- A whole number, or false: every run draws its own. A run not started yet takes it at once.
 function overlay:SetSeed(seed)
     app.db.profile.seed = seed and app.random.Normalize(seed) or false
-    -- The addon options show it too.
     if app.options then
         app.options:Refresh()
     end
-    -- Before the view is created, only the setting.
     if not self.frame then
         return
     end
     if self.state.status == "ready" then
         self.state = self:NewState()
     end
-    -- The status panel's seed option (messages.lua).
     if self.status.holder:IsShown() then
         self:FillStatus(self.state.status)
     end
 end
 
--- Sets the difficulty (an id of simulation.lua's DIFFICULTIES) from the next run on; a run
--- that has not started yet takes it at once, with its seed.
+-- From the next run on; a run not started yet takes it at once, with its seed.
 function overlay:SetDifficulty(id)
     if not sim.DIFFICULTIES[id] then
         return
@@ -96,13 +81,11 @@ function overlay:SetDifficulty(id)
     if self.state.status == "ready" then
         self.state = sim.New(self.state.seed, id, self.state.gates ~= nil)
     end
-    -- The status panel's difficulty (messages.lua).
     if self.status.holder:IsShown() then
         self:FillStatus(self.state.status)
     end
 end
 
--- One difficulty easier (-1) or harder (1), as far as there is one.
 function overlay:StepDifficulty(step)
     local current = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
     local other = sim.DIFFICULTIES[current.level + step]
@@ -111,8 +94,7 @@ function overlay:StepDifficulty(step)
     end
 end
 
--- "Fixed seed" on keeps the current run's seed (or the last one's) for every run; off, every
--- run draws its own.
+-- On keeps the current run's seed for every run.
 function overlay:SetFixedSeed(on)
     if on then
         self:SetSeed(self.state and self.state.seed or app.random.Seed())
@@ -151,11 +133,9 @@ function overlay:Action(key)
     end
 end
 
--- The money loot clink (sound/interface/lootcoinsmall.ogg). Its sound kit plays one instance at
--- a time; the file plays every time, so each coin of a trail clinks.
+-- sound/interface/lootcoinsmall.ogg: the file, not its kit, so each coin of a trail clinks.
 local COIN_SOUND_FILE = 567428
 
--- One frame of the game: movement, simulation, best score, coin sound.
 function overlay:Step(elapsed)
     local s = self.state
     if self.capture or self.auto then
@@ -176,7 +156,6 @@ function overlay:Step(elapsed)
         self:SaveBest()
     end
     if s.coins > coins and app.db.profile.coinSound then
-        -- The SFX channel follows the game's sound effects volume.
         if PlaySoundFile then
             PlaySoundFile(COIN_SOUND_FILE, "SFX")
         else
@@ -185,8 +164,6 @@ function overlay:Step(elapsed)
     end
 end
 
--- Auto mode's frame: the autopilot plays the run; a finished one stays a moment, then the next
--- one starts.
 function overlay:StepAuto(s, elapsed)
     if s.status ~= "over" then
         autopilot.Play(s, elapsed)
@@ -209,9 +186,8 @@ function overlay:StepAuto(s, elapsed)
     end
 end
 
--- Turns auto mode on (the game plays on with your run, or a new one after a finished run) or
--- off. A run it played is never yours to go on with: off, an unfinished one gives way to the
--- start screen (a finished one stays, to run again).
+-- A run it played is never yours to go on with: off, an unfinished one gives way to the start
+-- screen.
 function overlay:SetAuto(on)
     if not on == not self.auto then
         return
@@ -227,20 +203,16 @@ function overlay:SetAuto(on)
     elseif s.status ~= "over" then
         self.state = self:NewState()
     end
-    -- The stop button, and no legend while no key does anything.
     self:Layout()
     self.legendState = nil
-    -- The status panel's buttons (messages.lua).
     self.status.shownStatus = nil
 end
 
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.
--- Also keeps `motion`: the character's velocity relative to its facing (yards per second
--- forward and to its left) and its speed, for the twin's animations.
+-- Also keeps `motion` (velocity relative to facing, and speed) for the twin's animations.
 function overlay:IsMovingForward(elapsed)
     local x, y, _, map = UnitPosition("player")
     local facing = GetPlayerFacing()
-    -- Both tables are reused every frame.
     local last = self.lastPosition or {}
     self.lastPosition = last
     self.motion = self.motion or {}
@@ -270,8 +242,6 @@ function overlay:IsMovingForward(elapsed)
     return forward > 0.05 * elapsed
 end
 
--- Captured, the character stands still: the runner runs while the game runs, and the twin runs
--- with it.
 function overlay:AutoRun()
     self:ForgetPosition()
     local running = self.state.status == "running"
@@ -339,7 +309,6 @@ function overlay:OnKeyRelease(key)
     end
 end
 
--- Counts how long the restart key is held, and restarts once it was held long enough.
 function overlay:UpdateHold(elapsed)
     if self.holding then
         self.holding = self.holding + elapsed
@@ -351,7 +320,7 @@ function overlay:UpdateHold(elapsed)
     self:ShowHold(self.holding and self.holding / RESTART_HOLD)
 end
 
--- /surfer and the minimap button: the game is created on first use, then shown and hidden.
+-- The game is created on first use.
 function overlay:Toggle()
     if InCombatLockdown() then
         app.logger:chat("Surfer is available outside combat.")

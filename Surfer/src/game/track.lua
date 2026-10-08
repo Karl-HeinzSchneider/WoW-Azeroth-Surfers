@@ -2,18 +2,13 @@
 local _, app = ...
 local random = app.random
 local game = app.simulation
--- The track ahead: a stream of patterns, small hand-made pieces of track, one file each in
--- src/patterns/ (listed in patterns.xml). Which pattern comes next is a weighted roll among
--- those the run's difficulty allows at its distance; the pattern rolls its own details (lanes,
--- heights, lengths) from the run's generator, and the free road after it is measured in
--- seconds at the speed of the moment. Everything draws from the run's seed, so a seed always
--- lays out the same track.
+-- The track ahead: a stream of patterns (src/patterns/, listed in patterns.xml), each a weighted
+-- roll among those the difficulty allows at its distance, followed by free road measured in
+-- seconds at the speed of the moment. Everything draws from the run's generator.
 --
--- A pattern file registers one pattern (`track.Register`) and places its boxes with `Add`,
--- `Coins`, `Fit` and `Arc`; spacings that depend on reaction time follow the speed
--- (`s.speed`, `JumpLength`). Its rules, which tests/simulation.lua checks for every pattern
--- (also that a search through the simulation gets through it at every difficulty's slowest
--- and fastest speed):
+-- Spacings that depend on reaction time follow the speed (`s.speed`, `JumpLength`). The rules
+-- every pattern keeps (tests/simulation.lua checks them, and that a search gets through at every
+-- difficulty's slowest and fastest speed):
 -- * boxes from `at` on, coins leading in at most LEAD_IN yards before it; it returns its
 --   length, how far past `at` it reaches (no box starts beyond it), and the next pattern
 --   starts past that;
@@ -22,17 +17,12 @@ local game = app.simulation
 local track = { list = {}, byName = {}, choices = {} }
 app.track = track
 
--- Yards between coins in a row: close enough to read as a trail, far enough apart that
--- distant coins do not merge.
 track.COIN_SPACING = 3
--- Yards a pattern's coins may lead in before its `at`.
 track.LEAD_IN = 8
--- The free road after a pattern is at least this long, so the next one's coins never reach
--- back into it.
+-- At least LEAD_IN, so the next pattern's coins never reach back into the previous one.
 local MIN_GAP = 10
 
--- A box on the track (simulation.lua's Box), with a seed of its own for its looks, so the
--- views draw it the same whenever it comes into sight.
+-- A box with a seed of its own for its looks.
 function track.Add(s, kind, lane, at, length, layer, layers, ramp)
     local o = game.Box(kind, lane, at, length, layer, layers, ramp)
     o.seed = s.random(random.MAX)
@@ -41,7 +31,7 @@ function track.Add(s, kind, lane, at, length, layer, layers, ramp)
 end
 local add, SPACING = track.Add, track.COIN_SPACING
 
--- `count` coins in `lane` on `layer`, one every COIN_SPACING yards from `at` (their middles).
+-- `count` coins from `at` (their middles).
 function track.Coins(s, lane, at, count, layer)
     for i = 0, count - 1 do
         add(s, "coin", lane, at + i * SPACING - 0.16, 0.32, layer, 1)
@@ -53,19 +43,16 @@ function track.Fit(from, to, most)
     return math.max(0, math.min(most, math.floor((to - from) / SPACING) + 1))
 end
 
--- The layers of an arc of coins, over its floor: only a jump collects them.
+-- Layers over the floor: only a jump collects them.
 local ARC = { 3, 4, 5, 5, 4, 3 }
--- An arc of coins in `lane` centred on track distance `middle`, over a floor `layer` layers
--- up (0, the ground, when left out); it reaches 7.5 yards to each side.
+-- Centred on `middle`, over a floor `layer` layers up (0 when nil); 7.5 yards to each side.
 function track.Arc(s, lane, middle, layer)
     for i, up in ipairs(ARC) do
         add(s, "coin", lane, middle + (i - 3.5) * SPACING - 0.16, 0.32, (layer or 0) + up, 1)
     end
 end
 
--- Yards a jump carries the runner at the speed of the moment: what a pattern leaves after a
--- jump before something that needs the runner back on its floor (spacings that depend on the
--- speed keep a pattern fair at every difficulty).
+-- Yards a jump carries the runner at the speed of the moment.
 function track.JumpLength(s)
     return s.speed * game.JUMP_TIME
 end
@@ -86,8 +73,8 @@ function track.Register(pattern)
     track.choices = {}
 end
 
--- What a difficulty can roll, built once per difficulty: its patterns by `from`, and their
--- running sums of weights, so the patterns allowed at a distance are the first ones.
+-- Built once per difficulty: its patterns sorted by `from`, with running sums of weights, so
+-- the patterns allowed at a distance are the first ones.
 local function choicesFor(difficulty)
     local entries = {}
     for i, pattern in ipairs(track.list) do
@@ -114,7 +101,7 @@ local function choicesFor(difficulty)
     return choices
 end
 
--- The pattern a run rolls at track distance `at`; nil when its difficulty allows none there.
+-- nil when the difficulty allows none at `at`.
 function track.Pick(s, at)
     local difficulty = s.difficulty
     local choices = track.choices[difficulty]
@@ -137,11 +124,9 @@ function track.Pick(s, at)
     return choices.patterns[k]
 end
 
--- The next pattern at `s.nextRow`, and the free road after it (simulation.lua calls it while
--- the track ahead is too short).
+-- The next pattern at `s.nextRow`, and the free road after it.
 function game.Spawn(s)
     local r, at = s.random, s.nextRow
-    -- A zone used up (simulation.lua's `zones`): its gate, and the next one's length from it.
     local pattern
     if s.nextGate and at >= s.nextGate then
         pattern = track.byName.gate

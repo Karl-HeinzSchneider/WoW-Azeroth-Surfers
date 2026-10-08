@@ -1,18 +1,13 @@
 ---@type string, Surfer
 local _, app = ...
 local sim = app.simulation
--- The heads-up display, added to the view that overlay.lua creates: bright numbers on dark,
--- see-through panels next to the road. The score panel with the multiplier's panel (a star and
--- "x1") in front of it, the coins under it. Full screen it stands right of the road's far end,
--- above the horizon; in the side window in its top right corner, under the buttons. Shown
--- while a run is on (running, paused, over), not on the start dialog.
---
--- It is meant to be read at a glance while running, so it holds still: every digit has a cell
--- of the same width (no number shifts when a digit changes), a panel only widens when its
--- number gets a digit more, and the score is redrawn a few times a second, not every frame.
+-- The score display: the score with the multiplier (a star and "x1") in front of it, the coins
+-- under it. Not on the start dialog. Read at a glance while running, so it holds still: a
+-- fixed-width cell per digit, panels widen only for a digit more, the score redrawn a few
+-- times a second.
 local overlay = app.overlay
 
--- The classic tooltip's background and border, tinted dark: a soft, rounded panel.
+-- The tooltip's background and border, tinted dark.
 local PANEL = {
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -24,18 +19,18 @@ local PANEL = {
 local PANEL_ALPHA = 0.55
 local STAR = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"
 local COIN = "Interface\\MoneyFrame\\UI-GoldIcon"
--- Sizes at scale 1 (full screen); the side window scales the whole display (SIDE_SCALE).
+-- At scale 1 (full screen); the side window scales by SIDE_SCALE.
 local HEIGHT, GAP, PAD, ICON = 40, 5, 10, 24
 local SCORE_SIZE, MULTIPLIER_SIZE, COINS_SIZE = 26, 22, 22
 -- Digits a panel always has room for: it widens only past them.
 local SCORE_DIGITS, COINS_DIGITS = 6, 3
 local MULTIPLIER_WIDTH = 70
 local SIDE_SCALE = 0.75
--- Seconds between redraws of the running score; a finished or paused one is exact at once.
+-- Seconds between redraws of the running score.
 local SCORE_EVERY = 0.05
--- Seconds the star pops (grows and shrinks back) when the multiplier goes up, and by how much.
+-- The star's pop when the multiplier goes up: seconds, and growth.
 local POP, POP_GROW = 0.3, 0.4
--- The multiplier's gold, and the brighter orange it turns while above 1.
+-- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
 local DIGITS = {}
@@ -52,7 +47,6 @@ local function panel(parent)
     return p
 end
 
--- Bright text in the game's UI font (Friz Quadrata), outlined, with a shadow.
 local function text(parent, size)
     local t = parent:CreateFontString(nil, "OVERLAY")
     local path = GameFontNormalHuge and GameFontNormalHuge:GetFont()
@@ -75,9 +69,8 @@ local function icon(parent, texture)
     return t
 end
 
--- A whole number in `p`, right-aligned, one digit per cell; the cell is as wide as the widest
--- digit, so no digit moves when another changes. `extra` is the room left of the digits (an
--- icon).
+-- Right-aligned, one cell as wide as the widest digit per digit. `extra`: room left of the
+-- digits (an icon).
 local function counter(p, size, digits, extra)
     local c = { panel = p, size = size, digits = digits, extra = extra, cells = {}, shown = 0 }
     local probe = text(p, size)
@@ -87,12 +80,11 @@ local function counter(p, size, digits, extra)
         width = math.max(width, probe:GetStringWidth() or 0)
     end
     probe:Hide()
-    -- A pixel of room between digits.
     c.width = math.ceil(width > 0 and width or size * 0.65) + 1
     return c
 end
 
--- Shows `value` (no leading zeros), creating cells only when it has more digits than ever.
+-- Creates cells only when `value` has more digits than ever.
 local function show(c, value)
     local count = 0
     repeat
@@ -147,28 +139,25 @@ function overlay:CreateHud(f)
     }
 end
 
--- Where the display stands for the view's mode and size (window.lua's Layout); `top` is where
--- the view's free area starts, under a full-screen frame's title bar.
+-- `top`: where the view's free area starts, under a full-screen frame's title bar.
 function overlay:PlaceHud(side, w, h, top)
     local hud = self.hud.frame
     hud:ClearAllPoints()
     if side then
         hud:SetScale(SIDE_SCALE)
-        -- Under the buttons' row, if any; a point's offsets count in the display's own scale.
+        -- Under the buttons' row, if any; offsets count in the display's own scale.
         local y = top - (self.framed and 8 or 40)
         hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, y / SIDE_SCALE)
     else
         hud:SetScale(1)
-        -- Beside the road's far end, above the horizon, but always on the screen and under
-        -- the buttons.
+        -- Right of the road's far end, above the horizon.
         local x = math.min(0.62 * h, w / 2 - 16)
         local y = math.min(0.36 * h, h / 2 + top - 48)
         hud:SetPoint("TOPRIGHT", self.frame, "CENTER", x, y)
     end
 end
 
--- Once a frame: the numbers, redrawn only when they change (no Lua strings are built), and the
--- star's pop.
+-- Once a frame: numbers redrawn only when they change (no strings built), and the star's pop.
 function overlay:ShowHud()
     local s, hud = self.state, self.hud
     local shown = self.hudShown or {}

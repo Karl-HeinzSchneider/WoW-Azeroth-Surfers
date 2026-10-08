@@ -2,43 +2,30 @@
 local _, app = ...
 local shapes = app.shapes
 local random = app.random
--- Wildlife: the biome's creatures that pass by now and then (biomes/default.lua describes them),
--- added to the view that overlay.lua creates. They are only for the eye: never part of the
--- simulation, never in the runner's way, and they leave the track as it is. A crosser runs
--- across the road at a spot ahead where it is clear of every box and coin, and is off the road
--- before the runner gets there; a flyer crosses high above it, anywhere. They may come in
--- groups: one after another, on lines side by side, some the other way. Actors of the world
--- scene like the decorations, moving in the run's time (still while it is paused). Which
--- creatures come and where follows from the run's seed (their own stream of it).
+-- Wildlife (a biome's `ambient`): actors of the world scene, only for the eye, moving in the
+-- run's time. Which come and where follows from the seed's random.AMBIENT stream.
 local overlay = app.overlay
 local cam = overlay.camera
 local ground = shapes.Ground
 local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
 
--- Yards off the road's middle a crosser must be past before the runner comes: the road's edge
--- (4.3) and room for its body.
+-- Yards off the middle a crosser must be past before the runner comes: the road's edge and its body.
 local ROAD = 5
--- Yards of road along the track a crosser needs clear of boxes and coins, to either side of
--- its path.
+-- Yards a crosser needs clear of boxes and coins to either side of its line.
 local CLEAR = 2
--- How much sooner than the run's speed of the moment says the runner may come: the run speeds
--- up meanwhile.
+-- The run speeds up meanwhile: the runner may come this much sooner.
 local SAFETY = 1.25
 -- Yards between the lines of two of a group crossing each other the other way.
 local PASS = 1.5
--- Yards per second a creature's move animation is made for at its own size, when its item has
--- no `pace`: a character's run.
+-- An item's `pace` when it has none: a character's run.
 local PACE = 7
--- About how many yards ahead a creature comes into sight: the zone there is the one whose
--- creatures come (auto).
+-- About where a creature comes into sight: that zone's creatures come.
 local SEEN = 60
 -- Yards a creature fades in and out over at the ends of its way.
 local EDGE = 1.5
--- Yards from the runner to a creature's line when it says its `voice`: as the runner passes.
 local VOICE_RANGE = 12
 
 function overlay:CreateAmbient()
-    -- The creatures under way, and spare tables for them.
     self.critters, self.spareCritters = {}, {}
     self.ambientRandom = random.New(1, random.AMBIENT)
 end
@@ -52,7 +39,6 @@ local function release(self, i)
     list[#list] = nil
 end
 
--- Clears the creatures, for a new run or biome; the next frame starts anew.
 function overlay:ResetAmbient()
     for i = #self.critters, 1, -1 do
         release(self, i)
@@ -60,8 +46,7 @@ function overlay:ResetAmbient()
     self.ambientState = nil
 end
 
--- Whether the road is clear of boxes and coins CLEAR yards to either side of track distance
--- `at`, in every lane.
+-- In every lane.
 local function clear(s, at)
     for _, o in ipairs(s.objects) do
         if o.at - CLEAR < at and o.at + o.length + CLEAR > at then
@@ -71,12 +56,9 @@ local function clear(s, at)
     return true
 end
 
--- A group's members as planned before they are placed (reused): each one's side (1 right, -1
--- left), its line, yards along the road from the first one's, and the seconds it starts after
--- the first.
+-- A group's planned members (reused): side, offset from the first one's line, and delay.
 local members = {}
 
--- Whether every member's line is clear, crossing at track distance `at`.
 local function clearFor(s, at, count)
     for k = 1, count do
         if not clear(s, at + members[k].offset) then
@@ -86,9 +68,8 @@ local function clearFor(s, at, count)
     return true
 end
 
--- The track distance a group of crossers coming up at run distance `base` crosses at (the first
--- one's line): the nearest one ahead where every member's line is clear and the last of them is
--- off the road before the runner comes, at most `far` yards ahead; nil when there is none.
+-- The nearest track distance within `far` where every member's line is clear and the last one
+-- is off the road before the runner comes; nil when there is none.
 local function crossing(s, base, count, from, speed, far)
     local difficulty = s.difficulty
     local run = math.min(difficulty.topSpeed, difficulty.startSpeed + base / difficulty.speedUp)
@@ -105,13 +86,8 @@ local function crossing(s, base, count, from, speed, far)
     end
 end
 
--- Plans a group of `item`'s creatures: its count, and each member's side, line and start. The
--- first comes from `side`; each other one starts `gap` yards of its way after the one before,
--- `offset` yards to either side of the first one's line, and crosses the other way by chance
--- `opposite`.
 local function plan(r, item, side, speed)
     local group = item.group
-    -- A whole number, each of a range's as likely.
     local count = group and group.count or 1
     if type(count) == "table" then
         count = r(count[1], count[2])
@@ -136,15 +112,12 @@ local function plan(r, item, side, speed)
     return count
 end
 
--- A creature crossing at track distance `at`, from `side` across to the other, after `delay`
--- seconds of the run.
 local function place(self, r, item, at, side, delay, speed, from)
     local model = -choose(r, item.creature)
     local actor = self:AcquireActor(model)
     local c = self.spareCritters[#self.spareCritters] or {}
     self.spareCritters[#self.spareCritters] = nil
     c.model, c.actor, c.item, c.at, c.delay = model, actor, item, at, delay
-    -- Its way across, in yards to the screen's right of the road's middle.
     c.start, c.x, c.to, c.step, c.speed = side * from, side * from, -side * from, -side * speed, speed
     c.z = item.move == "fly" and value(r, item.z, 10) or 0
     -- The scene's y points left: running left (from the right) is +y, a quarter turn.
@@ -152,7 +125,7 @@ local function place(self, r, item, at, side, delay, speed, from)
     c.height, c.scale = item.height and value(r, item.height, 1), value(r, item.scale, 1)
     c.fitted, c.shiftX, c.shiftY, c.alpha, c.moving = false, 0, 0, false, nil
     c.distance = self.state.distance
-    -- What it says, if anything, picked now (drawing only for creatures with a `voice`).
+    -- Drawing only for creatures with a `voice`.
     c.voice = item.voice and r() < (item.talks or 1) and choose(r, item.voice) or false
     actor:SetAlpha(0)
     actor:SetUseCenterForOrigin(false, false, false)
@@ -161,7 +134,6 @@ local function place(self, r, item, at, side, delay, speed, from)
     self.critters[#self.critters + 1] = c
 end
 
--- `item`'s creatures coming up at run distance `base`, one or a group, if they have a way.
 local function spawn(self, r, item, base)
     local s, fade = self.state, self.biome.ground.fade
     local speed, from = value(r, item.speed, 10), value(r, item.from, 9)
@@ -187,8 +159,6 @@ local function spawn(self, r, item, base)
     end
 end
 
--- Scales a creature once its model has loaded: to `height` yards (its top above its origin),
--- or by `scale`; and turns it about its origin.
 local function fit(self, c)
     local bounds = self:ModelBounds(c.actor, c.model)
     if not bounds then
@@ -203,9 +173,7 @@ local function fit(self, c)
     return true
 end
 
--- Once a frame: a new creature whenever the run has come far enough, every creature moved along
--- its way in the run's time, faded in far ahead and at the ends of its way, and dropped at its
--- end or once behind the camera.
+-- Once a frame: new creatures as the run comes far enough; each moved, faded and dropped.
 function overlay:UpdateAmbient()
     local s, look = self.state, self.biome.ambient
     local r = self.ambientRandom
@@ -216,7 +184,6 @@ function overlay:UpdateAmbient()
         self.ambientNext = s.distance + value(r, look.every, 100)
     end
     while self.ambientNext <= s.distance do
-        -- The creatures of the zone they come up in (auto), about where they cross.
         local base = self.ambientNext
         local here = self:BiomeAt(base + SEEN).ambient
         if #here.creatures > 0 then
@@ -228,7 +195,6 @@ function overlay:UpdateAmbient()
     for i = #list, 1, -1 do
         local c = list[i]
         local ahead = c.at - s.distance
-        -- Seconds of the run since the last frame: none while it stands still.
         local seconds = (s.distance - c.distance) / math.max(s.speed, 1)
         c.distance = s.distance
         -- A group's later members wait their turn, out of sight.
@@ -246,12 +212,11 @@ function overlay:UpdateAmbient()
                 c.alpha = 0
             end
         elseif c.fitted or fit(self, c) then
-            -- Still while the run is. Not by this frame's seconds: the simulation steps 120 times a
-            -- second, so a fast frame may have none, and each SetAnimation starts it over.
+            -- By status, not this frame's seconds: a fast frame may have no simulation step, and
+            -- each SetAnimation starts it over.
             local moving = s.status == "running"
             if moving ~= c.moving then
                 c.moving = moving
-                -- Its legs at its speed: its animation's pace grows with its size.
                 local item = c.item
                 local rate = c.speed / ((item.pace or PACE) * c.scale) * (item.rate or 1)
                 c.actor:SetAnimation(item.animation or 5, 0, moving and rate or 0)
@@ -269,10 +234,8 @@ function overlay:UpdateAmbient()
                 c.actor:SetAlpha(alpha)
                 c.alpha = alpha
             end
-            -- Its voice, once, as the runner passes it (the "Creature sounds" option).
             if c.voice and ahead < VOICE_RANGE and moving then
                 if app.db.profile.enemySound then
-                    -- The SFX channel follows the game's sound effects volume.
                     PlaySoundFile(c.voice, "SFX")
                 end
                 c.voice = false

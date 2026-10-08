@@ -21,8 +21,7 @@ track.Register({
         for k = 0, 2 do
             local lane, from, layers = (k - 1) * side, at + k * step, base + k
             add(s, "platform", lane, from, finish - from, 0, layers)
-            -- On a step's own stretch, before the next one starts; the top step's to its end,
-            -- or to short of its wolf.
+            -- On a step's own stretch; the top step's to its end or short of its wolf.
             local first = from + 2
             local last = k < 2 and from + step - 2 or finish - (guarded and 10 or 2)
             coins(s, lane, first, fit(first, last, 6), layers)

@@ -1,9 +1,7 @@
 ---@type string, Surfer
 local _, app = ...
--- Durotar: the dusty Horde road through the red canyons. Everything not listed is the
--- default's (default.lua documents every field). Models from world/kalimdor/durotar/
--- passivedoodads/ and world/generic/orc/passive doodads/; creatures by the display ids of
--- Durotar's NPCs. A first pass: sizes and turns are fitted by eye in the game.
+-- Durotar: the dusty Horde road through the red canyons. Models from world/kalimdor/durotar/
+-- passivedoodads/ and world/generic/orc/passive doodads/.
 
 -- A ramp's planks, as Elwynn's (redridgedocksplank01), until Durotar has its own.
 local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
@@ -22,7 +20,6 @@ local CENTAUR = { 546042, 546048, 546051, 546046 }
 
 app.biomes.Register("durotar", {
     name = "Durotar",
-    -- A starter zone.
     tier = 1,
 
     ground = {
@@ -31,8 +28,7 @@ app.biomes.Register("durotar", {
             dirt = { texture = 187019 }, -- tileset/durotar/durotardirtsmooth.blp
             grass = { texture = 187021 }, -- tileset/durotar/durotargrass.blp
         },
-        -- Flatter than the default's: open land, the road dropping 0.7 yards by 50 ahead (the
-        -- options' "Ground curve" shows it so; the default drops 1.25).
+        -- Flatter open land: 0.7 yards down at 50 ahead (the default: 1.25).
         curve = 0.00028,
     },
 
@@ -150,11 +146,8 @@ app.biomes.Register("durotar", {
         },
     },
 
-    -- Durotar's wildlife: now and then a snake (2914, display 1206) slithering over from close
-    -- by, and a peon of the Valley of Trials (the Lazy Peon, 10556, display 10038) hurrying
-    -- across, now and then two, most of them saying one of their lines as the runner passes,
-    -- each as likely (sound/creature/peon/: peonyes1 to 4, "Work, work." among them, and
-    -- peonready1). /surfer preview creature in Surfer_Dev shows them.
+    -- A snake (NPC 2914, display 1206), and the Lazy Peon (10556, display 10038) with its lines
+    -- (sound/creature/peon/peonyes1 to 4, peonready1).
     ambient = {
         every = { 70, 180 },
         creatures = {

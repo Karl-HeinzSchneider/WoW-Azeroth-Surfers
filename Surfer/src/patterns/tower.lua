@@ -11,9 +11,7 @@ local function up(s, lane, at, layer, layers)
     end
 end
 
--- What a lane beside the tower gets, by weight: crates to jump, beams to run under, lumber
--- walling it off, a trap, or nothing. A list: the order of a roll must not change, or a seed
--- would lay out another track.
+-- By weight. A list: the order of a roll must not change, or a seed would lay out another track.
 local BESIDE = { { "hurdles", 2 }, { "beams", 2 }, { "wall", 2 }, { "trap", 1 }, { "open", 1 } }
 local BESIDE_TOTAL = 8
 

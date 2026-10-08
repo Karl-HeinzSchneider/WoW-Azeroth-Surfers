@@ -3,33 +3,26 @@ local _, app = ...
 local sim = app.simulation
 local shapes = app.shapes
 local random = app.random
--- Obstacles as 3D models: for each box of the track (obstacle, barrier, platform) the biome's
--- models, actors of the world scene like the decorations (biomes/default.lua describes them).
--- A kind without models in the biome stays a flat box; so does a ramp without ramp models.
+-- The track's boxes as the biome's 3D models, actors of the world scene.
 local overlay = app.overlay
 local cam = overlay.camera
 local ground = shapes.Ground
 local LANE, LAYER = sim.geometry.laneWidth, sim.LAYER
 local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
--- A creature switches to its item's `attack` animation, and plays its `sound` (one without an
--- attack only that), once the runner is this many yards away.
+-- Yards from the runner at which a creature attacks and plays its `sound`.
 local ATTACK_RANGE = 7
 
--- Reused while picking a variant.
 local fitting = {}
 
--- Picks a box's looks, seeded by the box (`o.seed`): it looks the same whenever and in whatever
--- order it comes into sight.
+-- Seeded by each box (`o.seed`): it looks the same in whatever order it comes into sight.
 local looks = random.New(1, random.LOOK)
 
--- The biome's look for box `o`: one of its kind's variants for its height, picked once and kept
--- on the box; false when the biome has none, so it stays flat. A gate's boxes
--- (patterns/gate.lua) take the looks of the transition into the next zone (its `obstacles`).
+-- A variant for the box's kind and height, picked once; false when there is none (flat). A
+-- gate's boxes take the transition's `obstacles`.
 function overlay:ObstacleLook(o)
     local look = o.surferLook
     if look == nil then
         look = false
-        -- The zone's it stands in (auto), so the next zone's boxes come into sight.
         local obstacles = o.gate and app.biomes.Transition(self:BiomeAt(o.rim + 1).entrance).obstacles
             or self:BiomeAt(o.at).obstacles
         local variants = obstacles and obstacles[o.kind]
@@ -51,24 +44,20 @@ function overlay:ObstacleLook(o)
     return look
 end
 
--- One actor of a box: `along` yards along the track, its item's other values picked.
 local function attach(self, o, item, along)
-    -- A creature by its display id, kept as minus the id (AcquireActor).
     local model = item.creature and -choose(looks, item.creature) or choose(looks, item.model)
     local actor = self:AcquireActor(model)
     local sound = item.sound
     if item.creature then
         actor:SetAnimation(item.animation or 0, 0, 1, 0)
-        -- A table by display id (not a list of files): the one for its creature.
+        -- A table by display id.
         if type(sound) == "table" and not sound[1] then
             sound = sound[-model]
         end
     end
-    -- One of its files, picked once (a file, not a sound kit: a kit may not play again while it
-    -- still plays, so two of a kind passed in a row would be heard once).
+    -- A file, not a sound kit: a kit does not play again while it still plays.
     sound = sound and choose(looks, sound)
-    -- Invisible until its model has loaded and been fitted; by its own origin, upright (a ramp's
-    -- model may have been this actor before).
+    -- Invisible until fitted; upright (a ramp's model may have been this actor before).
     actor:SetAlpha(0)
     actor:SetUseCenterForOrigin(false, false, false)
     actor:SetPitch(0)
@@ -80,11 +69,9 @@ local function attach(self, o, item, along)
         item = item,
         along = along,
         yaw = yaw,
-        -- Yards to the screen's right of the lane's middle, and up from the box's bottom (or
-        -- the road, for `ground` items).
         x = value(looks, item.x, 0),
         z = (item.ground and 0 or o.layer * LAYER) + value(looks, item.z, 0),
-        -- Its size, picked here like the rest (a range draws, a number does not): `fit` uses them.
+        -- Rolled here like the rest, for `fit`.
         height = value(looks, item.height, nil),
         size = value(looks, item.scale, nil),
         alpha = false,
@@ -93,11 +80,7 @@ local function attach(self, o, item, along)
     }
 end
 
--- A ramp's models, `across` of them side by side over its `width` (the platform's when left
--- out) and, with
--- `segment`, as many end to end up the slope as make each about that many yards long (one
--- otherwise): placed by their centers (each is turned up to the slope about it), scaled and
--- turned once loaded (`fit`).
+-- Placed by their centers (each is turned up to the slope about it), fitted once loaded.
 local function attachRamp(self, o, item)
     local count = item.across or 1
     local width = item.width or 2 * sim.geometry.halfWidth.platform
@@ -115,7 +98,6 @@ local function attachRamp(self, o, item)
                 actor = actor,
                 item = item,
                 ramp = true,
-                -- Which piece up the slope, of how many.
                 piece = piece,
                 pieces = pieces,
                 yaw = 0,
@@ -127,9 +109,6 @@ local function attachRamp(self, o, item)
     end
 end
 
--- The box's actors: each item once at its `d` (the box's middle when left out), or, with
--- `every`, repeated along the box's flat part (past a ramp) about every that many yards; and
--- its ramp's models.
 local function attachAll(self, o, look)
     o.surferActors = {}
     -- Past the look's own pick.
@@ -162,7 +141,6 @@ local function release(self, o)
     o.surferActors = nil
 end
 
--- Drops every box's models and looks, for a new run or biome.
 function overlay:ResetObstacles()
     local list = self.modelled
     for i = #list, 1, -1 do
@@ -175,10 +153,8 @@ function overlay:ResetObstacles()
     self.obstacleState = nil
 end
 
--- Scales an entry's model once it has loaded: to its item's `scale`, or so its top above its
--- origin is `height` yards (the box's height when left out). A ramp's model spans its piece of
--- the slope: as long as it, turned up to its angle, its top on it (its center half its
--- thickness below), its middle at the piece's.
+-- Once loaded: to `scale`, or its top `height` yards above its origin. A ramp's model spans its
+-- piece of the slope, its top on it.
 local function fit(self, o, entry)
     local bounds = self:ModelBounds(entry.actor, entry.model)
     if not bounds then
@@ -206,8 +182,7 @@ local function fit(self, o, entry)
     return true
 end
 
--- Once a frame: models for every box in view, moved with the run and faded in far ahead like the
--- ground; boxes gone from view give theirs back.
+-- Once a frame: models for every box in view; boxes gone from view give theirs back.
 function overlay:UpdateObstacles()
     local s = self.state
     self.modelled = self.modelled or {}
@@ -248,10 +223,8 @@ function overlay:UpdateObstacles()
                                 entry.actor:SetAnimation(attack, 0, 1, 0)
                             end
                             entry.attacking = true
-                            -- Heard only as the runner passes it, not when it comes into view
-                            -- already behind (a new biome).
+                            -- Not when it comes into view already behind (a new biome).
                             if entry.sound and s.status == "running" and d > 0 and app.db.profile.enemySound then
-                                -- The SFX channel follows the game's sound effects volume.
                                 PlaySoundFile(entry.sound, "SFX")
                             end
                         end
@@ -271,8 +244,7 @@ function overlay:UpdateObstacles()
     end
 end
 
--- Whether face `f` is drawn by models instead: every face of a box with a look, and its ramp's
--- when the look has ramp models.
+-- Whether face `f` is drawn by models instead.
 function overlay:Modelled(f)
     local o = f.object
     if not self.worldScene or o.kind == "coin" then

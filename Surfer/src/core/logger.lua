@@ -6,7 +6,7 @@ local appName, app = ...
 local logger = {}
 app.logger = logger
 
--- Allow `log("msg")` as shorthand for `log:info("msg")`.
+-- `log("msg")` is `log:info("msg")`.
 setmetatable(logger, {
     __call = function(self, ...)
         self:info(...)
@@ -77,8 +77,7 @@ function logger:isEnabled(level)
     return level <= self.threshold
 end
 
--- Core output. `fmt` is passed through string.format when extra args are given,
--- otherwise it is printed as-is (so stray '%' in plain messages don't blow up).
+-- `fmt` is formatted only when extra args are given, so a stray '%' in a plain message is safe.
 ---@param level Surfer.LogLevel
 ---@param fmt any
 ---@param ... any
@@ -99,7 +98,6 @@ function logger:print(level, fmt, ...)
     print(("%s |cff%s[%s]|r %s"):format(PREFIX, color, levelNames[level], msg))
 end
 
--- Level shortcuts: logger:info("Looted %s x%d", link, count)
 function logger:error(...)
     self:print(self.level.ERROR, ...)
 end
@@ -125,7 +123,7 @@ function logger:chat(fmt, ...)
     print(PREFIX .. ": " .. msg)
 end
 
--- Dump a table one level deep; useful for inspecting event payloads while debugging.
+-- A table one level deep, at DEBUG.
 function logger:dump(tbl, label)
     if not self:isEnabled(self.level.DEBUG) then
         return

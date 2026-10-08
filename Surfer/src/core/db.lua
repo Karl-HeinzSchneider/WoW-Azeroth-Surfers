@@ -1,41 +1,27 @@
 ---@type string, Surfer
 local _, app = ...
 
--- AceDB-3.0 defaults. Missing keys in the SavedVariables fall back to these values,
--- and values equal to the default are not written to disk.
-
--- User settings, switchable per character via AceDBOptions.
 ---@class Surfer.DB.Profile
 local profile = {
     logLevel = "INFO",
     minimap = {
         hide = false,
-        -- Degrees around the minimap (0 = east, counter-clockwise), written by LibDBIcon on drag.
-        -- LibDBIcon puts every button at 225 when it has none, so buttons nobody has dragged yet
-        -- all stack on one spot; start somewhere else instead.
+        -- LibDBIcon puts every undragged button at 225 degrees; start elsewhere.
         minimapPos = 200,
     },
     coinSound = true,
-    -- Enemies' attack sounds as the runner passes them (obstacles.lua), and wildlife's voices
-    -- (ambient.lua).
-    enemySound = true,
-    -- A gate's sound as the runner goes through its portal (messages.lua).
+    enemySound = true, -- enemies passed and wildlife
     portalSound = true,
-    -- The hotkey legend beside the road (legend.lua).
     legend = true,
-    -- How the game looks: a file in src/biomes/, or "auto", zone to zone as the run goes.
+    -- A biome id, or "auto": zone to zone as the run goes.
     biome = "auto",
     -- "full": the game covers the screen around the real character; "side": a window of its own.
     mode = "full",
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
     capture = true,
-    -- The game's difficulty, an id of simulation.lua's DIFFICULTIES.
-    difficulty = "normal",
-    -- A fixed seed: every run lays out the same track. false: a new seed every run.
-    seed = false,
-    -- The window frame (border, title bar, close button) in each mode.
-    frame = { full = false, side = true },
-    -- The side window's place and size, set by dragging and sizing it.
+    difficulty = "normal", -- an id of simulation.DIFFICULTIES
+    seed = false, -- a fixed seed for every run, or false: a new one each run
+    frame = { full = false, side = true }, -- the window frame in each mode
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
@@ -53,11 +39,9 @@ local profile = {
     },
 }
 
--- Data tied to one character.
 ---@class Surfer.DB.Char
 local char = {}
 
--- Account-wide data shared by every character.
 ---@class Surfer.DB.Global
 local global = {
     dbVersion = 1,

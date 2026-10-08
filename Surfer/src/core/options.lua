@@ -433,7 +433,6 @@ local options = {
     },
 }
 
--- Runs after addon:OnInitialize, so app.db is available.
 function module:OnInitialize()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100

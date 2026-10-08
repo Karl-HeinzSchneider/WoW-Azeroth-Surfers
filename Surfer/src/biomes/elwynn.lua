@@ -1,7 +1,6 @@
 ---@type string, Surfer
 local _, app = ...
--- Elwynn Forest: the old road through the forest. Everything not listed is the default's
--- (default.lua documents every field). Models from world/azeroth/elwynn/passivedoodads/.
+-- Elwynn Forest: the old road through the forest. Models from world/azeroth/elwynn/passivedoodads/.
 
 -- A fence is always three sections: elwynnwoodfence01 is a post at its origin and two rails
 -- reaching 4.16 yards back toward the runner (on this side of the road), ending at the previous
@@ -27,10 +26,8 @@ local bush = {
     scale = { 0.45, 0.65 },
 }
 
--- A ramp's planks: world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01 (21.6
--- yards long) scaled down to pieces of about 3 yards of slope (narrow and thin: a model scales
--- the same every way), three side by side over a ramp narrower than its platform, as many
--- pieces end to end as the slope is long; a long ramp has more planks, not bigger ones.
+-- world/azeroth/redridge/passivedoodads/dockpieces/redridgedocksplank01 (21.6 yards long) in
+-- pieces of about 3 yards, three side by side.
 local RAMP = { { model = 190091, across = 3, segment = 3, width = 1.5 } }
 
 -- The enemies' attack sounds, the files of their classic sound kits (one picked at random):
@@ -59,7 +56,6 @@ end
 
 app.biomes.Register("elwynn", {
     name = "Elwynn Forest",
-    -- A starter zone.
     tier = 1,
 
     ground = {
@@ -119,10 +115,8 @@ app.biomes.Register("elwynn", {
             { layers = 4, items = { { model = { 198666, 198665 }, height = 2.2, yaw = { 165, 195 } } } },
             { layers = 4, items = { { model = 197849, height = 2.1, yaw = { 170, 190 } } } },
         },
-        -- Elwynn's creatures facing the runner, display ids of the NPCs. Those that have it wait
-        -- in their ready stance (animation 25), and all attack (16) when the runner comes close
-        -- (/surfer animations in Surfer_Dev lists what each has), with their classic attack
-        -- sound.
+        -- NPC display ids. Those that have it wait in their ready stance (animation 25); all
+        -- attack (16) when the runner comes close.
         enemy = {
             -- Low enough to jump: a Timber Wolf (604) or a Stonetusk Boar (503, no ready stance).
             { layers = 2, items = { { creature = 604, yaw = 180, animation = 25, attack = 16, sound = WOLF } } },
@@ -221,10 +215,7 @@ app.biomes.Register("elwynn", {
         },
     },
 
-    -- Elwynn's wildlife: now and then deer (347) bounding across the road, one to three, one
-    -- after another or side by side, now and then one the other way; more often rabbits
-    -- (139885) darting over from closer by, one or two, often crossing each other. Both at their
-    -- own size; /surfer preview in Surfer_Dev shows a creature on the road with its size.
+    -- Deer (347) bounding across, and rabbits (139885) darting over from closer by.
     ambient = {
         every = { 70, 180 },
         creatures = {

@@ -2,29 +2,20 @@
 local _, app = ...
 local sim = app.simulation
 local L = sim.LAYER
--- The autopilot of auto mode (controls.lua): the game plays itself while you watch. It
--- searches the simulation itself, like tests/simulation.lua's check that a pattern can be run
--- through: an input every DT seconds (nothing, jump, a lane either way, both), depth first,
--- STEPS inputs ahead on copies of the run. It plays the run in `simulation.Update`'s stead,
--- splitting each frame at its input times, so the run follows the plan to the tick.
+-- Auto mode's player: a depth-first search on copies of the run, an input every DT seconds,
+-- STEPS ahead. It plays the run in `simulation.Update`'s stead, splitting each frame at its
+-- input times, so the run follows the plan to the tick. A plan heads for one lane and drops the
+-- lane changes and jumps it can do without while keeping as many coins.
 --
--- It heads for one lane per plan (its own while a coin in it is near, else the nearest
--- coin's), goes on with the previous plan while that lane stays, and leaves out of a plan what
--- it does not need (a lane change and its way back, a lane change, a jump) as long as the plan
--- still gets through with as many coins: no needless left and right.
---
--- Copies of the run leave out its coins (they would collect the run's) and never lay out more
--- track (it would draw from the run's generator). Every table is reused: a search allocates
--- nothing once its tables have grown.
+-- Copies leave out the run's coins (they would collect them) and never lay out track (it would
+-- draw from the run's generator). Every table is reused, so a search allocates nothing.
 local autopilot = {}
 app.autopilot = autopilot
 
--- Seconds between two inputs, and how many a plan looks ahead (1.4 seconds: up to 76 yards at
--- the top speed, short of the 160 yards the track is laid out ahead, simulation.AHEAD).
+-- 1.4 seconds ahead: within simulation.AHEAD even at the top speed.
 local DT, STEPS = 0.05, 28
 -- Inputs played from a plan before the next one, as long as it found a way through.
 local REPLAN = 5
--- Searched states per search, at most.
 local BUDGET = 20000
 -- How many yards ahead a coin draws the runner to its lane.
 local REACH = 25
@@ -79,7 +70,7 @@ local function collectCoins(s)
     coinCount = #coins
 end
 
--- `c` made a copy of `s` with its own list of boxes (the simulation drops passed ones).
+-- With its own list of boxes (the simulation drops passed ones).
 local function copy(c, s)
     local objects = c.objects
     for k, v in pairs(s) do
@@ -95,9 +86,7 @@ local function copy(c, s)
     end
     return c
 end
--- `c` made the start of a search or a replay from the run `s`: its boxes within the plan's
--- reach, without its coins, or with copies of them (`withCoins`, for a replay), and no more
--- track laid out.
+-- The boxes within the plan's reach, with copies of the coins only for a replay.
 local function start(c, s, withCoins)
     local objects = c.objects
     for k, v in pairs(s) do
@@ -318,7 +307,6 @@ local function smooth(s, line, length)
     end
 end
 
--- Makes `line[1..length]` the plan.
 local function adopt(line, length)
     for i = 1, length do
         plan[i] = line[i]
@@ -374,9 +362,7 @@ local function decide(s)
     end
 end
 
--- Plays `elapsed` seconds of the run `s` (in `simulation.Update`'s stead): starts it, splits the
--- time at the input times and marks the run `piloted` (it saves no best score). `lost` is where
--- it first found no way through in this run, if it did.
+-- Marks the run `piloted` (it saves no best score). `lost`: where it first found no way through.
 function autopilot.Play(s, elapsed)
     if s.status == "ready" then
         sim.Start(s)

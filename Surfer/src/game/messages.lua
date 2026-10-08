@@ -1,78 +1,51 @@
 ---@type string, Surfer
 local appName, app = ...
 local sim = app.simulation
--- What the game says in the middle of the view, added to the view that overlay.lua creates,
--- drawn over everything else of the game (and full screen, over the rest of the UI too):
---
--- * The status panel while a run is ready to start (the start screen: the best score, Start
---   game, Auto mode, Options, Close), paused or over: a classic dialog (framed like the hotkey legend)
---   with the run's numbers (score, coins, distance, best; "New best!" after one), the
---   difficulty between page arrows (as in the addon options; while paused, for the next run),
---   its seed in a box and the seed option ("Fixed seed", as in the addon options; checked, the box
---   can be edited, otherwise only copied), and a button for each thing to do next, with the
---   key cap of the key that does the same in front of it. Trims like the legend's under the
---   title and under the numbers.
--- * Announcements: a line of big text that fades in, stays a while and fades out, like the
---   game's own zone text. `overlay:Announce(text, seconds, small)` shows one (a newer one
---   replaces it). A run's start announces its biome ("Welcome to Elwynn Forest"), as does
---   changing the biome while a run is on.
+-- What the game shows in the middle of the view, over everything else:
+-- * the status panel while a run is ready (the start screen), paused or over: the run's numbers,
+--   the difficulty, the seed and a button per next action, each behind its key's cap;
+-- * announcements in zone-text style (`Announce`);
+-- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
 local overlay = app.overlay
 
 local WIDTH, PAD, ROW = 300, 28, 22
--- The action rows: the button centered, the key's cap against its left end ("Hold" before a
--- held one's).
 local BUTTON_WIDTH, BUTTON_HEIGHT, ACTION_ROW = 130, 22, 28
--- The seed option's rows: the checkbox, and the seed's box (as wide as the start dialog's).
 local OPTION_ROW, CHECK_SIZE, INPUT_WIDTH = 26, 24, 110
--- The difficulty's row: its name between the spell book's page arrows.
 local ARROW_SIZE, DIFFICULTY_WIDTH = 26, 72
 local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
--- The legend's header trim, as far in from the panel's sides.
 local TRIM, TRIM_HEIGHT, TRIM_INDENT = "Interface\\Common\\UI-TooltipDivider", 8, 20
 local SIDE_SCALE = 0.8
--- Seconds an announcement shows by default (not counting its fades), and its fades.
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
--- Jumping through a gate: the screen flashes this strong in the transition's color, fading out
--- over this many seconds.
 local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
--- A gate's pull (a transition's `vortex`), by how far the portal is from the camera (not the
--- runner: the camera, behind it, goes through last): from VORTEX_FROM yards it builds up to its
--- height as the camera goes through, then fades over VORTEX_THROUGH yards. The last
--- VORTEX_AROUND yards before, the opening grows past the screen's edges: the wind comes from all
--- round the screen into its middle.
+-- The pull, by the portal's distance from the camera (which goes through last): it builds from
+-- VORTEX_FROM yards and fades over VORTEX_THROUGH after; in the last VORTEX_AROUND yards the
+-- opening grows past the screen's edges.
 local VORTEX_FROM, VORTEX_THROUGH, VORTEX_AROUND = 50, 14, 8
--- The opening's size on the screen once the wind comes from all round, in the screen's sizes.
+-- In screen sizes.
 local VORTEX_AROUND_SIZE = 1.2
--- A transition's `sounds`: `approach` from the pull's start, cut off over HUM_FADE
--- milliseconds as it ends (or the run stops); `through`, THROUGH_LEAD seconds before the camera
--- goes through (the teleport's whoosh builds up into it).
+-- `approach` fades out over HUM_FADE milliseconds; `through` plays THROUGH_LEAD seconds early
+-- (the teleport's whoosh builds up into it).
 local HUM_FADE, THROUGH_LEAD = 1000, 0.4
--- The screen's edges closing in, darkest at the full pull.
 local VORTEX_EDGES, VORTEX_EDGES_ALPHA = "Interface\\FullScreenTextures\\OutOfControl", 0.8
--- Radians a second the pull turns round without pull and at the full pull (the wind's lines
--- turn WIND_TWIST of it).
+-- Radians a second, without pull and at the full pull.
 local VORTEX_SPIN = { 1, 9 }
--- The wind's lines rushing into the portal: how many, from how far out (in the opening's
--- sizes) to where they vanish in it, their length (in sizes, at no pull and at the full pull),
--- their width in pixels at their head (tails taper to nothing), the trips a second each makes
--- without pull and at the full pull, and how far the lines turn round (a little).
+-- The wind's lines: count; from and to, length (at no and full pull) in opening sizes; head width
+-- in pixels; trips a second (at no and full pull); the share of the spin they turn.
 local WIND_LINES, WIND_FROM, WIND_TO = 28, 2.2, 0.15
 local WIND_LENGTH, WIND_WIDTH, WIND_TRIPS, WIND_TWIST = { 0.25, 0.8 }, 3, { 0.5, 2.2 }, 0.12
--- Two colors reused for the lines' gradients (read only during the call).
+-- Reused for the gradients (read only during the call).
 local windTail, windHead
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
 
 local TITLES = { ready = appName, paused = "Paused", over = "Run complete" }
--- The numbers' rows (Score, Coins, Distance, Best) each state shows.
+-- Which of Score, Coins, Distance, Best each state shows.
 local ROWS = { ready = { false, false, false, true } }
--- What to do next, by state: what the button does (`DoAction`), the key that does the same (a
--- game key, `overlay.GAME_KEYS`, or the first bound key of `bindings`; none: no key cap),
--- whether the key is held for it, and the button's text. Auto mode (the game plays itself,
--- controls.lua) is in every one; while it is on, a paused run offers to go on (no key: the
--- keys all go to WoW) and to stop it, a finished run only to stop it.
+-- By state: the action (`DoAction`), its key (a game key or the first bound key of `bindings`;
+-- none: no cap), whether the key is held, and the button's text. In auto mode no key does
+-- anything.
 local START = { "MOVEFORWARD", "JUMP" }
 local AUTO = { act = "auto", text = "Auto mode" }
 local ACTIONS = {
@@ -92,7 +65,6 @@ local ACTIONS = {
 local STOP = { act = "manual", text = "Stop auto mode" }
 local AUTO_ACTIONS = { paused = { { act = "pause", text = "Go on" }, STOP }, over = { STOP } }
 
--- A row of the status panel: a name on the left, its value on the right.
 local function row(panel, name)
     local r = {}
     r.name = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -102,7 +74,6 @@ local function row(panel, name)
     return r
 end
 
--- An action row: "Hold" (for a held key), the key's cap and the button.
 local function actionRow(o, panel)
     local r = {}
     r.hold = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
@@ -116,8 +87,6 @@ local function actionRow(o, panel)
     return r
 end
 
--- A button's action: start the run, go on with it (pause again toggles), start a new one, turn
--- auto mode on or off, open the addon options, or close the game.
 function overlay:DoAction(act)
     if act == "start" then
         sim.Start(self.state)
@@ -134,7 +103,6 @@ function overlay:DoAction(act)
     end
 end
 
--- A page arrow that steps the difficulty by `step`.
 local function arrow(o, panel, art, step)
     local button = CreateFrame("Button", nil, panel)
     button:SetSize(ARROW_SIZE, ARROW_SIZE)
@@ -148,7 +116,6 @@ local function arrow(o, panel, art, step)
     return button
 end
 
--- The key a button's action has, if any: a game key, or the first bound key of its bindings.
 local function actionKey(o, action)
     if action.key then
         return o.GAME_KEYS[action.key]
@@ -162,8 +129,7 @@ local function actionKey(o, action)
 end
 
 function overlay:CreateMessages(f)
-    -- The panel's place; the panel, the client's dialog border template, is sized by its
-    -- lines. The template fills its parent (setAllPoints), so it is anchored anew.
+    -- The template fills its parent (setAllPoints): the panel is anchored anew and sized by its lines.
     local holder = CreateFrame("Frame", nil, f)
     self:Stack(holder, "messages")
     holder:SetSize(1, 1)
@@ -172,7 +138,6 @@ function overlay:CreateMessages(f)
     panel:ClearAllPoints()
     panel:SetPoint("CENTER")
     panel:SetWidth(WIDTH)
-    -- Clicks on the panel stay on it.
     panel:EnableMouse(true)
     local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
     title:SetPoint("TOP", 0, -22)
@@ -191,7 +156,6 @@ function overlay:CreateMessages(f)
         actions[i] = actionRow(self, panel)
     end
 
-    -- The difficulty, the setting `profile.difficulty` (SetDifficulty shows a change here).
     local difficultyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     difficultyLabel:SetText("Difficulty")
     local easier, harder = arrow(self, panel, ARROWS[1], -1), arrow(self, panel, ARROWS[2], 1)
@@ -199,11 +163,9 @@ function overlay:CreateMessages(f)
     difficulty:SetWidth(DIFFICULTY_WIDTH)
     difficulty:SetPoint("LEFT", easier, "RIGHT")
     harder:SetPoint("LEFT", difficulty, "RIGHT")
-    -- While paused, a change waits for the next run.
     local nextRun = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     nextRun:SetText("From the next run on")
 
-    -- The seed option, the setting `profile.seed` (SetSeed shows a change here).
     local fixed = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
     fixed:SetSize(CHECK_SIZE, CHECK_SIZE)
     fixed:SetScript("OnClick", function(button)
@@ -214,9 +176,7 @@ function overlay:CreateMessages(f)
     fixedLabel:SetText("Fixed seed")
     local seedLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     seedLabel:SetText("Seed")
-    -- The seed's box always shows the seed: the kept one, or this run's. Only a fixed seed can
-    -- be edited; otherwise the box is read-only (typing is undone), but its text can still be
-    -- selected and copied.
+    -- Only a fixed seed can be edited; otherwise typing is undone, but the seed can be copied.
     local seedBox = self.NumberBox(panel)
     local function restore()
         seedBox:SetText(tostring(app.db.profile.seed or self.state.seed))
@@ -231,7 +191,6 @@ function overlay:CreateMessages(f)
             restore()
         end
     end)
-    -- Read-only, a click selects the seed, ready to copy.
     seedBox:SetScript("OnEditFocusGained", function()
         if not app.db.profile.seed then
             seedBox:HighlightText()
@@ -278,7 +237,6 @@ function overlay:CreateMessages(f)
     text:SetTextColor(CREAM[1], CREAM[2], CREAM[3])
     self.banner = { frame = banner, text = text, small = small }
 
-    -- The flash of jumping through a gate, over the world and the twin, under the score.
     local flash = CreateFrame("Frame", nil, f)
     self:Stack(flash, "flash")
     flash:SetAllPoints(f)
@@ -288,8 +246,6 @@ function overlay:CreateMessages(f)
     glow:SetColorTexture(1, 1, 1, 1)
     self.flash = { frame = flash, texture = glow }
 
-    -- The pull of a gate's portal (ShowVortex), over the world and the twin like the flash: the
-    -- screen's edges closing in, and the wind rushing into the portal's opening.
     local vortex = CreateFrame("Frame", nil, f)
     self:Stack(vortex, "flash")
     vortex:SetAllPoints(f)
@@ -297,12 +253,11 @@ function overlay:CreateMessages(f)
     local edges = vortex:CreateTexture(nil, "BACKGROUND")
     edges:SetAllPoints(vortex)
     edges:SetTexture(VORTEX_EDGES)
-    -- The wind's lines: quads drawn by their corners (SetVertexOffset) from a point at the
-    -- view's corner, so they can point any way.
+    -- Quads drawn by their corners (SetVertexOffset) from a point at the view's corner, so they
+    -- can point any way.
     local lines, phases = {}, {}
     for i = 1, WIND_LINES do
-        -- Its own time in its trip, scattered (a hash of its number: one that grew with it would
-        -- line the lines up in a spiral with their angles).
+        -- Scattered by a hash: a phase growing with the number would line them up in a spiral.
         local hash = math.sin(i * 12.9898) * 43758.5453
         phases[i] = hash - math.floor(hash)
         local line = vortex:CreateTexture(nil, "ARTWORK")
@@ -324,10 +279,9 @@ function overlay:CreateMessages(f)
     }
 end
 
--- Where the panel and announcements stand for the view's mode and size (window.lua's Layout).
 function overlay:PlaceMessages(side, h)
     local panel, banner = self.status.holder, self.banner.frame
-    -- A point's offsets count in the frame's own scale.
+    -- Offsets count in the frame's own scale.
     local scale = side and SIDE_SCALE or 1
     panel:SetScale(scale)
     panel:ClearAllPoints()
@@ -338,7 +292,7 @@ function overlay:PlaceMessages(side, h)
     banner:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.25 or 0.3) * h / scale)
 end
 
--- A trim across the panel at `y`; returns where the next line starts.
+-- Returns where the next line starts.
 function overlay:PlaceTrim(trim, y)
     local panel = self.status.panel
     trim:ClearAllPoints()
@@ -347,7 +301,6 @@ function overlay:PlaceTrim(trim, y)
     return y - TRIM_HEIGHT - 6
 end
 
--- Fills the status panel for `status` and stacks its lines from the top.
 function overlay:FillStatus(status)
     local s, st = self.state, self.status
     local panel = st.panel
@@ -372,7 +325,7 @@ function overlay:FillStatus(status)
             r.value:ClearAllPoints()
             r.value:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, y - ROW / 2)
             if i == 2 and s.coinTotal > 0 then
-                -- Of the coins it came past; 100% only with every one.
+                -- 100% only with every one.
                 r.value:SetFormattedText(
                     "%d / %d  |cffaaaaaa%d%%|r",
                     s.coins,
@@ -385,15 +338,13 @@ function overlay:FillStatus(status)
             y = y - ROW
         end
     end
-    -- A multiplier above 1 shows next to the score.
     if s.multiplier > 1 then
         st.rows[1].name:SetFormattedText("Score  |cffff8c1ax%d|r", s.multiplier)
     else
         st.rows[1].name:SetText("Score")
     end
     y = self:PlaceTrim(st.trims[2], y - 4)
-    -- The difficulty, centered: its name between the arrows (each off at its end). While
-    -- paused, a different one than the run's is for the next run, and says so.
+    -- While paused, a different one than the run's is for the next run, and says so.
     local chosen = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
     st.difficulty:SetText(chosen.name)
     st.easier:SetEnabled(chosen.level > 1)
@@ -411,8 +362,7 @@ function overlay:FillStatus(status)
         st.nextRun:SetPoint("TOP", panel, "TOP", 0, y)
         y = y - st.nextRun:GetStringHeight() - 4
     end
-    -- The seed, centered: its box (white while it can be edited, gray while read-only), and the
-    -- checkbox under it.
+    -- White while it can be edited, gray while read-only.
     local kept = app.db.profile.seed
     if not st.seedBox:HasFocus() then
         st.seedBox:SetText(tostring(kept or s.seed))
@@ -434,7 +384,6 @@ function overlay:FillStatus(status)
     st.fixed:ClearAllPoints()
     st.fixed:SetPoint("LEFT", panel, "TOPLEFT", (WIDTH - width) / 2, y - OPTION_ROW / 2)
     y = y - OPTION_ROW - 8
-    -- Each action row: the button centered, ["Hold"] [key] against it.
     local actions = self.auto and AUTO_ACTIONS[status] or ACTIONS[status]
     for i, r in ipairs(st.actions) do
         local action = actions[i]
@@ -460,8 +409,7 @@ function overlay:FillStatus(status)
     panel:SetHeight(-y + 18)
 end
 
--- Once a frame: the status panel for the run's state, filled again only when the state or the
--- run changes; announces a run's biome once it starts.
+-- Once a frame: filled again only when the state or the run changes.
 function overlay:ShowStatus()
     local s, st = self.state, self.status
     if s.status == "running" and self.announced ~= s then
@@ -472,8 +420,7 @@ function overlay:ShowStatus()
         return
     end
     st.shownStatus, st.shownState = s.status, s
-    -- Auto mode's pause button (the top row's third, window.lua; SetAuto shows it anew): Go on
-    -- while paused, nothing to pause between two runs.
+    -- Auto mode's pause button: Go on while paused, nothing to pause between two runs.
     if self.auto then
         local pause = self.controlButtons[3]
         pause:SetText(s.status == "paused" and "Go on" or "Pause")
@@ -486,8 +433,7 @@ function overlay:ShowStatus()
     st.holder:SetShown(shown)
 end
 
--- Shows `text` in big letters for `seconds` (ANNOUNCE_SECONDS when left out), with an optional
--- `small` line over it; replaces an announcement still showing.
+-- `small`: an optional line over it. Replaces an announcement still showing.
 function overlay:Announce(text, seconds, small)
     local b = self.banner
     if not b then
@@ -500,8 +446,7 @@ function overlay:Announce(text, seconds, small)
     b.frame:Show()
 end
 
--- Flashes the screen in `color` ({ red, green, blue }, white when left out), fading out: the
--- runner jumped through a gate (UpdateZone).
+-- White when `color` is nil.
 function overlay:Flash(color)
     local flash = self.flash
     if not flash then
@@ -514,11 +459,8 @@ function overlay:Flash(color)
     flash.frame:Show()
 end
 
--- Once a frame: a gate's pull, when the next gate (or the one just gone through) has a
--- transition with a `vortex` ({ center, radius, color }: its portal's opening, `center` yards
--- up from the road and `radius` yards round). The wind rushes into the opening, faster,
--- longer and brighter the nearer the runner comes, and the screen's edges darken; from the rim
--- on it spreads from the opening over the whole screen and fades. Still while paused.
+-- Once a frame, when the next gate (or the one just gone through) has a `vortex`: the wind
+-- rushes into the opening, stronger as it nears, then spreads over the screen and fades.
 function overlay:ShowVortex()
     local vortex = self.vortex
     if not vortex then
@@ -549,9 +491,7 @@ function overlay:ShowVortex()
         vortex.frame:Show()
         vortex.shown = true
     end
-    -- The portal's yards ahead of the camera; how strong the pull is, building up to its height
-    -- as the camera goes through, then fading (slowly at first); and how far round the screen
-    -- the wind has come.
+
     local camera = self.camera.x
     local before = ahead - camera
     local pull = math.max(0, math.min(1, 1 - before / VORTEX_FROM)) ^ 1.4
@@ -563,8 +503,7 @@ function overlay:ShowVortex()
         vortex.angle = vortex.angle + elapsed * (VORTEX_SPIN[1] + (VORTEX_SPIN[2] - VORTEX_SPIN[1]) * pull)
         vortex.flow = vortex.flow + elapsed * (WIND_TRIPS[1] + (WIND_TRIPS[2] - WIND_TRIPS[1]) * pull)
     end
-    -- The opening on the screen (held where it still projects once the camera is nearly at
-    -- it), then toward the screen's middle and past its edges.
+    -- Held where it still projects once the camera is nearly at it.
     local at = math.max(ahead, camera + VORTEX_AROUND / 2)
     local x, y, scale = self:Project(at, 0, app.shapes.Ground(at) + look.center)
     if not x then
@@ -581,9 +520,7 @@ function overlay:ShowVortex()
     self:ShowWind(x, y, size, pull, strength, look.color)
 end
 
--- A gate's sounds (its transition's `sounds`, the "Portal sounds" option), each once a gate and
--- only while running: the approach's hum from the pull's start, cut off as it ends, and the
--- going through as the camera nears the portal, `before` yards ahead of it.
+-- Each once a gate and only while running; `through` when the portal is `before` yards ahead.
 function overlay:PortalSounds(transition, rim, before)
     local vortex, s = self.vortex, self.state
     local sounds = transition and transition.sounds
@@ -594,7 +531,6 @@ function overlay:PortalSounds(transition, rim, before)
         end
         return
     end
-    -- A new gate (or run): each of its sounds once.
     if vortex.soundState ~= s or vortex.soundRim ~= rim then
         vortex.soundState, vortex.soundRim, vortex.hummed, vortex.through = s, rim, false, false
     end
@@ -602,7 +538,6 @@ function overlay:PortalSounds(transition, rim, before)
     if sounds.approach and not vortex.hummed then
         vortex.hummed = true
         if on then
-            -- The SFX channel follows the game's sound effects volume.
             local _, handle = PlaySoundFile(sounds.approach, "SFX")
             vortex.hum = handle
         end
@@ -615,9 +550,7 @@ function overlay:PortalSounds(transition, rim, before)
     end
 end
 
--- The wind's lines into the opening at (`x`, `y`), `size` across: each its own way round
--- (the golden angle apart) and its own time in its trip (`phases`), from far out in to the
--- opening, fading in and out, its tail tapering behind it; lighter than the transition's color.
+-- The lines into the opening at (`x`, `y`), `size` across, the golden angle apart.
 function overlay:ShowWind(x, y, size, pull, strength, color)
     local vortex = self.vortex
     local length = size * (WIND_LENGTH[1] + (WIND_LENGTH[2] - WIND_LENGTH[1]) * pull)
@@ -629,7 +562,7 @@ function overlay:ShowWind(x, y, size, pull, strength, color)
         local ux, uy = math.cos(angle), math.sin(angle)
         local head = size * (WIND_FROM - (WIND_FROM - WIND_TO) * trip)
         local tail = head + length
-        -- Corners: the tail's (left of the texture, a point) and the head's (right).
+        -- The tail (left of the texture) is a point.
         local tx, ty = x + ux * tail, y + uy * tail
         local hx, hy = x + ux * head, y + uy * head
         local nx, ny = -uy * half, ux * half
@@ -646,7 +579,6 @@ function overlay:ShowWind(x, y, size, pull, strength, color)
     end
 end
 
--- Once a frame: a flash fading out.
 function overlay:ShowFlash()
     local flash = self.flash
     if not flash or not flash.start then
@@ -661,12 +593,10 @@ function overlay:ShowFlash()
     flash.frame:SetAlpha(FLASH_ALPHA * (1 - t / FLASH_SECONDS))
 end
 
--- The current biome's name, as the game names a zone you enter.
 function overlay:WelcomeBiome()
     self:Announce(self.biome.name, nil, "Welcome to")
 end
 
--- Once a frame: an announcement's fade in, hold and fade out.
 function overlay:ShowBanner()
     local b = self.banner
     if not b.start then

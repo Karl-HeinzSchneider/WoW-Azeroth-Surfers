@@ -1,32 +1,24 @@
 ---@type string, Surfer
 local appName, app = ...
 local light = app.light
--- The game's modes and its window, added to the view that overlay.lua creates. Full screen
--- (`profile.mode` "full"), the view covers the screen and imitates the real camera, so the road
--- lies around the real character. In the side window ("side") it is a window of its own,
--- dragged by its title and sized from its corner: its camera is the calibration's (not the real
--- zoom), with a sky and land behind the road, as there is no world to show through. Either mode
--- can have a window frame (`profile.frame`): the classic portrait frame (as the spell book's)
--- without its portrait, with a title bar, close and minimize / maximize buttons.
+-- The modes (`profile.mode`): "full" covers the screen and imitates the real camera; "side" is
+-- a window of its own with the calibration's camera and a sky and land backdrop. Either can
+-- have the window frame (`profile.frame`).
 local overlay = app.overlay
 local cam = overlay.camera
 
 -- The frame's border and title bar around the view, in pixels: PortraitFrameTemplate's content
 -- area.
 local INSET_LEFT, INSET_TOP, INSET_RIGHT, INSET_BOTTOM = 2, 21, 2, 2
--- How far the frame's corners reach out of it: the top left and bottom corners, and the close
--- button above the top right one. Full screen, the frame sits this far inside the screen's
--- edges; the side window keeps them on the screen when clamped. Fitted by eye in the game, not
--- the textures' own offsets.
+-- How far the frame's corners and close button reach out of it, fitted by eye: full screen the
+-- frame sits this far inside the screen's edges, the side window clamps them on screen.
 local OUT_LEFT, OUT_TOP, OUT_RIGHT, OUT_BOTTOM = -1, 5, 3, 5
 -- The smallest side window: room for the score display and the legend.
 local MIN_WIDTH, MIN_HEIGHT = 360, 300
 local GRIP = "Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-"
--- The room between the buttons of the row at the top.
 local BUTTON_GAP = 4
 
--- The frame (a sibling of the view, so the side window's clipping does not cut it off), its
--- drag handle and size grip, and the backdrop. Shown and hidden with the view.
+-- The frame is a sibling of the view, so the side window's clipping does not cut it.
 function overlay:CreateWindow(f)
     self.sky = f:CreateTexture(nil, "BACKGROUND", nil, -8)
     self.sky:SetColorTexture(1, 1, 1, 1)
@@ -37,9 +29,7 @@ function overlay:CreateWindow(f)
     self.land:SetPoint("BOTTOMLEFT")
     self.land:SetPoint("BOTTOMRIGHT")
 
-    -- Built like the spell book's frame: the portrait frame with its close button, and the
-    -- maximize / minimize buttons left of it. Its background and portrait are left out: the
-    -- game shows through, and the client's own helper turns the portrait into a plain corner.
+    -- Built like the spell book's frame, without background (the game shows through) or portrait.
     local chrome = CreateFrame("Frame", nil, UIParent, "PortraitFrameTemplate")
     self:Stack(chrome, "window")
     chrome:EnableMouse(false)
@@ -110,7 +100,6 @@ function overlay:CreateWindow(f)
     end)
 end
 
--- The side window's place and size, after it was dragged or sized.
 function overlay:SaveWindow()
     local f, saved = self.frame, app.db.profile.side
     -- Kept here, not in the client's layout cache.
@@ -120,15 +109,13 @@ function overlay:SaveWindow()
     saved.width, saved.height = f:GetSize()
 end
 
--- Switches to full screen ("full") or the side window ("side").
 function overlay:SetMode(mode)
     app.db.profile.mode = mode
     self:ApplyMode()
     app.options:Refresh()
 end
 
--- Puts the view where the mode wants it, with its frame and capture setting; on Create and when
--- a mode setting or the profile changes.
+-- On Create and whenever a mode setting or the profile changes.
 function overlay:ApplyMode()
     local profile, f = app.db.profile, self.frame
     local side = profile.mode == "side"
@@ -156,8 +143,7 @@ function overlay:ApplyMode()
         end
     else
         f:SetAllPoints(UIParent)
-        -- Over the screen's edges (the road must stay centered on the real character), the
-        -- parts reaching out of it on the screen.
+        -- Over the screen's edges: the road must stay centered on the real character.
         chrome:SetPoint("TOPLEFT", f, "TOPLEFT", OUT_LEFT, -OUT_TOP)
         chrome:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -OUT_RIGHT, OUT_BOTTOM)
     end
@@ -166,13 +152,11 @@ function overlay:ApplyMode()
     f:SetClampedToScreen(side)
     -- The side window takes clicks inside it; full screen, they go through to the world.
     f:EnableMouse(side)
-    -- The road's pieces reach past the window's edges.
     f:SetClipsChildren(side)
     self.sky:SetShown(side)
     self.land:SetShown(side)
     self.dragHandle:EnableMouse(side)
     self.grip:SetShown(side)
-    -- Minimized to the side window, it offers to maximize, and the other way round.
     if side then
         self.resizeButton:SetMaximizedLook()
     else
@@ -186,7 +170,6 @@ function overlay:ApplyMode()
     self:ApplyHideReal()
 end
 
--- The texts and buttons for the view's mode and size.
 function overlay:Layout()
     local side, w, h = self.side, self.frame:GetSize()
     -- Full screen, a frame's title bar covers the top of the screen.
@@ -195,8 +178,6 @@ function overlay:Layout()
     self:PlaceLegend(side, top)
     self.controls:ClearAllPoints()
     self.controls:SetPoint("TOP", 0, top - (side and 8 or 14))
-    -- Minimize (or Maximize) and Close, unless the frame has its own; Pause and Stop auto mode
-    -- while it is on.
     local buttons, x = self.controlButtons, 0
     buttons[1]:SetText(side and "Maximize" or "Minimize")
     for i, b in ipairs(buttons) do

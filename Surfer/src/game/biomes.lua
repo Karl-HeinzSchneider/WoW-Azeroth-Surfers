@@ -1,14 +1,11 @@
 ---@type string, Surfer
 local _, app = ...
--- Biomes: how the game looks in one region of the world, one file each in src/biomes/. A biome
--- lists only what it changes; everything else comes from the default biome (default.lua, which
--- documents every field). Tables merge field by field, so `ground.surfaces.road.texture`
--- alone replaces just the road's texture; lists (a color, the bands, the coin models) are
--- replaced whole.
+-- Biomes: how the game looks in one region, one file each in src/biomes/, listing only what
+-- differs from default.lua (which documents every field). Tables merge field by field; lists
+-- (a color, the bands, the coin models) are replaced whole.
 local biomes = { list = {}, merged = {} }
 app.biomes = biomes
 
--- A list: a table with a first element. Colors and lists are replaced whole, never merged.
 local function isList(t)
     return type(t) == "table" and t[1] ~= nil
 end
@@ -28,9 +25,9 @@ local function merge(base, over)
     return out
 end
 
--- Called by each biome file: `id` is what the profile stores, `biome.name` what players see.
--- A biome with a `tier` (1 for starter zones, 2 and up for later ones) is a zone auto mode goes
--- through, picked by `weight` (1 if left out) among its tier's; the default has none.
+-- `id` is what the profile stores, `biome.name` what players see. A biome with a `tier` (1 for
+-- starter zones, 2 and up for later ones) is a zone auto mode goes through, picked by `weight`
+-- (1 if left out) among its tier's.
 function biomes.Register(id, biome)
     biomes.list[id] = biome
     biomes.merged = {}
@@ -50,7 +47,6 @@ function biomes.Get(id)
     return merged
 end
 
--- Every biome's name by id, for the options' select.
 function biomes.Names()
     local names = {}
     for id, biome in pairs(biomes.list) do
@@ -59,22 +55,24 @@ function biomes.Names()
     return names
 end
 
--- Transitions: what a gate between two zones looks like (src/biomes/transitions/), never a zone
--- themselves. A biome's `entrance` names the one of the gates into it. Around a gate's rim (the
--- strip of track.GATE, before and after it), the ground is the transition's (or, without one,
--- its zones': the one before up to the rim, the next one past it) and its `items` stand; past the strip
--- nothing shows until the runner jumps through (overlay.lua), when the next zone appears (and
--- the screen flashes in the transition's `flash` color, if it has one).
 biomes.transitions = {}
 
--- Called by each transition file. `def`: `name`; `ground.surfaces`, optional (as a biome's, by
--- the same surface names; a surface left out is the zone's; without, the strip has its zones'
--- ground, changing at the rim); `items`, the models at the gate (see
--- default.lua's `entrance`); `obstacles`, the looks of the gate's boxes (its ramp and platform),
--- as a biome's `obstacles` (flat boxes without); `flash`, optional, a color the screen flashes in as the runner goes through; `vortex`,
--- optional, the portal's pull (messages.lua's ShowVortex: its opening's `center` yards up,
--- `radius`, `color`); `sounds`, optional (with a `vortex`; the "Portal sounds" option), sound
--- file ids: `approach` from the pull's start until it ends, `through` as the camera goes through.
+-- Transitions (src/biomes/transitions/): what a gate between two zones looks like, named by the
+-- next biome's `entrance`. They dress the strip of track.GATE around the rim; past it nothing
+-- shows until the runner jumps through. `def`:
+--   name
+--   ground    optional: `surfaces` as a biome's; a surface left out, or no ground at all, is
+--             the zones' (the one before up to the rim, the next one past it)
+--   items     the models at the gate, placed like decorations from the rim: `model` (a file id
+--             or a list), `x` (yards to the screen's right of the road's middle; write an item
+--             for each side), `d` (yards along the road from the rim), `z`, `yaw`, `scale` or
+--             `height`, `lift`; any number may be a { min, max } range
+--   obstacles the looks of the gate's boxes, as a biome's `obstacles`
+--   flash     optional: a color the screen flashes in going through
+--   vortex    optional: the portal's pull (messages.lua's ShowVortex): its opening's `center`
+--             yards up, `radius`, `color`
+--   sounds    optional, with a `vortex` (the "Portal sounds" option): `approach` during the
+--             pull, `through` as the camera goes through
 function biomes.RegisterTransition(id, def)
     biomes.transitions[id] = def
 end
@@ -84,14 +82,12 @@ function biomes.Transition(id)
     return biomes.transitions[id] or biomes.transitions.dream
 end
 
--- `profile.biome` for auto: the biome changes as the run goes from zone to zone. Where a zone
--- ends is the simulation's (its `zones`: a gate on the track); which biome a zone is, here.
+-- `profile.biome` for auto. Where a zone ends is the simulation's; which biome it is, here.
 biomes.AUTO = "auto"
--- How much likelier the next tier up is than staying in a tier or going back to a lower one.
+-- How much likelier the next tier up is than staying or going back to a lower one.
 local CLIMB = 3
 
--- The zones, built once after the biome files registered: every biome with a tier, by tier and
--- then by id (a fixed order, so a seed always goes the same way), and the tiers there are.
+-- Every biome with a tier, by tier then id (a fixed order, so a seed always goes the same way).
 local function zoneList()
     if biomes.zones then
         return biomes.zones
@@ -117,7 +113,6 @@ local function zoneList()
     return biomes.zones
 end
 
--- One of `entries` by weight, with generator `r`.
 local function pick(r, entries)
     local total = 0
     for _, entry in ipairs(entries) do
@@ -188,14 +183,12 @@ local function addZone(route)
     zones[#zones + 1] = { id = entry.id, tier = tier }
 end
 
--- A run's way through the zones in auto, from its seed (its own stream of it, random.ZONES);
--- `gates` are where its zones start (the run's `gates`, growing with its track).
+-- `gates`: the run's `gates`, growing with its track.
 function biomes.Route(seed, gates)
     return { random = app.random.New(seed, app.random.ZONES), zones = {}, visited = {}, gates = gates, at = 1 }
 end
 
--- The zone at run distance `distance`: `id`, its biome; `from` and `to`, the gates where it
--- starts and ends (none yet: from or to endlessly far). Zones are picked as far as needed.
+-- `id`, its biome; `from` and `to`, its gates (+-math.huge where there is none yet).
 function biomes.Zone(route, distance)
     local gates, k = route.gates, route.at
     while gates[k] and gates[k] <= distance do
@@ -214,7 +207,6 @@ function biomes.Zone(route, distance)
     return zone
 end
 
--- The biome id of the zone at run distance `distance`.
 function biomes.ZoneAt(route, distance)
     return biomes.Zone(route, distance).id
 end

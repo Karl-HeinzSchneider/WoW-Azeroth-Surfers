@@ -1,10 +1,9 @@
 ---@type string, Surfer
 local _, app = ...
--- The world's light for everything the addon draws. The game's own light cannot be read, so it
--- follows the game's clock: white by day, the biome's night light at night, with dawn from 5
--- to 7 and dusk from 19 to 21 (`profile.overlay.dayNight` keeps it at day). 3D models register
--- their scene once with its colors by day and are relit on every change; anything else reads
--- `r`, `g`, `b` after `Update` reports a change.
+-- The light for everything the addon draws, by the game's clock (the world's own light cannot be
+-- read): white by day, the biome's night light at night, dawn 5-7, dusk 19-21. Model scenes
+-- register once and are relit on a change; anything else reads `r`, `g`, `b` when `Update`
+-- reports one.
 local light = { r = 1, g = 1, b = 1, scenes = {} }
 app.light = light
 

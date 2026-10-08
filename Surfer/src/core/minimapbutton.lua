@@ -7,14 +7,11 @@ local addon = app.addon
 -- Same texture as the TOC's `## IconTexture`.
 local ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 
--- Prototype: Ace attaches it to the real module object via __index, so methods are defined
--- here but state (self.ldb, ...) lives on the object NewModule returns.
 ---@class Surfer.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as Surfer.MinimapButton]]
 
--- Runs after addon:OnInitialize, so app.db is available.
 function module:OnInitialize()
     ---@type LibDataBroker.QuickLauncher
     local launcher = {
@@ -35,7 +32,6 @@ function module:OnInitialize()
     log:debug("Minimap button registered")
 end
 
--- Re-read hide/position from the (possibly new) profile.
 -- The addon's first OnProfileRefresh runs before module:OnInitialize, hence the guard.
 function module:OnProfileRefresh()
     local icon = LibStub("LibDBIcon-1.0")

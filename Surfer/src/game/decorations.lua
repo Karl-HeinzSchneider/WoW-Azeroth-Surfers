@@ -3,17 +3,14 @@ local _, app = ...
 local shapes = app.shapes
 local random = app.random
 local light = app.light
--- Decorations: the biome's 3D models along both sides of the road (biomes/default.lua describes
--- them), added to the view that overlay.lua creates. All of them are actors in one ModelScene
--- covering the screen, with the road's camera, so they cost one render pass however many there
--- are, and the scene's depth buffer sorts them.
+-- The biome's roadside models: actors of one full-screen ModelScene with the road's camera, so
+-- they cost one render pass however many there are.
 local overlay = app.overlay
 local cam = overlay.camera
 local ground = shapes.Ground
 local unchanged = overlay.Unchanged
 
--- A value from a biome: a number, or a { min, max } range picked with generator `r`
--- (random.lua).
+-- A number, or a { min, max } range rolled with `r`.
 local function value(r, v, default)
     if v == nil then
         return default
@@ -24,7 +21,6 @@ local function value(r, v, default)
     return v
 end
 
--- A model from a biome: a file id, or a list of them picked with `r`.
 local function choose(r, v)
     if type(v) == "table" then
         return v[r(#v)]
@@ -32,7 +28,6 @@ local function choose(r, v)
     return v
 end
 
--- A group by weight, picked with `r`.
 local function pick(r, groups)
     local total = 0
     for _, group in ipairs(groups) do
@@ -58,22 +53,17 @@ function overlay:CreateDecorations(f)
     scene:SetCameraNearClip(overlay.CLIP_NEAR)
     scene:SetCameraFarClip(overlay.CLIP_FAR)
     self.worldScene = scene
-    -- Where the runner is along the scene's x (FollowWorldCamera).
     self.sceneRunner, self.sceneCamera = 0, {}
-    -- Placed decorations, and spare ones: their tables and, by model, their actors.
+    -- Placed decorations, spare tables and spare actors by model.
     self.decor, self.spareDecor, self.spareActors = {}, {}, {}
     self.decorNext, self.decorLens, self.modelBounds = {}, {}, {}
-    -- Each side draws from its own stream of the run's seed, in order along the road, so the
-    -- same seed decorates the same whatever the frame rate.
+    -- Each side draws from its own stream in road order: a seed decorates the same at any frame rate.
     self.decorRandom = { [-1] = random.New(1, random.LEFT), [1] = random.New(1, random.RIGHT) }
-    -- A gate's entrance draws from its own: the seed and the gate's number.
     self.gateRandom, self.gatesPlaced = random.New(1, random.LOOK), 0
 end
 
--- An actor of the world scene showing `model`: a spare one that showed it before, or a new one.
--- `model` is a file id, or minus a creature display id (a creature with its skin). Placed by
--- the model's own origin, the point it stands on in the world. Not its bounds' center: an
--- animated model's bounds change as it moves, so it would drift.
+-- `model`: a file id, or minus a creature display id. Placed by its origin, never its bounds'
+-- center: an animated model's bounds change as it moves, so it would drift.
 function overlay:AcquireActor(model)
     local spare = self.spareActors[model]
     if not spare then
@@ -102,8 +92,7 @@ function overlay:ReleaseActor(model, actor)
     spare[#spare + 1] = actor
 end
 
--- A model's bounds once it has loaded, { minX, minY, minZ, maxX, maxY, maxZ } around its
--- origin, measured once per model; nothing before.
+-- { minX, minY, minZ, maxX, maxY, maxZ } around the origin, once per model; nil until loaded.
 function overlay:ModelBounds(actor, model)
     local bounds = self.modelBounds[model]
     if not bounds then
@@ -117,21 +106,17 @@ function overlay:ModelBounds(actor, model)
     return bounds
 end
 
--- The client turns a model about its bounds' center, not its origin: the offset that makes it
--- turn about its origin, (turn - 1) * center, in the actor's own units (its position is scaled
--- with it).
+-- The client turns a model about its bounds' center: the offset that turns it about its origin
+-- instead, in the actor's own units.
 function overlay.TurnShift(bounds, yaw)
     local sin, cos = math.sin(yaw), math.cos(yaw)
     local cx, cy = (bounds[1] + bounds[4]) / 2, (bounds[2] + bounds[5]) / 2
     return cx * (cos - 1) - cy * sin, cx * sin + cy * (cos - 1)
 end
 
--- How the scene spreads its field of view is not documented (over its height, its width, or
--- what is left of it on the screen) and it projects in its own units, so its lens is
--- calibrated against the road's: a road point is projected both ways and their distances from
--- the view's middle compared. Every distance scales with 1 / tan(fov / 2), so with
--- tan(fov / 2) = span / 2 / focal, a ratio r off corrects `span` by r. Nothing when the scene
--- cannot project yet.
+-- How the scene spreads its field of view is undocumented, so its lens is calibrated against the
+-- road's: a road point is projected both ways and the distances from the middle compared; a
+-- ratio r off corrects `span` by r. Nothing while the scene cannot project yet.
 local function measure(self, scene, pitch)
     local c, s = math.cos(pitch), math.sin(pitch)
     local runner = self.sceneRunner
@@ -152,16 +137,11 @@ local function measure(self, scene, pitch)
     return seen / road
 end
 
--- Track distance repeats along the world scene's x every REBASE yards, so its numbers stay
--- small however long a run goes (auto mode runs for hours).
+-- Track distance repeats along the scene's x every REBASE yards, so its numbers stay small.
 local REBASE = 16384
 
--- The world scene stands still along the track: a model's x is its place on the track (less a
--- whole number of REBASE yards), and the scene's camera runs along with the runner, its x
--- `sceneRunner` + the road camera's. Moving the models toward the camera instead would leave
--- their particles behind (a brazier's flames in a trail). Every few minutes the numbers start
--- over: models and camera move back together, only particles in the air jump once. Once a
--- frame, before the models are placed; the camera only when it moved (or `force`).
+-- The scene stands still along the track and its camera runs along: moving the models instead
+-- would trail their particles (a brazier's flames). Once a frame, before the models are placed.
 function overlay:FollowWorldCamera(force)
     self.sceneRunner = self.state.distance % REBASE
     -- The scene's y points left: the road's lane offset moves its camera.
@@ -174,9 +154,8 @@ function overlay:FollowWorldCamera(force)
     end
 end
 
--- The scene covers the screen and shows what the road's camera sees: its camera, and its lens,
--- calibrated once for this screen size and UI scale (in a few rounds, should it not be a plain
--- pinhole).
+-- The road's camera, and the lens calibrated once for this screen size and UI scale (in a few
+-- rounds, should it not be a plain pinhole).
 function overlay:AimDecorations()
     local scene, w, h = self.worldScene, self.frame:GetSize()
     local pitch = math.rad(app.db.profile.overlay.pitch)
@@ -220,7 +199,6 @@ end
 -- Yards of roadside left bare where a biome has no decorations.
 local EMPTY = 10
 
--- Clears the road's decorations, for a new run or biome; the next frame places new ones.
 function overlay:ResetDecorations()
     for i = #self.decor, 1, -1 do
         release(self, i)
@@ -228,9 +206,7 @@ function overlay:ResetDecorations()
     self.decorState = nil
 end
 
--- One decoration of a group starting `at` yards along the run, on `side` (1 right, -1 left).
--- The left side's group is the right side's turned round about its middle: each model turned
--- round, and its place along the group reversed, so parts that join up on the right still do.
+-- `side`: 1 right, -1 left; the left one's group is turned round about its middle.
 local function place(self, r, length, item, at, side, clear)
     local model = choose(r, item.model)
     local actor = self:AcquireActor(model)
@@ -246,16 +222,13 @@ local function place(self, r, length, item, at, side, clear)
     d.z = value(r, item.z, 0)
     d.height = value(r, item.height, nil)
     d.y = -side * d.x
-    -- Built for the right side; the left side's are turned round to face the road too.
     d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (side < 0 and math.pi or 0), value(r, item.scale, 1)
     actor:SetYaw(d.yaw)
     actor:SetScale(d.scale)
     self.decor[#self.decor + 1] = d
 end
 
--- One model of a gate's entrance (a biome's `entrance`), its gate's rim at track distance `at`:
--- `x` yards to the screen's right of the road's middle, as the item says (both sides alike, not
--- mirrored), and kept where it is put (`overhang`: no `clear`).
+-- One of a transition's `items`, its rim at `at`: not mirrored, never pushed out.
 local function placeEntrance(self, r, item, at)
     local model = choose(r, item.model)
     local actor = self:AcquireActor(model)
@@ -274,22 +247,19 @@ local function placeEntrance(self, r, item, at)
     self.decor[#self.decor + 1] = d
 end
 
--- Moves a decoration out until none of it reaches closer to the road's middle than `clear`,
--- once its model has loaded: how far its bounds, turned, reach toward the road. Models are
--- measured once. Not for `overhang` items, which are meant to reach over the road.
+-- Once its model has loaded: scales it to `height`, lifts it, and moves it out until its turned
+-- bounds no longer reach in past `clear`.
 function overlay:FitDecoration(d, clear)
     local bounds = self:ModelBounds(d.actor, d.model)
     if not bounds then
         return
     end
     d.fitted = true
-    -- A model of unknown size, scaled to a height.
     if d.height then
         d.scale = d.height / math.max(bounds[6], 0.01)
         d.actor:SetScale(d.scale)
     end
-    -- Standing on its lowest point: the part a model sinks into the world's terrain would show
-    -- here, over the flat ground, and seem to slide as it comes nearer. In its own units.
+    -- In its own units.
     if d.lift then
         d.raise = math.max(0, -bounds[3])
     end
@@ -312,8 +282,7 @@ function overlay:FitDecoration(d, clear)
     d.y = -d.side * d.x
 end
 
--- Once a frame: places new groups up to the far end of the ground, moves every decoration with
--- the run, fades it in far ahead and drops it once behind the camera.
+-- Once a frame: places new groups up to the far fade, fades them in and drops those behind.
 function overlay:UpdateDecorations()
     local s, look = self.state, self.biome.decorations
     local fade = self.biome.ground.fade
@@ -332,8 +301,6 @@ function overlay:UpdateDecorations()
     for side = -1, 1, 2 do
         local r = self.decorRandom[side]
         while self.decorNext[side] < s.distance + fade.to do
-            -- The roadside of the zone it stands in (auto): the next zone's comes into sight.
-            -- None in a gate's strip, which its transition dresses.
             local at = self.decorNext[side]
             local here = self:BiomeAt(at).decorations
             local strip = self:StripEnd(at)
@@ -344,8 +311,7 @@ function overlay:UpdateDecorations()
             else
                 local group = pick(r, here.groups)
                 local length = value(r, group.length, 0)
-                -- A group that would reach into a gate's strip is left out; the roadside starts
-                -- again past the strip.
+                -- None in a gate's strip; the roadside starts again past it.
                 local into = self:StripEnd(at, at + length)
                 if into then
                     self.decorNext[side] = into
@@ -360,8 +326,7 @@ function overlay:UpdateDecorations()
             end
         end
     end
-    -- Each gate (a run through zones, auto), once it comes into sight: the entrance of the zone
-    -- it leads into.
+    -- Each gate's transition, once it comes into sight.
     local gates = s.gates
     while gates and self.gatesPlaced < #gates and gates[self.gatesPlaced + 1] < s.distance + fade.to do
         local k = self.gatesPlaced + 1
@@ -398,8 +363,7 @@ function overlay:UpdateDecorations()
     end
 end
 
--- The biome's decorations and their light; called by ApplyBiome. Placed anew, unless the runner
--- is `entering` a zone (auto), where they already stand.
+-- Placed anew, unless `entering` a zone, where they already stand.
 function overlay:ApplyDecorations(biome, entering)
     local look = biome.decorations
     light.AddScene(self.worldScene, look.ambient, look.diffuse)

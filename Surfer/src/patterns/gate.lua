@@ -3,17 +3,13 @@ local _, app = ...
 local track = app.track
 local add, arc = track.Add, track.Arc
 
--- The strip around the rim, in yards before and after it, which the next zone's transition
--- dresses (overlay.lua): no other pattern reaches into it.
--- `clear`: seconds of empty road before the rim and after it at the speed of the moment (at
--- least the strip and `lead`): at full speed a runner sees the gate coming with nothing left to
--- dodge, and after the flash has time to see what the next zone brings before it has to react.
--- `lead`: yards of the zone's own road, empty, at least between the strip and the patterns
--- before and after it, so the zone's boxes (their models, enemies) never stand at its edge.
--- `ramp`: the step up to the portal, in every lane: `layers` up over a ramp `length` yards
--- long (steep enough to look like steps, gentle enough to run up at full speed: the
--- simulation's STEP_UP), starting `from` yards before the rim, its top running on to `to`
--- yards past it, where the runner drops back to the road.
+-- `before`/`after`: the strip around the rim (yards) that the transition dresses; no other
+-- pattern reaches into it.
+-- `clear`: seconds of empty road before and after the rim at the speed of the moment.
+-- `lead`: at least this many empty yards of the zone's own road between the strip and the
+-- patterns around it, so the zone's models never stand at its edge.
+-- `ramp`: the step up to the portal in every lane, `from` yards before the rim to `to` past it;
+-- short enough to read as a step, within the simulation's STEP_UP to run up at full speed.
 track.GATE = {
     before = 22,
     after = 18,
@@ -22,13 +18,10 @@ track.GATE = {
     ramp = { layers = 1, length = 1.5, from = 6.5, to = 5 },
 }
 
--- The gate between two zones (simulation.lua's `zones`: in auto, the biome changes there),
--- dressed as the next zone's entrance (a biome's `entrance`). Nothing to die on: empty road
--- leads to it and away from it (`clear`), and a step in every lane climbs to the platform the
--- portal stands on, an arc of coins over the middle lane for a jump. Never picked by weight:
--- the track lays it out where a zone ends (track.lua); it adds where the next zone starts, at
--- the rim, to the run's `gates`. Its boxes are marked `gate` (and their `rim`), so the views
--- give them the transition's looks (its `obstacles`).
+-- The gate between two zones, dressed as the next zone's `entrance`. Nothing to die on: empty
+-- road around it, a step in every lane up to the portal's platform, coins over the middle lane.
+-- Never picked by weight: track.lua lays it out where a zone ends. Its boxes are marked `gate`
+-- (and their `rim`) for the transition's `obstacles`.
 track.Register({
     name = "gate",
     weight = 0,
@@ -45,7 +38,6 @@ track.Register({
         if s.gates then
             s.gates[#s.gates + 1] = rim
         end
-        -- The next pattern only past the empty road after the rim.
         return before + after
     end,
 })

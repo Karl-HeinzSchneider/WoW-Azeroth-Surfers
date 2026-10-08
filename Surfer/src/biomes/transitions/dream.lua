@@ -1,20 +1,12 @@
 ---@type string, Surfer
 local _, app = ...
--- The Emerald Dream: the gate is the great tree portal of the dragon groves (Seradane, Twilight
--- Grove, Dream Bough, Bough Shadow) in an overgrown night elf shrine in Feralas' forest, a touch
--- of the Nightmare about it.
---
--- Laid out from the runner's side: the approach (patterns/gate.lua: 22 yards of strip before
--- the portal) a forest path with stones in it, more of them and more in order toward the step
--- up to the shrine's platform, where the portal stands. Left of it ruins, right of it the
--- forest's growth, not mirrored; two curved roots frame the portal, the Nightmare's purple and
--- fog only about it. x: yards to the screen's right of the road's middle (the outer lanes at
--- -2.4 and 2.4, the platform 3.45 to either side); d: yards from the rim, the portal's.
+-- The Emerald Dream: the dragon groves' tree portal in an overgrown night elf shrine in Feralas'
+-- forest, a touch of the Nightmare about it. A stone path leads to the step up to the portal's
+-- platform (3.45 yards to either side); ruins on the left, forest on the right.
 
--- The path's stones: flat slabs (generic/nightelf/passive doodads/steppingstones/
--- steppingstone01, 02; kalimdor/diremaul/passivedoodads/rubble/diremaulfloorrubble01), low
--- enough to read as the ground, never as something to jump. Scattered between the lanes and at
--- the road's edges first, then a row across before the step.
+-- Flat slabs (generic/nightelf/passive doodads/steppingstones/steppingstone01, 02; kalimdor/
+-- diremaul/passivedoodads/rubble/diremaulfloorrubble01), low enough to read as the ground.
+-- Scattered first, then a row across before the step.
 local SLABS = { 198947, 198948, 201699 }
 local path = {}
 local SPOTS = { { -1.7, -0.8 }, { 0.8, 1.7 }, { -4.3, -3.3 }, { 3.3, 4.3 }, { -0.4, 0.4 } }
@@ -31,40 +23,31 @@ for _, x in ipairs({ -3, -1.5, 0, 1.5, 3 }) do
     path[#path + 1] = { model = SLABS, x = { x - 0.2, x + 0.2 }, d = { -8.2, -7.6 }, height = 0.15, yaw = { 0, 360 } }
 end
 
--- The shrine.
 local shrine = {
-    -- generic/activedoodads/worldtreeportals/worldtreeportal01 on the platform (z: its layer),
-    -- about 17 yards wide at this height.
+    -- generic/activedoodads/worldtreeportals/worldtreeportal01 on the platform.
     { model = 197068, x = 0, z = 0.6, height = 14 },
-    -- Framing it, two curved grey roots tipped with the Nightmare's purple leaning in over its
-    -- sides, not quite alike (kalimdor/felwood/passivedoodads/roots/felwoodroots03).
+    -- Two curved roots framing it (kalimdor/felwood/passivedoodads/roots/felwoodroots03).
     { model = 201883, x = -8.5, d = -1, height = 11 },
     { model = 201883, x = 8.8, d = 0.5, height = 10, yaw = 180 },
-    -- Green fire in Maraudon's stone braziers (kalimdor/mauradon/passivedoodads/bridgebraziers/
-    -- bridgebraziergreen01) beside the step and at the portal's feet.
+    -- kalimdor/mauradon/passivedoodads/bridgebraziers/bridgebraziergreen01.
     { model = 202081, x = -4.3, d = -6.8, height = 1.3 },
     { model = 202081, x = 4.3, d = -6.5, height = 1.3 },
     { model = 202081, x = -4.1, d = -1.5, height = 1.1 },
     { model = 202081, x = 4.1, d = -1, height = 1.1 },
-    -- The Nightmare, about the portal only: purple fog at its feet (generic/passivedoodads/
-    -- particleemitters/purplegroundfog), corrupted roots with purple leaves at the platform's
-    -- side (felwoodroots01) and Felwood's mushrooms by the step (felwoodmushrooms/
-    -- felwoodmushroom01, 02).
+    -- The Nightmare: generic/passivedoodads/particleemitters/purplegroundfog, felwoodroots01,
+    -- felwoodmushrooms/felwoodmushroom01, 02.
     { model = 199967, x = 0, d = 1, z = 0.6, scale = 0.35 },
     { model = 201881, x = -5.6, d = 2, height = 2.6, yaw = 20 },
     { model = { 201859, 201860 }, x = 4.9, d = -5.2, height = 0.7, yaw = { 0, 360 } },
     { model = { 201859, 201860 }, x = -5.2, d = -3.6, height = 0.6, yaw = { 0, 360 } },
 }
 
--- Left: ruins. By the portal a tall broken column (kalimdor/darkshore/passivedoodads/ruins/
--- darkshoreruinpillar01) with roots at its feet (kalimdor/ashenvale/passivedoodads/
--- ashenvaleroots/ashenvaleroots02) and a vine on it (azeroth/duskwood/passivedoodads/detail/
--- duskwoodvine01), a smaller collapsed piece of wall (darkshoreruinwall02). Midway a
--- collapsed doorway along the path (generic/nightelf/passive doodads/ruins/nightelfruins07)
--- and a fallen column turned away from it (darkshoreruinwall01), ferns through the stones
--- (kalimdor/feralas/passivedoodads/fern/feralasferns01). Near the runner mossy rocks
--- (darkshorerock01, 02), Teldrassil's purple bush (kalimdor/kalidar/passivedoodads/kalidarbushes/kalidarbush02)
--- and a flower of the Dream (dreaming/passivedoodads/flowers/dnrdreampurpleflower02).
+-- Ruins, in order: kalimdor/darkshore/passivedoodads/ruins/darkshoreruinpillar01, kalimdor/
+-- ashenvale/passivedoodads/ashenvaleroots/ashenvaleroots02, azeroth/duskwood/passivedoodads/
+-- detail/duskwoodvine01, darkshoreruinwall02, generic/nightelf/passive doodads/ruins/
+-- nightelfruins07, darkshoreruinwall01, kalimdor/feralas/passivedoodads/fern/feralasferns01,
+-- darkshorerock01, 02, kalimdor/kalidar/passivedoodads/kalidarbushes/kalidarbush02,
+-- dreaming/passivedoodads/flowers/dnrdreampurpleflower02.
 local left = {
     { model = 201553, x = -11.5, d = -3, height = 9, yaw = { 0, 360 } },
     { model = 201202, x = -10.6, d = -2.2, height = 2.4, yaw = 60 },
@@ -80,12 +63,9 @@ local left = {
     { model = 190773, x = -5.3, d = -18, height = 1.1, yaw = { 0, 360 } },
 }
 
--- Right: the forest's growth. By the portal one of Teldrassil's giant twisting roots
--- (kalimdor/kalidar/passivedoodads/kalidarroots/kalidargiantroot02) along the shrine, a tall
--- broken stone among it (darkshoreruinpillar03) with a vine hanging on it (duskwoodvine02).
--- Midway thick ferns, broad leaves (kalidarbush01, 03), a mossy rock, a column sunk to a stump
--- (darkshoreruinpillar04) and a crooked root reaching for the path (kalidarroots03). Near the
--- runner a bush (kalidarbush04), a mushroom and the Dream's purple flowers (dnrdreampurpleflower01, 03).
+-- Forest: kalimdor/kalidar/passivedoodads/kalidarroots/kalidargiantroot02, darkshoreruinpillar03,
+-- duskwoodvine02, ferns, kalidarbush01, 03, a rock, darkshoreruinpillar04, kalidarroots03,
+-- kalidarbush04, a mushroom, dnrdreampurpleflower01, 03.
 local right = {
     { model = 202035, x = 14, d = 1, height = 13, yaw = 90 },
     { model = 201555, x = 10.4, d = -4.5, height = 6, yaw = { 0, 360 } },
@@ -103,9 +83,7 @@ local right = {
     { model = { 190772, 190774 }, x = 5.8, d = -20, height = 1.5, yaw = { 0, 360 } },
 }
 
--- Past the gate, where the runner drops from the platform: Dire Maul's broken stone
--- (diremaultrimrubble01 to 03) and Feralas' standing stones (feralas/passivedoodads/stones/
--- feralasstone01, 02).
+-- Past the gate: diremaultrimrubble01 to 03, feralas/passivedoodads/stones/feralasstone01, 02.
 local after = {
     { model = { 201715, 201716, 201717 }, x = { -6.5, -4.6 }, d = { 6, 10 }, yaw = { 0, 360 } },
     { model = { 201715, 201716, 201717 }, x = { 4.6, 6.5 }, d = { 6, 10 }, yaw = { 0, 360 } },
@@ -122,10 +100,7 @@ end
 
 app.biomes.RegisterTransition("dream", {
     name = "Emerald Dream",
-    -- No ground of its own: the strip has the zone's before the portal and the next one's past it.
-    -- The step up to the shrine's platform and the platform (patterns/gate.lua: one layer, in
-    -- every lane): a stepping stone up the step, the platform of Dire Maul's flat broken stones
-    -- and stepping stones, laid along it.
+    -- No ground of its own. The step and platform of stepping stones and Dire Maul's flat rubble.
     obstacles = {
         platform = {
             {
@@ -135,15 +110,9 @@ app.biomes.RegisterTransition("dream", {
             },
         },
     },
-    -- Set aside, maybe for later: a ruined highborne statue on each side before the portal,
-    -- turned toward the runner, { model = { 201705, 201706, 201707, 201708 } (kalimdor/diremaul/
-    -- passivedoodads/rubble/diremaulstonestatue01 to 04), x = -6.8 and 6.8, d = -8, height = 9,
-    -- yaw = { 215, 235 } on the left, { 125, 145 } on the right }.
     items = items,
-    -- The portal's pull (messages.lua): its opening, about 6 yards up (on the platform) and 5.7
-    -- round at this height, swirling green.
+    -- The portal's opening.
     vortex = { center = 6, radius = 5.7, color = { 0.45, 1, 0.6 } },
-    -- A portal's hum as the pull starts (sound/doodad/portalparticles.ogg), and going through,
-    -- the mage's teleport (sound/spells/teleport.ogg).
+    -- sound/doodad/portalparticles.ogg, sound/spells/teleport.ogg.
     sounds = { approach = 566073, through = 569735 },
 })

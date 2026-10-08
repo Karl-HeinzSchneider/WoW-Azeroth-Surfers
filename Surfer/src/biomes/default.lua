@@ -1,37 +1,28 @@
 ---@type string, Surfer
 local _, app = ...
--- The default biome: the look every other biome starts from. Each field below is documented,
--- so this file is also the reference for writing a biome. Distances are in yards; colors are
--- { red, green, blue } from 0 to 1. Textures and models are game file ids (from the community
--- listfile); only the original, classic-era files.
+-- The look every other biome starts from, and the reference for writing one. Distances are in
+-- yards; colors { r, g, b } from 0 to 1; textures and models are classic-era game file ids.
 app.biomes.Register("default", {
     name = "Plain",
 
     -- The ground: surfaces (what a stretch of ground is made of) laid out in bands.
     ground = {
-        -- Each surface's `texture` (a file id; none here) repeats every `tile` yards, as on the
-        -- game's own terrain (4.1667 yards: 8 times per terrain chunk). `color` stands in
-        -- without a texture, or when it does not load.
+        -- A surface's `texture` repeats every `tile` yards (the game terrain's: 8 per chunk);
+        -- `color` stands in without one, or until it loads.
         tile = 4.1667,
         surfaces = {
             road = { color = { 0.55, 0.53, 0.45 } },
             dirt = { color = { 0.45, 0.33, 0.18 } },
             grass = { color = { 0.4, 0.5, 0.1 } },
         },
-        -- Bands from the road's middle outward, mirrored to both sides; a band `from` 0 is one
-        -- band across the middle. The lanes are 2.4 yards wide: the middle one ends at 1.2, the
-        -- outer ones at 3.6.
+        -- Bands from the road's middle outward, mirrored to both sides (the middle lane ends at
+        -- 1.2 yards, the outer ones at 3.6):
         --   surface   which surface it shows
         --   layer     draw order from -8 to 7: higher draws over lower
-        --   segments  1, 2 or 4: how deep its pieces are near the runner, in yards. Shorter
-        --             keeps a texture's perspective, longer costs less. The road needs 1: a seam
-        --             next to it would show.
+        --   segments  1, 2 or 4: yards deep its pieces are near the runner. Shorter keeps a
+        --             texture's perspective, longer costs less; the road needs 1.
         --   from, to  yards off the middle
-        --   opacity   { at from, at to }. Gradients are linear across a band, so a soft edge is
-        --             a band of its own.
-        -- Here: a road fading into a dirt shoulder, the dirt into grass (a lane's width more of
-        -- it to each side, for the roadside's decorations), the grass into the world, and worn
-        -- dirt ruts marking the lanes.
+        --   opacity   { at from, at to }, linear: a soft edge is a band of its own
         bands = {
             { surface = "grass", layer = -2, segments = 2, from = 3.3, to = 7.9, opacity = { 1, 1 } },
             { surface = "grass", layer = -2, segments = 2, from = 7.9, to = 10.9, opacity = { 1, 0 } },
@@ -40,41 +31,30 @@ app.biomes.Register("default", {
             { surface = "road", layer = 0, segments = 1, from = 3.3, to = 4.3, opacity = { 1, 0 } },
             { surface = "dirt", layer = 1, segments = 4, from = 0.95, to = 1.45, opacity = { 0.3, 0.3 } },
         },
-        -- The far ground fades out between these distances ahead instead of ending at a hard
-        -- edge; models, decorations and wildlife fade in the same way. `to` must stay short of
-        -- simulation.VIEW (140), how far ahead the views show anything.
+        -- Where everything far ahead fades out; `to` must stay short of simulation.VIEW.
         fade = { from = 95, to = 135 },
-        -- How the ground curves down and away toward the horizon: it drops `curve` times the
-        -- distance ahead squared, in yards (0.0005: 0.2 at 20 yards, 1.25 at 50, 3.6 at 85, 9.1
-        -- at 135).
-        -- 0 is flat. Everything on the road follows it. The options can fix it instead.
+        -- The ground drops `curve` times the distance ahead squared (0.0005: 1.25 yards at 50,
+        -- 9.1 at 135); 0 is flat. Everything on the road follows it.
         curve = 0.0005,
     },
 
-    -- 3D models along both sides of the road, as actors of one scene. Along each side a group
-    -- follows the last one after `spacing` yards; groups are picked at random by `weight`, and
-    -- each takes `length` yards of the roadside (a group without items leaves that stretch
-    -- empty). A group's `items` are placed together:
-    --   model  a file id, or a list to pick one from at random
-    --   x      yards from the road's middle to the model's origin, the point it stands on in the
-    --          world (the road's edge is at 4.3, the grass is solid to 7.9 and fades out by 10.9). Moved farther out if
-    --          the model would reach closer to the middle than `clear`.
+    -- 3D models along both sides of the road. Along each side a group, picked by `weight`,
+    -- follows the last one after `spacing` yards and takes `length` yards (no items: an empty
+    -- stretch). A group's `items`:
+    --   model     a file id, or a list to pick one from
+    --   x         yards from the road's middle to the model's origin (the road's edge is at 4.3,
+    --             the grass solid to 7.9); pushed out if the model reaches in past `clear`
     --   overhang  true: may reach over the road (a lamp's arm), `clear` does not apply
-    --   lift   true: stands on its lowest point instead of its origin. A model built to sink
-    --          into the world's terrain (a rock) would otherwise show its buried part over the
-    --          flat ground, and seem to slide as it comes nearer.
-    --   d      yards along the road from the group's start, 0 if left out
-    --   z      yards up from the ground, 0 if left out
-    --   yaw    degrees the model turns (0 if left out)
-    -- Groups are written for the right side of the road (models face the road at yaw 0 when
-    -- built facing the model's +y). The left side's are the same group turned round about its
-    -- middle: every model turned round to face the road too, and `d` counted back from the
-    -- group's `length`, so parts that join up (a fence and the post closing it) still do.
-    --   scale  its size, 1 if left out
-    --   chance from 0 to 1: how often it is placed with its group, always if left out. Optional
-    --          parts make variants: a fence that sometimes has a lamp, sometimes a bush, or both.
-    -- Any number may instead be a { min, max } range, picked at random for each one placed.
-    -- `ambient` and `diffuse` light them by day. None by default.
+    --   lift      true: stands on its lowest point instead of its origin (a rock built to sink
+    --             into the terrain would show its buried part)
+    --   d, z      yards along the road from the group's start, and up; 0 if left out
+    --   yaw       degrees, 0 if left out
+    --   scale     1 if left out
+    --   chance    0 to 1: how often it is placed with its group (always if left out)
+    -- Groups are written for the right side (yaw 0 faces the road for a model built facing +y);
+    -- the left side's are turned round about their middle, `d` counted back from `length`.
+    -- Any number may instead be a { min, max } range, rolled for each one placed. `ambient` and
+    -- `diffuse` light them by day.
     decorations = {
         clear = 4.4,
         spacing = { 1, 6 },
@@ -83,13 +63,11 @@ app.biomes.Register("default", {
         diffuse = { 0.6, 0.6, 0.6 },
     },
 
-    -- The track's boxes as 3D models in the same scene, by kind: obstacles to jump over (1, 2 or
-    -- 4 layers of 0.6 yards tall, 1.3 wide), enemies standing in a lane or on a platform (2
-    -- layers, jumpable, or 4, 1.2 wide), barriers to run under (a bar 1.8 to 2.4 yards up, 2.2
-    -- wide) and platforms to run on or walling a lane off (1 to 5 layers tall, 2.1 wide, 12 to
-    -- 60 yards long, sometimes with a ramp). A box's `layer` (its bottom) may be above the road:
-    -- an enemy or crate on a platform. Each kind is a list of variants; a box picks one whose `layers` is
-    -- its own (any if left out) by `weight`, once. A variant's `items` are its models:
+    -- The track's boxes as 3D models, by kind: obstacle (1, 2 or 4 layers of 0.6 yards, 1.3
+    -- wide), enemy (2 or 4 layers, 1.2 wide), barrier (a bar 1.8 to 2.4 yards up, 2.2 wide) and
+    -- platform (1 to 5 layers, 2.1 wide, 12 to 60 long, maybe a ramp). A box may stand on a
+    -- platform. Each kind is a list of variants; a box picks one by `weight` among those whose
+    -- `layers` is its own (any if left out). A variant's `items`:
     --   model   a file id, or a list to pick one from at random
     --   x       yards to the screen's right of the lane's middle, 0 if left out
     --   d       yards along the box from its start, its middle if left out
@@ -104,77 +82,47 @@ app.biomes.Register("default", {
     --   creature  instead of `model`: a creature display id (or a list), the creature with its
     --           skin, playing animation `animation` (0, standing, if left out) and `attack` once
     --           the runner is close
-    --   sound   the sound file a creature plays once the runner is close, as it attacks (its
-    --           CreatureSoundData exertion's files) or just so: a file id, a list to pick one
-    --           from at random, or a table of them by display id; silent if left out
+    --   sound   played once the runner is close: a file id, a list, or a table of them by
+    --           display id; silent if left out
     -- Any number may instead be a { min, max } range. A platform variant's `ramp` items cover
-    -- its ramp (4 yards long per layer of height, about 8.5 degrees): each model is scaled to
-    -- the slope's length, turned up to it with its top on it, and laid `across` times side by
-    -- side over the platform's width (or `width` yards, centred); with `segment` (yards), the
-    -- slope is laid with as many models end to end as make each about that long instead, so a
-    -- long ramp gets more pieces, not bigger ones. A model scales the same in every direction:
-    -- shorter pieces are also narrower and thinner. A kind without variants stays a flat box (in `shapes`'
-    -- colors), as does a ramp without `ramp` items. None by default.
+    -- its ramp (4 yards per layer): each model is scaled to the slope's length, laid on it, and
+    -- repeated `across` times over the platform's width (or `width` yards); with `segment`
+    -- (yards), as many models end to end as make each about that long. A kind without variants
+    -- stays a flat box in `shapes`' colors, as does a ramp without `ramp` items.
     obstacles = {},
 
-    -- Wildlife: creatures that pass by now and then, only for the eye. They never touch the
-    -- runner and never change the track. One comes up every `every` yards of the run (picked
-    -- by `weight` among `creatures`), from either side at random:
-    --   creature   a creature display id, or a list to pick one from at random
-    --   move       "cross": runs across the road on the ground, at the nearest spot ahead clear
-    --              of every box and coin, and is off the road before the runner gets there (a
-    --              turn without such a spot within sight passes without one); "fly": crosses
-    --              `z` yards above the road, `ahead` yards ahead, anywhere
-    --   speed      yards per second across, 10 if left out. Faster crossers can cross nearer:
-    --              a slow one at a fast run has to cross so far ahead it may find no spot.
-    --   from       yards off the road's middle it starts from (and runs to on the other side),
-    --              9 if left out: behind the roadside's bushes
-    --   animation  the animation it moves with, 5 (run) if left out
-    --   pace       yards per second its animation is made for at its own size (7, a character's
-    --              run, if left out): it plays at `speed` / `pace`, faster for a bigger size, so
-    --              its feet keep to the ground. Feet sliding forward: lower it; running on the
-    --              spot: raise it. `rate` adds a factor on top (1 if left out).
-    --   height     yards its top is scaled to; or `scale`, its size (1, its own, if left out)
-    --   z, ahead   a flyer's height over the road (10) and how far ahead it crosses (50)
-    --   group      several at once, for more motion; one if left out:
-    --     count      how many, a whole number (or a { min, max } range of them, each as likely)
-    --     gap        yards of its way each one starts after the one before (2 if left out):
-    --                one after another
-    --     offset     yards along the road from the first one's line, to either side at random
-    --                (0 if left out): side by side on parallel lines
-    --     opposite   from 0 to 1: how often one crosses the other way, from the other side, past
-    --                the others (0 if left out), at least 1.5 yards off the first one's line
-    --   voice      a sound file id, or a list to pick one from at random, said once as the
-    --              runner passes it (the "Creature sounds" option); silent if left out
-    --   talks      from 0 to 1: how often one says its `voice` (1 if left out)
-    --              A group needs every member's line clear, and its last one off the road
-    --              before the runner comes. A flock of flyers is a group too.
-    -- Any number may instead be a { min, max } range. Actors of the decorations' scene, lit like
-    -- them. None by default.
+    -- Wildlife, only for the eye: never in the runner's way or the simulation. One comes every
+    -- `every` yards, picked by `weight` among `creatures`, from either side:
+    --   creature   a display id, or a list
+    --   move       "cross": across the road at the nearest spot ahead clear of every box and
+    --              coin, off it before the runner comes (none in sight: skipped); "fly": `z`
+    --              yards above the road, `ahead` yards ahead, anywhere
+    --   speed      yards per second, 10 if left out; a slow crosser at a fast run may find no spot
+    --   from       yards off the middle it starts from and runs to, 9 if left out
+    --   animation  5 (run) if left out
+    --   pace       yards per second the animation is made for at its own size (7 if left out);
+    --              it plays at `speed` / `pace`. Feet sliding forward: lower it; running on the
+    --              spot: raise it. `rate` multiplies on top.
+    --   height     yards its top is scaled to; or `scale` (1 if left out)
+    --   z, ahead   a flyer's height (10) and how far ahead it crosses (50)
+    --   group      several at once (every line must be clear):
+    --     count      a whole number or a { min, max } range
+    --     gap        yards of its way each starts after the one before (2)
+    --     offset     yards along the road off the first one's line, either side (0)
+    --     opposite   0 to 1: how often one crosses the other way (0)
+    --   voice      a sound file id or a list, said once as the runner passes ("Creature sounds")
+    --   talks      0 to 1: how often one says its `voice` (1)
+    -- Any number may instead be a { min, max } range.
     ambient = {
         every = { 80, 200 },
         creatures = {},
     },
 
-    -- The transition (src/biomes/transitions/) of the gates where a run enters this biome's zone
-    -- (auto; patterns/gate.lua; a run's first zone has none): empty road through it in every
-    -- lane, an arc of coins over the middle one at the rim. The transition's `items` dress the
-    -- gate, placed like decorations at the rim:
-    --   model  a file id, or a list to pick one from at random
-    --   x      yards to the screen's right of the road's middle (the outer lanes are at -2.4
-    --          and 2.4), the same on both sides: write an item for each side
-    --   d      yards along the road from the rim, 0 if left out
-    --   z      yards up, 0 if left out
-    --   yaw, scale, lift  as for the decorations
-    --   height yards its top is scaled to, once it has loaded, instead of `scale`
-    -- Any number may be a { min, max } range. Here, for every biome until it has its own: the
-    -- Emerald Dream's.
+    -- The transition of the gates into this biome's zones (biomes.RegisterTransition).
     entrance = "dream",
 
-    -- Behind the road in the side window, where there is no world: the sky from `top` down to
-    -- `horizon`, and the land below the horizon, hazing toward `horizon` by `haze` far away.
-    -- Lit like the ground (light and the brightness setting); `land` is the color at full
-    -- brightness, so it should match the outer ground's texture.
+    -- The side window's backdrop: sky from `top` to `horizon`, land below it hazing toward
+    -- `horizon` by `haze`. Lit like the ground; `land` should match the outer ground's texture.
     sky = {
         top = { 0.42, 0.56, 0.74 },
         horizon = { 0.74, 0.78, 0.8 },
@@ -182,20 +130,18 @@ app.biomes.Register("default", {
         haze = 0.4,
     },
 
-    -- The light at midnight; day is white. light.lua blends between them by the game's clock.
+    -- The light at midnight; day is white.
     light = {
         night = { 0.45, 0.5, 0.7 },
     },
 
-    -- Coins are 3D models in the same scene as the decorations, lit like them: `models` are tried
-    -- in order until one loads (11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01); flat coins
-    -- stand in until then.
+    -- Tried in order until one loads (11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01); flat
+    -- coins stand in until then.
     coin = {
         models = { 5737987, 2313815, 200137 },
     },
 
-    -- The flat boxes' colors by kind and face: obstacles to jump over, barriers to run under
-    -- (their posts drawn apart), platforms to run on, and distant flat coins.
+    -- The flat boxes' colors by kind and face (a barrier's posts apart).
     shapes = {
         obstacle = { front = { 0.9, 0.29, 0.17 }, top = { 1, 0.48, 0.25 }, side = { 0.68, 0.2, 0.12 } },
         barrier = { front = { 0.95, 0.72, 0.18 }, top = { 1, 0.85, 0.4 }, side = { 0.7, 0.5, 0.1 } },

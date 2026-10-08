@@ -5,40 +5,27 @@ local shapes = app.shapes
 local light = app.light
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- Where the ground's pieces start and end, from behind the runner (the bottom of the screen at
--- the usual zoom) to the far fade. A texture is stretched over a piece's two triangles without
--- perspective, so it bends where they meet; the bend stays on the screen while the texture
--- scrolls through it, which shimmers like hot air. It grows with a piece's size on the screen,
--- so pieces are half a yard deep close to the camera, then 1, 2 and 4 yards where they are
--- only a few pixels tall: fewer pieces to place on every lane change and jump.
+-- Where the ground's pieces start and end, from behind the runner to past the view's end. A
+-- texture bends without perspective where a piece's two triangles meet, which shimmers as it
+-- scrolls and grows with the piece's size on screen: pieces are half a yard deep near the camera,
+-- up to 4 yards far ahead.
 local function edges(scale)
     local list = { -7 }
-    -- A little past the view's end (simulation.VIEW).
     while list[#list] < sim.VIEW + 2 do
         local d = list[#list]
         list[#list + 1] = d + scale * (d < 6 and 0.5 or d < 20 and 1 or d < 44 and 2 or 4)
     end
     return list
 end
--- For the same reason, closer than COLUMN_NEAR yards wide bands are cut into columns at most
--- COLUMN yards wide (about a lane).
+-- For the same reason, nearer than COLUMN_NEAR yards wide bands are cut into lane-wide columns.
 local COLUMN, COLUMN_NEAR = 2.4, 12
--- A band's pieces by its `segments` (biomes/default.lua).
+-- A band's pieces by its `segments`.
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
--- Where the nearest pieces start, behind the runner.
 local EDGES = SEGMENTS[1]
--- The addon's draw order by mode, bottom to top. The overlay frame (`view`) draws the ground
--- (its BACKGROUND layer) and the flat boxes and coins (BORDER); above it the world scene's 3D
--- decorations and coins; the twin above all of them, the score display (hud.lua) and the hotkey
--- legend (legend.lua) above it, the
--- window frame over its edges (window.lua), and the buttons, the start dialog and the restart
--- bar above that (menu.lua).
--- Full screen, the game lies under the rest of the UI (BACKGROUND, the twin a strata up), but
--- its frame and buttons stay above it, wherever the minimap or a raised panel is; the legend
--- too, a strata over the player frame (LOW) in the corner it shares with it, which would
--- otherwise draw between the legend's background and border. The side
--- window is one window above the UI, all of it in one strata. Levels count from the overlay
--- frame's; all are fixed, so nothing the client or another frame does changes them.
+-- The addon's draw order by mode, bottom to top: { strata, level above the view's }. Full
+-- screen the game lies under the UI but its frame and buttons stay above it; the legend is a
+-- strata over the player frame (LOW), which would otherwise draw between its background and
+-- border. The side window is all in one strata. Fixed, so nothing else can change them.
 local ORDER = {
     full = {
         view = { "BACKGROUND" },
@@ -65,42 +52,30 @@ local ORDER = {
         menu = { "HIGH", 25 },
     },
 }
--- The clip planes of every 3D scene, in yards. The scenes share the depth buffer, so with the
--- same planes and the road's camera position their depths compare as in one scene: the twin
--- covers what is behind it, and what is in front of it (a bar it runs under, once past) covers
--- the twin.
+-- The 3D scenes share the depth buffer: with the same clip planes and camera, their depths
+-- compare as in one scene (a bar the twin runs under covers it once past).
 local CLIP_NEAR, CLIP_FAR = 0.2, 250
--- Yards: a coin model's largest side.
-local COIN_SIZE = 0.5
--- The twin's animations, and the speeds (yards per second) walking, running and walking
--- backwards are animated for. A normal jump plays JUMP_START throughout; JUMP is the loop of a
--- long fall, after AIR_LOOP seconds in the air (a normal jump lasts about 0.83).
+local COIN_SIZE = 0.5 -- a coin model's largest side
+-- The twin's animations, and the speeds walking, running and backpedalling are animated for. A
+-- normal jump (about 0.83 seconds) plays JUMP_START throughout; JUMP loops after AIR_LOOP.
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
 local WALK_SPEED, RUN_SPEED, BACKWARDS_SPEED = 2.5, 7, 4.5
 local AIR_LOOP = 1.1
--- Changing lanes, the twin's body turns this far toward the next lane (WoW's diagonal), for at
--- least this many seconds, and turns there and back this much quicker than otherwise (a lane
--- change takes about 0.14 seconds).
+-- Changing lanes, the twin turns this far toward the next lane (WoW's diagonal), for at least
+-- STRAFE_HOLD seconds, STRAFE_TURN times quicker than otherwise.
 local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
--- The yards a character may be tall in the track's world, measured as `Measure` does (its
--- bounds, hair and all, so more than it looks). The track's body is three layers tall (1.8
--- yards); at this height a head clears a bar to run under (layer 3) as it looks: fitted in the
--- game with a female troll (2.68 measured). A taller character is drawn this tall, and the
--- road's camera comes nearer by as much (`bodyScale`): on the screen it stays as tall as the
--- real one it covers, and the whole track is drawn that much bigger around it. Shorter ones
--- stay as they are.
-local REFERENCE_HEIGHT = 1.7
+-- The tallest a character is drawn in the track's world, as `Measure` measures it (hair and
+-- all), so its head clears a bar to run under; fitted with a female troll (2.68 measured). A
+-- taller one is drawn this tall with the road's camera nearer (`bodyScale`): it still covers
+-- the real one, and the track is drawn bigger around it.
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
--- The game: the road, obstacles and coins, and a twin (a copy of the character, seen through
--- the road's camera) running on it. Full screen they are drawn around the real character and
--- the twin covers it; window.lua adds the side window and the window frame. This file draws;
--- controls.lua adds input, movement sampling, the per-frame step and scoring.
+-- The view: the road, boxes and coins, and a twin (a copy of the character) running on it that
+-- covers the real one. This file draws; controls.lua adds input, the per-frame step and scoring.
 local overlay = {}
 app.overlay = overlay
--- The height a taller character is drawn at in the track's world (REFERENCE_HEIGHT);
--- Surfer_Dev's /surfer reference changes it, to fit it in the game.
+-- Surfer_Dev's /surfer reference changes it.
 overlay.referenceHeight = REFERENCE_HEIGHT
 overlay.CLIP_NEAR, overlay.CLIP_FAR = CLIP_NEAR, CLIP_FAR
 
@@ -110,7 +85,7 @@ local ground = shapes.Ground
 -- center; zoom, pitch and the focus height decide where the feet land below it.
 local cam = {}
 overlay.camera = cam
--- Stores `value` under `name` and tells whether it was already there.
+-- Stores `value` under `name`; true if it was already there.
 local function unchanged(last, name, value)
     if last[name] == value then
         return true
@@ -141,8 +116,7 @@ function overlay:UpdateCamera()
     cam.feet = self.state.height
     cam.z = cam.feet + (settings.focus * self.height + math.max(zoom, 0.5) * cam.sin) / k
     cam.offset = self.state.lateral * LANE
-    -- Whether the road has to be projected again: compared value by value, without building a
-    -- key, so an unchanged frame allocates nothing.
+    -- Compared value by value, without building a key, so an unchanged frame allocates nothing.
     local last = self.lastRoad
     local same = unchanged(last, "zoom", zoom)
     same = unchanged(last, "offset", cam.offset) and same
@@ -153,7 +127,6 @@ function overlay:UpdateCamera()
     same = unchanged(last, "pitch", settings.pitch) and same
     same = unchanged(last, "focus", settings.focus) and same
     same = unchanged(last, "fov", settings.fov) and same
-    -- The biome's curve, or the fixed one of the options.
     local curve = settings.fixedCurve and settings.curve or self:GroundCurve()
     if not unchanged(last, "curve", curve) then
         shapes.SetCurve(curve)
@@ -173,7 +146,6 @@ local function project(d, x, z)
     return cam.cx + (x + cam.offset) * scale, cam.cy + (vd * cam.sin + vz * cam.cos) * scale, scale
 end
 
--- The road's projection of a point, for decorations.lua and tests.
 function overlay:Project(d, x, z)
     return project(d, x, z)
 end
@@ -194,11 +166,8 @@ local function face(t, left, right, d1, z1, d2, z2)
     shapes.Show(t)
 end
 
--- The ground's pieces: textures fixed to a stretch of the ground, `left` to `right` across
--- it and `near` to `far` ahead of the runner, on BACKGROUND under the boxes. Textures are
--- reused when the biome changes; spare ones stay hidden.
--- Gives ground piece `t` its surface's look from biome ground `look` (a surface it lacks, the
--- runner's biome's): the texture, or its color without one or when it does not load.
+-- Ground piece `t`'s surface from `look` (one it lacks from `fallback`): the texture, or its
+-- color without one or until it loads.
 local function skin(t, look, fallback)
     local surface = look.surfaces[t.kind] or fallback.surfaces[t.kind]
     if surface.texture and t:SetTexture(surface.texture, "REPEAT", "REPEAT", "TRILINEAR") then
@@ -285,8 +254,8 @@ function overlay:CreateGround(f)
     end
 end
 
--- The ground's light: the world's (light.lua) times the brightness setting. Tells whether it,
--- or the opacity, changed since the last call. The side window has nothing to see through to.
+-- Whether the light, brightness or opacity changed since the last call. The side window has
+-- nothing to see through to.
 function overlay:UpdateGroundLight()
     local settings = app.db.profile.overlay
     local last = self.groundLight or {}
@@ -297,8 +266,7 @@ function overlay:UpdateGroundLight()
     return not same
 end
 
--- A piece's light and see-through: the opacity setting, the far fade and the soft edges, in the
--- light of the moment (`groundLight`).
+-- The opacity setting, the far fade and the soft edges, in the light of the moment.
 function overlay:ShadePiece(t)
     local left, right = self.groundColors[1], self.groundColors[2]
     local brightness, opacity = self.groundLight.brightness, self.groundLight.opacity
@@ -314,7 +282,6 @@ function overlay:ShadePiece(t)
     end
 end
 
--- Every piece, when the light or opacity changed.
 function overlay:ShadeGround()
     for _, t in ipairs(self.ground) do
         self:ShadePiece(t)
@@ -324,9 +291,8 @@ function overlay:ShadeGround()
     end
 end
 
--- What lies on the ground this frame (ScrollGround), in yards ahead of the runner: the zone
--- under the nearest pieces and the next one, by where each ends, and the places where the look
--- changes (`cuts`, nearest first: zone ends, gate strips' edges).
+-- This frame's ground, in yards ahead: the nearest zone and the next one by where each ends, and
+-- where the look changes (`cuts`, nearest first: zone ends, gate strips' edges).
 local onGround = { distance = 0, firstEnd = math.huge, nextEnd = math.huge, cuts = {} }
 
 local function addCut(d)
@@ -339,9 +305,8 @@ local function addCut(d)
     cuts[i] = d
 end
 
--- The look of the ground `d` yards ahead: its key (a biome id, or a gate strip's transition
--- with a ground of its own) and the transition, if it is one. A strip whose transition has no
--- ground is its zones': the one before up to the rim, the next one past it.
+-- The look `d` yards ahead: a biome id, or a gate strip's transition with a ground of its own
+-- (twice: as key and look).
 function overlay:GroundLookAt(d)
     local at = onGround.distance + d
     local strips, gate = self.strips, app.track.GATE
@@ -379,9 +344,8 @@ function overlay:SkinPiece(t, key, look)
     end
 end
 
--- A piece's seam: a second texture that takes over the piece from where the look changes in
--- it, so the change lies where it is on the ground, not at a piece's edge (a piece far ahead
--- is up to 16 yards deep: a change jumping from edge to edge flickers as the ground scrolls).
+-- A second texture that takes over a piece from where the look changes in it, so the change
+-- stays where it is on the ground instead of jumping from piece edge to piece edge.
 local function seamOf(t, parent)
     local seam = t.seam
     if not seam then
@@ -397,7 +361,6 @@ local function seamOf(t, parent)
     return seam
 end
 
--- Back to one texture over its whole depth.
 local function uncut(t)
     if t.cut then
         t.cut, t.far = false, t.fullFar
@@ -406,8 +369,7 @@ local function uncut(t)
     end
 end
 
--- The textures slide toward the runner as it runs; their place across the road is fixed, so
--- they move with the road on lane changes. Offsets wrap at a tile, which looks the same.
+-- The textures slide toward the runner; offsets wrap at a tile.
 function overlay:ScrollGround()
     local distance = self.state.distance
     if self.scrolled == distance and not self.groundPlaced then
@@ -419,8 +381,7 @@ function overlay:ScrollGround()
     for i = #cuts, 1, -1 do
         cuts[i] = nil
     end
-    -- In auto, the zones by where each ends: once a frame, not once a piece. Without auto, every
-    -- piece is the runner's biome.
+    -- The zones by where each ends: once a frame, not once a piece.
     onGround.firstId, onGround.firstEnd, onGround.nextId, onGround.nextEnd = self.biomeId, math.huge, nil, math.huge
     if app.db.profile.biome == app.biomes.AUTO then
         local biomes, route = app.biomes, self:Route()
@@ -444,7 +405,6 @@ function overlay:ScrollGround()
         local near, far = t.near, t.fullFar or t.far
         t.fullFar = far
         local key, look = self:GroundLookAt(near + 0.01)
-        -- The first place in the piece where the look changes, if any.
         local cut, seamKey, seamLook
         for i = 1, #cuts do
             local d = cuts[i]
@@ -485,7 +445,6 @@ function overlay:Stack(frame, place)
     frame:SetFixedFrameLevel(true)
 end
 
--- Every stacked frame at its place for the mode, after the view's own strata.
 function overlay:Restack()
     self.frame:SetFrameStrata(ORDER[self.side and "side" or "full"].view[1])
     for frame, place in pairs(self.stacked) do
@@ -526,7 +485,6 @@ function overlay:Measure()
     shapes.Hide(self.probeScene)
 end
 
--- The character's size in the track's world: at most a human's height (`referenceHeight`).
 function overlay:ApplyBodyScale()
     self.bodyScale = math.max(1, self.height / self.referenceHeight)
     self.body = self.height / self.bodyScale
@@ -568,7 +526,6 @@ function overlay:ApplyHideReal()
     self:HideRealCharacter(shown and not self.side and app.db.profile.overlay.hideReal or false)
 end
 
--- The run's way through the zones in auto (biomes.Route), from its seed.
 function overlay:Route()
     local s = self.state
     if self.routeState ~= s then
@@ -587,10 +544,9 @@ end
 -- Yards over which the view ends just past a gate's strip.
 local CUT_SOFT = 3
 
--- Once a frame: where the view ends (`fade`, from and to yards ahead, which every part of the
--- view fades by): the biome's far fade, or, while a gate is ahead (auto), just past its strip,
--- so nothing of the next zone shows before the runner jumps through. And the gates whose strips
--- are in sight (`strips`, their rims; `stripLooks`, the transitions of the zones they lead into).
+-- Once a frame: where the view ends (`fade`, which every part of the view fades by), the
+-- biome's far fade or, while a gate is ahead, just past its strip, so nothing of the next zone
+-- shows early. And the gate strips in sight (`strips`, their rims; `stripLooks`, transitions).
 function overlay:UpdateView()
     local s, own = self.state, self.biome.ground.fade
     local view = self.fade or {}
@@ -611,7 +567,6 @@ function overlay:UpdateView()
         self.viewState, self.gateIndex = s, 1
     end
     local biomes, gate = app.biomes, app.track.GATE
-    -- Past the gates the runner has left behind.
     local k = self.gateIndex
     while gates[k] and gates[k] + gate.after < s.distance - 10 do
         k = k + 1
@@ -640,8 +595,8 @@ function overlay:UpdateView()
     view.moved = view.from ~= from or view.to ~= to
 end
 
--- The end of a gate strip reaching into track distances `from` to `to` (`at` alone: at that
--- distance), where decorations may stand again; nil when none does.
+-- The end of a gate strip reaching into `from` to `to` (or at `from`), where decorations may
+-- stand again; nil when none does.
 function overlay:StripEnd(from, to)
     local strips, gate = self.strips, app.track.GATE
     to = to or from
@@ -652,9 +607,8 @@ function overlay:StripEnd(from, to)
     end
 end
 
--- The biome at track distance `at`: the profile's, or in auto (`profile.biome` "auto") the
--- zone's there. Everything placed along the track looks like the zone it stands in, so the next
--- zone comes into sight on the horizon and reaches the runner.
+-- The profile's biome, or in auto the zone's at `at`: everything along the track looks like the
+-- zone it stands in, so the next zone comes into sight on the horizon.
 function overlay:BiomeIdAt(at)
     local id, biomes = app.db.profile.biome, app.biomes
     if id ~= biomes.AUTO then
@@ -673,13 +627,11 @@ function overlay:BiomeId()
     return self:BiomeIdAt(self.state and self.state.distance or 0)
 end
 
--- Once a frame in auto: the runner enters the next zone, which has come toward it all along;
--- welcomed like a zone. Nothing on the track changes, only what is the runner's own.
+-- Once a frame in auto: entering the next zone changes only what is the runner's own.
 function overlay:UpdateZone()
     if self:BiomeId() ~= self.biomeId then
         self:ApplyBiome(true)
-        -- Through a gate (not a new run's first zone): welcomed, and the screen flashes if its
-        -- transition has a `flash`.
+        -- Through a gate, not a new run's first zone.
         local s = self.state
         local through = s.gates and app.biomes.Zone(self:Route(), s.distance).from > -math.huge
         if s.status == "running" and through then
@@ -692,8 +644,7 @@ function overlay:UpdateZone()
     end
 end
 
--- The ground's curve: the biome's; in auto, from the runner's zone's toward the next one's as
--- that comes nearer, so the far ground does not jump when the runner enters it.
+-- In auto, blended toward the next zone's as it nears, so the far ground does not jump.
 function overlay:GroundCurve()
     local curve = self.biome.ground.curve
     if app.db.profile.biome ~= app.biomes.AUTO then
@@ -709,9 +660,8 @@ function overlay:GroundCurve()
     return curve + (next - curve) * nearer
 end
 
--- The biome's look: ground, coins, box colors and night light. On a change while playing,
--- everything is redrawn with the new one; `entering` a zone in auto (UpdateZone), what stands on
--- the track already looks like it and stays.
+-- `entering` a zone in auto: what stands on the track already looks like it and stays;
+-- otherwise everything is redrawn.
 function overlay:ApplyBiome(entering)
     local old = self.biome
     self.biomeId = self:BiomeId()
@@ -753,8 +703,7 @@ function overlay:NewCoinActor()
     return actor
 end
 
--- Loads the biome's coin models, tried in order until one loads, on every coin actor; the first
--- actor is where it is measured.
+-- Tried in order until one loads; measured on the first actor.
 function overlay:LoadCoinModel(index)
     self.coinModel, self.coinWait, self.coinReady = index, 0, false
     if #self.coinActors == 0 then
@@ -842,10 +791,8 @@ function overlay:Create()
     self.controls = controls
     self:Stack(controls, "controls")
     controls:SetHeight(24)
-    -- Minimize and Close, shown only without the window frame, which has its own, and Pause (Go
-    -- on while paused) and Stop auto mode while auto mode is on, when no key does anything
-    -- (window.lua lays the row out). Restarting and pausing are keys (the
-    -- legend lists them).
+    -- Minimize and Close without the window frame (it has its own); Pause and Stop auto mode in
+    -- auto mode, where no key does anything. window.lua lays the row out.
     local buttons = {
         {
             "Minimize",
@@ -870,7 +817,6 @@ function overlay:Create()
             function()
                 self:SetAuto(false)
             end,
-            -- Wider, for its text.
             120,
         },
     }
@@ -947,11 +893,9 @@ function overlay:Create()
     self:Render()
 end
 
--- The twin stands where the real character stands and covers it. Its scene is a square around
--- the character's projected body, sized by the road's own projection; its camera sits where
--- the road's camera is and looks at the body from the same angle and distance. A square frame
--- spans the same angle across and up, so how the scene measures its field of view cannot
--- change the twin's size. Half see-through while not running full screen, to line it up.
+-- The twin's scene is a square around the projected body with its camera at the road's camera,
+-- so the scene's field-of-view axis cannot change its size. Half see-through while not running
+-- full screen, to line it up.
 function overlay:PlaceTwin()
     local s, settings = self.state, app.db.profile.overlay
     local scene, actor = self.twin, self.twinActor
@@ -977,7 +921,6 @@ function overlay:PlaceTwin()
     scene:ClearAllPoints()
     scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, y)
     scene:SetSize(side * scale, side * scale)
-    -- From the road's camera to the middle of the body.
     local ahead, down = -cam.x, cam.z - middle
     local distance = math.sqrt(ahead * ahead + down * down)
     scene:SetCameraPosition(cam.x, 0, cam.z)
@@ -991,11 +934,8 @@ function overlay:PlaceTwin()
     actor:Show()
 end
 
--- The real character's animation cannot be read, so the twin mirrors how it moves: walking or
--- running at its speed, its body turned toward a strafe or diagonal as WoW turns it,
--- backpedalling, and a jump's start, air and landing while it (or the twin on the track) is in
--- the air. A lane change turns it like a strafe. In auto mode it follows only the run: the
--- keys go on to WoW, and the real character's jumps are not the runner's.
+-- The real character's animation cannot be read, so the twin mirrors its movement; a lane
+-- change turns it like a strafe. In auto mode it follows only the run.
 function overlay:AnimateTwin(elapsed)
     local actor, s, motion = self.twinActor, self.state, self.motion or {}
     local airborne = s.height > s.floor or (not self.auto and IsFalling("player"))
@@ -1039,9 +979,7 @@ function overlay:AnimateTwin(elapsed)
     else
         yaw = 0
     end
-    -- Changing lanes in a run is a strafe: the body turns toward the next lane, as WoW turns it
-    -- running diagonally, on the ground and in the air alike. Held a little past the lane change
-    -- (which is quicker than the turn), then it turns back.
+    -- Held a little past the lane change, which is quicker than the turn.
     local toward = s.lane - s.lateral
     if s.status == "running" and math.abs(toward) > 0.01 then
         -- Positive lanes are on the left, as is a positive yaw.
@@ -1069,8 +1007,7 @@ function overlay:AnimateTwin(elapsed)
     end
 end
 
--- The `i`th coin in view, an actor of the world scene: at the coin's place on the road, spinning
--- with its own phase, fading in far ahead like the ground.
+-- Spinning with its own phase, fading in far ahead like the ground.
 function overlay:PlaceCoin(i, o)
     local actor = self.coinActors[i] or self:NewCoinActor()
     local d = o.at + o.length / 2 - self.state.distance

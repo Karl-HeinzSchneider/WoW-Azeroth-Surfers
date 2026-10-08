@@ -1,263 +1,67 @@
 # Surfer (the addon)
 
-The distributable addon: everything in this folder ships; the packager copies it to the top of the
-zip (`.pkgmeta`). User settings live in `SurferDB` (AceDB).
+Everything in this folder ships. Settings live in `SurferDB` (AceDB).
 
 ## Load order (`Surfer.toc`)
 
-The TOC is the manifest and the source of truth for the load order; **every new Lua/XML file must
-be listed**. The order follows these rules:
+The TOC is the source of truth; **every new Lua/XML file must be listed**.
 
-1. `embeds.xml` first: every vendored library in dependency order (LibStub â†’ CallbackHandler â†’
-   Ace\* â†’ LibDataBroker â†’ LibDBIcon).
-2. `src\core\`: `logger.lua` first (everything logs), `db.lua` (the defaults `ace.lua` needs),
-   `ace.lua` (creates `app.addon`), then the Ace modules that hang off it (`options.lua`,
-   `minimapbutton.lua`).
-3. Feature code after the core: `src\<feature>\*.lua`, or `modules\<name>\` with a loader XML
-   per module listed in a `modules\modules.xml`. In UI code, each Lua mixin comes before the XML
-   that names it.
+1. `embeds.xml`: the vendored libraries in dependency order.
+2. `src\core\`: `logger.lua` (everything logs), `db.lua` (the defaults), `ace.lua` (creates
+   `app.addon`), then the modules that hang off it (`options.lua`, `minimapbutton.lua`).
+3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it), then
+   `random` → `simulation` → `track` → `patterns\patterns.xml`, then `overlay.lua` and the files
+   that extend `app.overlay` after it. A Lua mixin comes before the XML that names it.
 4. `Surfer.lua` last; it only logs.
 
-## Files
+`src/types.lua` is LuaLS annotations only (not in the TOC): the `Surfer` class (`app.*`) and
+`Surfer.DB`. `lib/` is vendored: update by replacing the folder, never patch it.
 
-### `src/core/`
+## Core
 
-- `logger.lua` â€” `app.logger`: leveled, colored chat logging; `log("x")` is `log:info("x")`,
-  `log:debug("Looted %s x%d", link, count)` formats, `log:chat(...)` is unfiltered user-facing
-  output, `log:dump(tbl)` prints a table at DEBUG. The threshold comes from `profile.logLevel`.
-- `db.lua` â€” `app.dbDefaults` for AceDB: `profile` = user settings (`logLevel`, `minimap`;
-  `minimapPos` = 200Â° so an undragged button doesn't sit on LibDBIcon's shared 225Â° default),
-  `char` = per-character data, `global.dbVersion` for future migrations.
-- `ace.lua` â€” `app.addon`, the AceAddon object (AceConsole, AceEvent). `OnInitialize` opens
-  `app.db`, wires the profile callbacks to `OnProfileRefresh` (log level, then every module's
-  `OnProfileRefresh`) and registers `/surfer`; `OnSlashCommand` opens the runner by default and handles `options`, `loglevel <level>`, `debug` (twin camera report), `profile` (time per frame part, start/stop) and `reset`. Register game events in `OnEnable`.
-- `options.lua` â€” `app.options`: the user options as **one** AceConfig table (plus the AceDBOptions
-  profiles tab), registered in the game's Settings panel (`AddToBlizOptions`) and opened in a
-  standalone AceConfigDialog window by `Open()`. A new option goes only here. `Refresh()` redraws
-  them after a setting changed elsewhere.
-- `minimapbutton.lua` â€” `app.minimapButton`, a LibDataBroker launcher + LibDBIcon that opens the
-  runner and honors `profile.minimap`. Optional: to drop it, delete the file, its TOC line, the
-  `minimap` option and `profile.minimap`.
+- `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,
+  `log:chat(...)` is unfiltered user output, `log:dump(tbl)` at DEBUG.
+- `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
+  `bestScore`).
+- `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
+  `/surfer` opens the runner; also `options`, `loglevel`, `seed`, `auto`, `reset`, and the
+  commands Surfer_Dev registers in `app.devCommands`.
+- `options.lua` — `app.options`: **one** AceConfig table for the Settings panel and a standalone
+  window. `Refresh()` after a setting changed elsewhere.
+- `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon.
 
-### Annotations (not in the TOC)
-
-- `src/types.lua` â€” the private-table class `Surfer` (`app.*` fields) and
-  `Surfer.DB`. When a file adds a member to `app`, add a matching `---@field` here.
-
-### Other
-
-- `lib/` â€” vendored Ace3, LibStub, CallbackHandler, LibDBIcon (+ LibDataBroker). Excluded from
-  LuaLS, StyLua and Prettier; update by replacing the folder, don't patch. `embeds.xml` loads all
-  of them; drop a line there (not the folder) to skip a library the addon doesn't use.
-- `assets/` â€” textures the game files cannot provide (`assets/core/coffee.tga` is the TOC notes'
-  donation icon).
-
-## Conventions
-
-- Prototype-style Ace modules: define methods on a local `module` table and pass it to
-  `addon:NewModule("Name", module, â€¦)`; state lives on the object Ace returns (see
-  `minimapbutton.lua`). A module that depends on profile settings defines `OnProfileRefresh`.
-- New user settings get a default in `db.lua` and an entry in `options.lua`.
+Prototype-style Ace modules: methods on a local `module` table passed to
+`addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a
+default in `db.lua` and an entry in `options.lua`.
 
 ## The game
 
-- `src/game/random.lua` — `app.random`, seeded random numbers (WoW's `math.random` cannot be
-  seeded): Park–Miller's minimal standard, exact in Lua's doubles. `random.New(seed, stream)` is
-  a generator called like `math.random` (`r()`, `r(n)`, `r(m, n)`), `r:Seed(seed, stream)`
-  restarts it without allocating. Each system draws from its own `stream` (`TRACK`, `LEFT`,
-  `RIGHT`, `LOOK`, `AMBIENT`), a far-away point of the cycle, so they do not repeat one another. **Nothing
-  in a run may use `math.random`**: everything a seed should replay draws from a generator of
-  the run's seed.
-- `src/game/simulation.lua` — the pure fixed-step simulation on a lane/layer grid: every object is
-  a box (`Box(kind, lane, at, length, layer, layers, ramp)`), platforms set the floor, the rest
-  collide or are collected. `New(seed)` starts a run from `seed` (a new one when left out,
-  `s.seed`); the track follows only from it (track.lua). Every generated box gets `o.seed` for
-  its looks.
-  The score adds up as the run goes (`s.points` per yard, `s.bonus` per coin), each at the
-  multiplier of its moment: `SetMultiplier(s, n)` (whole, at least 1; events raise it) scales
-  only what is earned from then on. `Score(s)` is the total. `s.coinTotal` counts the coins the run has come past, collected or
-  missed (the status panel shows the share collected). `DIFFICULTIES` (easy, normal, hard,
-  expert; `New(seed, difficulty)`, `profile.difficulty`, set by `overlay:SetDifficulty(id)` /
-  `StepDifficulty(±1)` from the option and the status panel's arrows) set the speed (start,
-  top, how fast it rises), the free road between patterns and, through the patterns' weights,
-  what comes up. `RUN_PACE` is the speed the twin's run animation is paced for. `VIEW` (140 yards) is how far ahead the views show anything (flat
-  boxes and the ground reach it, a biome's `ground.fade` ends short of it); `AHEAD` (`VIEW` + 20) how far the track is laid out, so a gate exists before a roadside group could reach it.
-- `src/game/track.lua` — `app.track`, the track ahead (`simulation.Spawn`): a stream of
-  patterns, weighted by the run's difficulty, each followed by free road measured in seconds at
-  the speed of the moment. `Register(pattern)` (`name`, `weight` — a number or a table by
-  difficulty id —, `from` yards, `place(s, at, r)` returning its length), `Add`/`Coins`/`Fit`
-  to place boxes, `Arc` (coins only a jump collects), `JumpLength(s)` (spacings after a jump),
-  `Pick(s, at)`. The rules every pattern keeps are at the top of the file; `tests/simulation.lua`
-  checks each pattern alone (at every difficulty's slowest and fastest speed), that a search
-  through the simulation gets through it (crates and enemies counted lane-wide: no squeezing
-  between two), and generated tracks at every difficulty.
-- `src/patterns/*.lua` — one pattern each, all listed in `patterns.xml` (the TOC loads the XML;
-  the tests read it too, `tests/load.lua`). **A new pattern is a new file plus a line in
+- `random.lua` — seeded generators (`random.New(seed, stream)`, called like `math.random`).
+  **Nothing in a run may use `math.random`**: everything a seed should replay draws from a
+  generator of the run's seed, each system from its own stream.
+- `simulation.lua` — the pure fixed-step simulation: every object is a box on a lane/layer grid.
+  `New(seed, difficulty, zones)`; `DIFFICULTIES`; `VIEW` (how far the views show) and `AHEAD`
+  (how far the track is laid out).
+- `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
+  file; `tests/simulation.lua` checks them and that each pattern can be run through.
+- `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
   `patterns.xml`**, nothing else. A new or changed pattern changes what a seed lays out.
-- `src/game/biomes.lua` — `app.biomes`, the registry of looks: `Register(id, biome)`,
-  `Get(id)` (merged over the default). `profile.biome` is a biome's id or `"auto"` (the
-  default): auto goes zone to zone as the run goes. A biome with a `tier` (1 for starter zones,
-  2 and up for later ones; `weight`, 1 by default) is such a zone; Where a zone ends is the simulation's: a run begun in auto (`New(seed, difficulty,
-zones)`) lays out a gate (`patterns/gate.lua`: nothing to die on, a step in every lane
-  (`track.GATE.ramp`, one layer) up to the platform the portal stands on, an arc of coins over
-  the middle one, its boxes marked `o.gate` and dressed by the transition's `obstacles`; empty road `track.GATE.clear` seconds before its rim and after
-  it, and at least the strip and `lead` yards of the zone's own road beyond it) every `simulation.ZONE_LENGTH` yards from its own stream (`random.GATES`), none
-  at its start, and lists where the next zone starts in `s.gates`. Which biome each zone is,
-  biomes.lua's: `Route(seed, gates)` from its own stream (`random.ZONES`), `Zone(route,
-distance)` (`id`, `from`, `to`: gate to gate) and `ZoneAt`. A biome's `entrance` names its
-  transition (`src/biomes/transitions/*.lua`, `biomes.RegisterTransition`, never a zone; the
-  default's, `dream`: the dragon groves' tree portal, worldtreeportal01, in an overgrown
-  night elf shrine in Feralas' forest, a stone path leading to it, ruins on the left, roots and
-  forest on the right, the Nightmare's purple about the portal, on its zones' ground, the next one's from the portal on).
-  Around a gate's rim (`track.GATE`: 22 yards before it, 18 after), the ground is the transition's (without one, its zones', changing at the rim) and
-  its `items` stand (decorations.lua places them as the gate comes into sight); no roadside group reaches into it, and a
-  transition keeps its own models inside it. While a gate is ahead the view
-  ends just past its strip (`overlay:UpdateView()` sets `overlay.fade`, which every part of the
-  view fades by, and the strips in sight), so nothing of the next zone shows; jumping through,
-  the next zone appears (and the screen flashes, `overlay:Flash`, if the transition has a
-  `flash` color; the dream one has none). A transition's `vortex` pulls the runner in
-  (`overlay:ShowVortex`, messages.lua): lines of wind rush into the portal's opening
-  (`ShowWind`), faster as it nears, the screen's edges close in; all by the portal's distance
-  from the camera (behind the runner, it goes through last), at its height as the camera goes
-  through, the wind then coming from all round the screen, and fading after; its `sounds` (option
-  "Portal sounds", `profile.portalSound`): `approach` with the pull, cut off as it ends (the
-  dream's: a portal's hum), `through` just before the camera goes through (the mage's teleport); a run starts in the lowest tier,
-  then climbs a tier (three times as likely), stays or goes back to a lower one, never skipping
-  one up; in a tier, zones not visited yet first, never the one just left. Everything along the track looks like the zone it stands in
-  (`overlay:BiomeIdAt(at)`, `BiomeAt(at)`): ground rows (ScrollGround; a row the look changes in is
-  cut there, its far part drawn by the row's `seam` texture, so the change sits where it is on
-  the ground instead of jumping from row edge to row edge), roadside
-  groups (by their start), obstacle looks and wildlife, so the next zone comes into sight on
-  the horizon and reaches the runner; the ground's curve blends toward the next zone's as it
-  nears (`GroundCurve`). `BiomeId()` is the runner's own (sky, light, ground bands); once it
-  enters the next zone, `UpdateZone()` makes that its own (`ApplyBiome(true)`: nothing on the
-  track is redone) and welcomes it. `src/biomes/*.lua` hold one
-  biome each and override only what they change; `default.lua` holds every field, documented, and
-  is the reference for writing one. Tables merge field by field, lists (colors, bands, models)
-  are replaced whole. **Anything visual a region could change (ground, obstacles, coins,
-  decorations, light) belongs in the biome, not as a constant in the game code**: add the field
-  with its current value to `default.lua`, read it from `overlay.biome`, and re-apply it in
-  `overlay:ApplyBiome()` (called on Create and when the setting changes). New biome files go in
-  the TOC after `default.lua`. Only classic-era game files.
-- `src/game/light.lua` — `app.light`, the day/night light by the game's clock (`GetGameTime`; the
-  world's own light cannot be read). Every 3D model's ModelScene registers with
-  `light.AddScene(scene, ambient, diffuse)` (its colors by day) instead of setting its lights;
-  the ground multiplies its vertex colors by `light.r/g/b`.
-- `src/game/shapes.lua` — turns boxes and coins into the faces to draw, and pools their textures
-  (show, color and draw layer only set on a change).
-- `src/game/overlay.lua` — `app.overlay`, the view (full screen or the side window, see
-  `window.lua`): road, boxes and coins as UI textures at BACKGROUND strata, projected with a
-  model of the follow camera (focus point at the view's center; pitch, focus height, FOV and, without `GetCameraZoom`, distance from
-  `profile.overlay`). A twin covers the real character: a square ModelScene (LOW strata) around
-  the projected body, sized by the road's projection, its camera at the road's camera (a square
-  frame makes the scene's field-of-view axis irrelevant). A character taller than `overlay.referenceHeight` (1.7 yards, as `Measure`
-  measures it, hair and all) is drawn that tall in the track's world (`bodyScale`), the road's
-  camera nearer by as much: on the screen it covers the real one as before, and the whole track
-  is drawn bigger around it, so its head clears a bar to run under. Fitted with a female troll
-  (2.68 measured); Surfer_Dev's `/surfer reference` tries other values in the game. The real character's animation cannot be
-  read, so the twin mirrors its movement (`motion` from position sampling, `GetUnitSpeed`,
-  `IsFalling`). `hideReal` zooms into first person (`CameraZoomIn`) while the game is open. Coins
-  within 40 yards are 3D models (`COIN_MODELS`, file ids tried in order), one small ModelScene
-  each; every shown ModelScene costs a render pass, so unused ones are hidden. A running frame
-  allocates nothing (`tests/overlay.lua` checks it).
-- `src/game/decorations.lua` — the biome's roadside models (`decorations.groups`, weighted
-  groups of items, any number a `{ min, max }` range): all actors of one full-screen square
-  ModelScene whose camera is the road's camera (one render pass for all; the square makes the FOV
-  axis irrelevant). Placed up to the ground's far fade, dropped behind the camera. The scene stands still
-  along the track and its camera runs along (`FollowWorldCamera`: a model's x is its track
-  distance, every 16384 yards starting over; the runner is at `sceneRunner`), so particles (a
-  brazier's flames) rise where their model is instead of trailing behind it; obstacles, coins
-  and wildlife in the same scene do the same. Only the ground's curve still moves them, slowly, up; actors are pooled by model and instance tables reused. Models are placed by their own
-  origin (or, with `lift`, on their lowest point: a rock built to sink into the
-  terrain would show its buried part over the flat ground) (never `SetUseCenterForOrigin`: animated bounds make them drift) and pushed out past the
-  biome's `clear` by their measured, turned bounds unless an item is `overhang`. Each side draws
-  from its own stream of the run's seed in road order, and an obstacle's look from its box's
-  `o.seed` (obstacles.lua), so a seed decorates the same at any frame rate.
-- `src/game/ambient.lua` — wildlife, the biome's `ambient` creatures (default.lua documents
-  them): now and then one passes by, only for the eye, never in the simulation or the runner's
-  way. A crosser runs across the road at the nearest spot ahead clear of every box and coin
-  (`CLEAR` yards to either side, all lanes), far enough ahead to be off the road before the
-  runner comes (its speed and start against the run's speed, with `SAFETY`); a flyer crosses
-  high above, anywhere. A creature may come as a group (`group`: one after another by a
-  delay, on parallel lines, some the other way); a group needs every line clear and its last
-  one off the road in time, and leaves its last members behind until it fits. Actors of the world scene (pooled like the decorations), moving in the
-  run's time: still, their animation too, while it stands. Which creatures come and where
-  follows from the run's seed through their own stream, `random.AMBIENT`, so the track stays
-  as it is.
-- `src/game/window.lua` — the modes (`profile.mode`): `ApplyMode()` puts the view full screen
-  or in the side window (a movable, resizable, clipped frame whose place `profile.side` saves;
-  its camera uses the calibration distance, not the real zoom, and a sky/land backdrop from the
-  biome's `sky` fills it). The window frame (`profile.frame.full/side`) is a
-  PortraitFrameTemplate (built like the spell book's: its CloseButton, a
-  MaximizeMinimizeButtonFrameTemplate left of it, no background, no portrait) sibling of the view, so the clipping does not cut it; full screen it
-  covers the screen's edges, since the road must stay centered on the real character.
-  The frame's minimize/maximize button (and, without the frame, the Minimize/Close buttons in a
-  row at the top middle) switch modes through `SetMode(mode)`. `Layout()` places texts and buttons for the
-  mode and size. Call `ApplyMode()` after any mode
-  setting changes (the options and `OnProfileRefresh` do).
-- `src/game/menu.lua` — the restart bar shown while the restart key is held, and the number box
-  (`overlay.NumberBox`) of the seed. The start screen is the status panel's (messages.lua). `profile.seed` is a fixed seed (or false: a
-  new one every run); `overlay:NewState()` starts every run from it and `SetSeed(n|false)`
-  changes it (also `/surfer seed`); `SetFixedSeed(on)` keeps the current run's seed or lets
-  every run draw one (the "Fixed seed" option and checkbox). `SetSeed` updates every place that
-  shows the setting: the status panel (the start screen too) and the addon options.
-- `src/game/hud.lua` — the score display: dark, see-through panels (the tooltip's art, tinted)
-  with bright outlined numbers (the UI font, Friz Quadrata): the score, the multiplier (a star
-  and `x1`, orange above 1; the star pops when it rises) in front of it, the coins under it. It
-  holds still to be read while running: one fixed-width cell per digit, panels widen only for a
-  digit more, the running score is redrawn 20 times a second.
-  Full screen it stands right of the road's far end, above the horizon (placed in proportion to
-  the screen's height); in the side window in its top right corner under the buttons, scaled
-  down. Hidden on the start dialog. Its own place in the draw order (`hud`, above the twin).
-- `src/game/legend.lua` — the hotkey legend, remade after the client's persistent input
-  legend: one group of rows per run state (ready, running, paused, over), only the current one
-  shown; each group a `DialogBorderTemplate` panel sized from its rows, a header row with a
-  classic divider as trim, rows of key caps (tooltip-bordered plates; `overlay.KeyCap` / `SetKeyCap` for others) and gold texts in one
-  column. The keys are the player's movement bindings (`GetBindingKey`, again on
-  `UPDATE_BINDINGS`; Q and R left out of them) and the game's own (`overlay.GAME_KEYS`,
-  controls.lua). In the view's top left corner (scaled down in the side window), clear of the
-  window frame's border; full screen in MEDIUM strata, over the player frame (LOW), which would
-  otherwise draw between its background and border.
-  `profile.legend` (option "Show hotkeys").
-- `src/game/messages.lua` — what the game says in the middle of the view, over everything else
-  (`messages` in the draw order, HIGH strata in both modes): the status panel while a run is
-  ready (the start screen: best score, the seed, Start game / Auto mode / Options / Close), paused or over
-  (a `DialogBorderTemplate` panel like the legend's: score with its
-  multiplier, coins, distance, best, "New best!" when `SaveBest` set `state.newBest`, trims like the legend's under the title and the numbers, the difficulty between the spell book's page arrows (while paused a change is for the next run and says so), the seed in a box (editable only
-  with the "Fixed seed" checkbox under it checked, otherwise read-only but copyable),
-  and a button per next action, Go on / Start over / Run again (and Auto mode in every one; while it is on, a paused run offers Go on and Stop auto mode, a finished one only Stop auto mode), each behind the legend's key
-  cap of the game key that does the same, `DoAction(key)`), and announcements:
-  `overlay:Announce(text, seconds, small)` shows big zone-text-style letters (`ZoneTextFont`,
-  `small` in `SubZoneTextFont` above) that fade in, stay `seconds` (2 by default) and fade
-  out; a newer one replaces it. `WelcomeBiome()` announces the biome ("Welcome to" /
-  "Elwynn Forest") when a run starts and when the biome option changes during one.
-- `src/game/controls.lua` — input (observed movement bindings), movement sampling, the per-frame
-  `Step`, best score (`SaveBest`) and `Toggle`, added to `app.overlay`. With `profile.capture` the movement
-  bindings' keys stop at the view (`SetPropagateKeyboardInput(false)` per key) and the runner
-  runs by itself (`AutoRun`) instead of following the sampled movement. R (without modifiers)
-  is always the game's: one press restarts a finished run, holding it `RESTART_HOLD` seconds
-  restarts a running or paused one. Q (without modifiers) pauses and goes on. Auto mode
-  (`overlay:SetAuto(on)`; the menus' "Auto mode" button, `/surfer auto`): the autopilot plays
-  the run (`StepAuto`), the game takes no keys at all (they all go on to WoW), there is no
-  legend, the top row shows Pause (Go on while paused; the paused panel offers Go on and Stop
-  auto mode) and "Stop auto mode" (back to the start screen: a run it played cannot be gone on
-  with by hand; it can take over yours, from the paused panel), a finished run starts over
-  after 3 seconds, and a run it played (`state.piloted`) saves no best score. Closing the game
-  ends it.
-- `src/game/autopilot.lua` — `app.autopilot`, auto mode's player. `Play(s, elapsed)` plays the
-  run in `simulation.Update`'s stead: a depth-first search through copies of the simulation
-  (like the "can be run through" test's) plans an input every 0.05 s for 1.4 s ahead (crates and
-  enemies lane-wide), replanned every 0.25 s; each frame is split at the input times, so the run
-  follows the plan to the tick. A plan heads for one lane (its own while a coin in it is near,
-  else the nearest coin's), goes on with the previous one while that lane stays, and is smoothed:
-  lane changes (an out and back first) and jumps are dropped where it still gets through with
-  as many coins. Copies leave out the run's coins (they would collect them) and never lay out
-  track (it would draw from the run's generator). All its tables are reused (pooled branches,
-  numeric state keys), so it allocates nothing once grown.
+- `biomes.lua` — `app.biomes`: biome registry (`Register`, `Get` merges over the default),
+  transitions (`RegisterTransition`, documented there) and auto mode's zone route.
+  `src/biomes/default.lua` documents every biome field and is the reference for writing one.
+  **Anything visual a region could change belongs in the biome, not as a constant in game
+  code**: add the field to `default.lua`, read it from `overlay.biome`, re-apply it in
+  `overlay:ApplyBiome()`. Only classic-era game files.
+- `overlay.lua` — `app.overlay`, the view: road, boxes and coins projected through a model of
+  the follow camera, and the twin covering the real character. **A running frame allocates
+  nothing** (`tests/overlay.lua` checks it).
+- Files that extend `app.overlay`: `shapes.lua` (faces and texture pool), `decorations.lua`
+  (roadside models in one world ModelScene), `obstacles.lua` (box models), `ambient.lua`
+  (wildlife), `light.lua` (day/night by the game clock), `window.lua` (full screen / side window,
+  window frame), `menu.lua` (restart bar, seed box), `hud.lua` (score), `legend.lua` (hotkeys),
+  `messages.lua` (status panel, announcements, gate flash and vortex), `controls.lua` (input,
+  per-frame `Step`, best score, auto mode), `autopilot.lua` (auto mode's player).
 
-global.bestScore stores the account high score. tests/\*.lua run without the client through
-npm run test:game; `npm run bench:overlay` counts WoW API calls per frame.
-
-Development tools (previews, animation checks, `/surfer profile` and `/surfer debug`) live in
-the separate `Surfer_Dev` addon ([../Surfer_Dev/CLAUDE.md](../Surfer_Dev/CLAUDE.md)); this addon
-only keeps the hooks they use.
+Tests: `npm run test:game` runs `tests/*.lua` without the client; `npm run bench:overlay`
+counts WoW API calls per frame. Development tools live in `Surfer_Dev`
+([../Surfer_Dev/CLAUDE.md](../Surfer_Dev/CLAUDE.md)); this addon only keeps the hooks they use.

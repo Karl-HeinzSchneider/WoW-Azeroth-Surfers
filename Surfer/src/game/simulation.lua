@@ -1,10 +1,9 @@
 ---@type string, Surfer
 local _, app = ...
 local random = app.random
--- Fixed-step rules on a grid: three lanes side by side and layers stacked LAYER yards high.
--- Everything on the track is a box on that grid, so one overlap test serves every kind, and
--- the rules are independent of how the views draw them. A run's track follows only from its
--- seed: the same seed lays out the same track.
+-- Fixed-step rules on a grid of three lanes and layers LAYER yards high. Everything on the track
+-- is a box on that grid, so one overlap test serves every kind. A run's track follows only from
+-- its seed.
 local game = {}
 app.simulation = game
 
@@ -14,20 +13,16 @@ game.geometry = {
     laneWidth = 2.4,
     playerHalfWidth = 0.22,
     playerHalfDepth = 0.15,
-    -- The runner's body is three layers tall: a barrier on layer 3 can be run under.
-    playerHeight = 1.8,
-    -- Half widths by kind: obstacles leave room to squeeze past, platforms fill their lane.
+    playerHeight = 1.8, -- three layers: a barrier on layer 3 can be run under
     halfWidth = { obstacle = 0.65, enemy = 0.6, barrier = 1.1, platform = 1.05, coin = 0.16 },
-    -- The drawn size of a coin; it collects anywhere in its layer.
-    coinSize = 0.5,
+    coinSize = 0.5, -- drawn; it collects anywhere in its layer
 }
 local bounds = game.geometry
 local L = game.LAYER
 
--- A box: `lane`; `at`, its near end, and `length` in yards along the track; `layer`, its
--- bottom, and `layers`, its height, in layers. Kinds: "obstacle" and "barrier" end the run on
--- contact, a "coin" is collected, a "platform" can be walked on and is a wall below its top;
--- its first `ramp` yards rise from its bottom to its top.
+-- `at` (near end) and `length` in yards; `layer` (bottom) and `layers` (height) in layers.
+-- "obstacle", "enemy" and "barrier" end the run on contact, a "coin" is collected, a "platform"
+-- is walked on and a wall below its top; its first `ramp` yards rise to its top.
 function game.Box(kind, lane, at, length, layer, layers, ramp)
     return { kind = kind, lane = lane, at = at, length = length, layer = layer, layers = layers, ramp = ramp }
 end
@@ -49,8 +44,7 @@ local function alongside(s, o)
     return s.distance + bounds.playerHalfDepth > o.at and s.distance - bounds.playerHalfDepth < o.at + o.length
 end
 
--- Whether the runner's body overlaps the box (for platforms, its full height). Boxes that only
--- touch, like a body three layers tall under a barrier on layer 3, do not overlap.
+-- Boxes that only touch (a body three layers tall under a barrier on layer 3) do not overlap.
 local EPSILON = 1e-6
 function game.Overlaps(s, o)
     return sideBySide(s, o)
@@ -60,10 +54,8 @@ function game.Overlaps(s, o)
 end
 
 local STEP = 1 / 120
--- Yards ahead the views show anything (shapes.lua draws boxes up to it, overlay.lua lays the
--- ground to it, a biome's `ground.fade` ends short of it), and the track is laid out further
--- still: nothing comes into sight before it exists, nor before a gate (patterns/gate.lua) that
--- a roadside group placed there could reach.
+-- Yards ahead the views show anything. The track is laid out further, so nothing comes into
+-- sight before it exists, nor before a gate that a roadside group placed there could reach.
 game.VIEW = 140
 game.AHEAD = game.VIEW + 20
 -- WoW's own jump (yards, seconds), so the road drops in step with the real character.
@@ -73,11 +65,9 @@ game.JUMP_TIME = 2 * JUMP_VELOCITY / GRAVITY
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
 
--- The difficulties, easiest first; `profile.difficulty` picks one by `id`. Each sets the
--- track's speed (yards per second) at the start and at most, the yards run for each yard per
--- second more (`speedUp`), the seconds of free road between two patterns (`gap`, a range,
--- in yards at the speed of the moment; track.lua), and which patterns come up how often (a
--- pattern's `weight` may differ by difficulty id; src/patterns/).
+-- Easiest first. Speeds in yards per second; `speedUp`: yards run per yard per second more;
+-- `gap`: seconds of free road between patterns (track.lua). A pattern's `weight` may differ by
+-- difficulty id.
 game.DIFFICULTIES = {
     { id = "easy", name = "Easy", startSpeed = 26, topSpeed = 36, speedUp = 240, gap = { 0.45, 0.7 } },
     { id = "normal", name = "Normal", startSpeed = 30, topSpeed = 42, speedUp = 180, gap = { 1 / 3, 0.53 } },
@@ -88,23 +78,19 @@ for level, difficulty in ipairs(game.DIFFICULTIES) do
     difficulty.level = level
     game.DIFFICULTIES[difficulty.id] = difficulty
 end
--- The track speed the twin's run animation is paced for (overlay.lua): faster legs above it.
+-- The speed the twin's run animation is paced for (overlay.lua).
 game.RUN_PACE = game.DIFFICULTIES.normal.startSpeed
 
--- With `zones`, a run goes through zones (the views' biomes change, auto): one ends every
--- ZONE_LENGTH yards (from and to) of the run, at a gate (patterns/gate.lua) where the next one
--- starts, from its own stream of the seed. `s.gates` are where they start, laid out with the
--- track; the run's first zone has none.
+-- With `zones` (auto biome), a zone ends at a gate (patterns/gate.lua) every ZONE_LENGTH yards
+-- (a range, from random.GATES). `s.gates` lists where the zones after the first start.
 game.ZONE_LENGTH = { 1500, 2500 }
 
--- Yards from a gate to the next one's.
 function game.ZoneLength(s)
     local from, to = game.ZONE_LENGTH[1], game.ZONE_LENGTH[2]
     return from + s.gateRandom() * (to - from)
 end
 
--- A run from `seed` (any whole number), or from a new one when left out, at difficulty
--- `difficulty` (an id; normal when left out or unknown), through zones with `zones`.
+-- `seed`: any whole number, a new one when nil; `difficulty`: an id, normal when nil or unknown.
 function game.New(seed, difficulty, zones)
     seed = random.Normalize(seed or random.Seed())
     difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
@@ -120,10 +106,8 @@ function game.New(seed, difficulty, zones)
         distance = 0,
         forward = false,
         coins = 0,
-        -- The coins the run has come past, collected or missed: what share it collected.
-        coinTotal = 0,
-        -- The score so far: distance points (fractional) and coin points, each earned at the
-        -- multiplier of its moment.
+        coinTotal = 0, -- coins come past, collected or missed
+        -- Distance points (fractional) and coin points, each at the multiplier of its moment.
         points = 0,
         bonus = 0,
         multiplier = 1,
@@ -135,21 +119,19 @@ function game.New(seed, difficulty, zones)
     }
     if zones then
         s.gates, s.gateRandom = {}, random.New(seed, random.GATES)
-        -- Where the track lays out the next gate (track.lua), at the next pattern from there.
         s.nextGate = game.ZoneLength(s)
     end
     return s
 end
 
--- Points for a coin, at multiplier 1; a yard run is one point.
+-- At multiplier 1; a yard run is one point.
 local COIN_POINTS = 25
 
 function game.Score(s)
     return math.floor(s.points) + s.bonus
 end
 
--- Scores everything from now on `multiplier` times (a whole number, at least 1), e.g. for a
--- special event; the score earned so far stays.
+-- Scales only what is earned from now on.
 function game.SetMultiplier(s, multiplier)
     s.multiplier = math.max(1, math.floor(multiplier))
 end
@@ -214,7 +196,6 @@ local function tick(s)
     else
         s.height, s.velocity = floor, 0
     end
-    -- The track ahead: patterns (track.lua) up to this far.
     while s.nextRow < s.distance + game.AHEAD do
         game.Spawn(s)
     end
@@ -225,8 +206,7 @@ local function tick(s)
                 o.hit = true
                 s.coins = s.coins + 1
                 s.bonus = s.bonus + COIN_POINTS * s.multiplier
-            elseif not game.invincible then
-                -- `invincible`: Surfer_Dev's /surfer god.
+            elseif not game.invincible then -- Surfer_Dev's /surfer god
                 s.status = "over"
                 return
             end

@@ -1,11 +1,9 @@
 ---@type string, Surfer
 local _, app = ...
--- The restart bar, added to the view that overlay.lua creates: it fills while the restart key is
--- held during a run (controls.lua). Also the number box the status panel's seed uses
--- (messages.lua; the start screen is the status panel's too).
+-- The restart bar (fills while the restart key is held, controls.lua) and the number box of the
+-- status panel's seed (messages.lua).
 local overlay = app.overlay
 
--- The seed's box: the classic input border, its ends and middle.
 local INPUT = "Interface\\Common\\Common-Input-Border"
 local INPUT_WIDTH, INPUT_HEIGHT = 110, 20
 
@@ -37,7 +35,6 @@ local function numberBox(parent)
     return box
 end
 
--- For the status panel's seed (messages.lua).
 overlay.NumberBox = numberBox
 
 function overlay:CreateHoldBar(f)
@@ -57,7 +54,7 @@ function overlay:CreateHoldBar(f)
     self.holdBar = bar
 end
 
--- The restart bar: how far the restart key has been held, nothing while it is not.
+-- `share`: how far the restart key has been held; nil hides the bar.
 function overlay:ShowHold(share)
     if share then
         self.holdBar:SetValue(share)

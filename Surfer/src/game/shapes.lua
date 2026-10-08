@@ -3,17 +3,14 @@ local _, app = ...
 local sim = app.simulation
 local bounds = sim.geometry
 local LANE = bounds.laneWidth
--- The visible faces of the track's boxes and coins, and the texture pool that draws them. A
--- face is four corners
--- (upper left, lower left, upper right, lower right), each (d, x, z): yards ahead of the
--- runner, yards to the screen's right of the track's center, yards up including the curve.
+-- The visible faces of the track's boxes and coins, and the texture pool that draws them. A face
+-- is four corners (upper left, lower left, upper right, lower right), each (d, x, z): yards
+-- ahead, to the screen's right of the track's center, and up including the curve.
 local shapes = {}
 app.shapes = shapes
--- Faces closer than this are not drawn; farther than DRAW_DISTANCE neither.
 local NEAR, DRAW_DISTANCE = -3, sim.VIEW
 
--- The track curves down and away toward the horizon: it drops `curve` times the distance
--- squared, in yards. The overlay sets it (the biome's `ground.curve`, or the fixed one).
+-- The ground drops `curve` times the distance squared (the overlay sets it).
 local curve = 0.0005
 function shapes.Ground(d)
     return -curve * math.max(d, 0) ^ 2
@@ -24,7 +21,7 @@ function shapes.SetCurve(value)
 end
 local ground = shapes.Ground
 
--- Colors by kind and part: the biome's `shapes` (biomes/default.lua), set by the overlay.
+-- The biome's `shapes`, set by the overlay.
 shapes.colors = nil
 
 local out, count = {}, 0
@@ -106,9 +103,8 @@ local function coin(o, s)
     add(o, "coin", "front", d, d, left, top, d, left, bottom, d, right, top, d, right, bottom)
 end
 
--- The faces of every box and coin in view, reusing the same tables every frame. `viewX` is
--- the camera's position to the screen's right, which decides the sides it sees; `far`, how far
--- ahead the view goes this frame (DRAW_DISTANCE when left out).
+-- Every face in view, reusing the same tables every frame. `viewX`: the camera's position to the
+-- screen's right (which sides it sees); `far`: where the view ends this frame.
 function shapes.Collect(s, viewX, far)
     count = 0
     limit = math.min(DRAW_DISTANCE, far or DRAW_DISTANCE)
@@ -133,7 +129,7 @@ function shapes.Sublevel(f)
 end
 
 -- Show and hide only on a change: every call into the client costs, even one that changes
--- nothing. Textures shown and hidden here keep their state in `surferShown`.
+-- nothing.
 function shapes.Show(t)
     if not t.surferShown then
         t:Show()
@@ -150,7 +146,6 @@ end
 
 -- Fits texture `t` to the face's projected corners; hidden when a corner cannot be projected.
 -- Its only anchor is BOTTOMLEFT, which SetPoint replaces, so no ClearAllPoints.
--- `project(d, x, z)` returns screen x, y in the texture parent's coordinates.
 local function place(t, project, f)
     local x1, y1 = project(f[1], f[2], f[3])
     local x2, y2 = project(f[4], f[5], f[6])

@@ -1,22 +1,19 @@
 ---@type string, Surfer
 local _, app = ...
--- Seeded random numbers, so a run can be played again: the game's own `math.random` cannot be
--- seeded. Park and Miller's "minimal standard" generator, x = x * 16807 mod (2^31 - 1); every
--- product stays below 2^53, so Lua's numbers compute it exactly.
+-- Seeded random numbers (the game's `math.random` cannot be seeded): Park and Miller's minimal
+-- standard, x = x * 16807 mod (2^31 - 1), exact in Lua's doubles.
 local random = {}
 app.random = random
 
 local M, A = 2147483647, 16807
--- The largest seed; seeds and states run from 1 to it.
+-- Seeds and states run from 1 to MAX.
 random.MAX = M - 1
 
--- Streams: each system draws from its own place on the generator's cycle, this far along it
--- (as a factor), so they do not repeat one another. Next values of one sequence, as seeds,
--- would only be that sequence shifted by one.
+-- Streams: each system starts this far along the cycle (as a factor), so they do not repeat
+-- one another (consecutive values as seeds would only shift one sequence by one).
 random.TRACK, random.LEFT, random.RIGHT, random.LOOK = 1, 1583458089, 784588716, 2045073574
--- The wildlife's (ambient.lua).
 random.AMBIENT = 1209675413
--- Auto mode's way through the zones (biomes.lua), and where they end (simulation.lua).
+-- Auto mode's zone route (biomes.lua) and gates (simulation.lua).
 random.ZONES = 1650567391
 random.GATES = 937513201
 
@@ -26,7 +23,7 @@ local function times(x, c)
     return ((x * high) % M * 65536 + x * low) % M
 end
 
--- One step of the generator, from state `x` (for the tests' known value).
+-- For the tests' known value.
 function random.Step(x)
     return x * A % M
 end
@@ -36,7 +33,6 @@ function random.Normalize(n)
     return (math.floor(n) - 1) % random.MAX + 1
 end
 
--- A new seed, for a run without a fixed one.
 function random.Seed()
     return math.random(1, random.MAX)
 end

@@ -16,7 +16,6 @@ function addon:DevApp()
     return app
 end
 
--- Called once, after ADDON_LOADED for this addon: SavedVariables are available now.
 function addon:OnInitialize()
     local db = LibStub("AceDB-3.0"):New("SurferDB", app.dbDefaults, true) --[[@as Surfer.DB]]
     self.db = db
@@ -32,12 +31,10 @@ function addon:OnInitialize()
     log:debug("Initialized (profile: %s)", db:GetCurrentProfile())
 end
 
--- Called after OnInitialize and whenever the addon is re-enabled. Register events here.
 function addon:OnEnable()
     log:debug("Enabled")
 end
 
--- Ace unregisters events/timers/hooks automatically on disable.
 function addon:OnDisable()
     if app.overlay and app.overlay.frame then
         app.overlay.frame:Hide()
@@ -45,7 +42,7 @@ function addon:OnDisable()
     log:debug("Disabled")
 end
 
--- Re-apply everything that depends on profile settings. Modules opt in by defining OnProfileRefresh.
+-- Modules opt in by defining OnProfileRefresh.
 function addon:OnProfileRefresh()
     log:setLevel(self.db.profile.logLevel)
     if app.overlay and app.overlay.frame then
@@ -88,7 +85,6 @@ function addon:OnSlashCommand(input)
             log:chat("This run: seed %d", overlay.state.seed)
         end
     elseif cmd == "auto" then
-        -- Auto mode on (opening the game) or off.
         local overlay = app.overlay
         if not overlay.frame or not overlay.frame:IsShown() then
             overlay:Toggle()

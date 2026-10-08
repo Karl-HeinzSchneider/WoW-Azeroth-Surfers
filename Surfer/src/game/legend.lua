@@ -1,11 +1,8 @@
 ---@type string, Surfer
 local _, app = ...
--- The hotkey legend, added to the view that overlay.lua creates: a classic dialog panel listing
--- the game's keys, each row a key cap (or two) and what it does. Built like the client's
--- persistent input legend (a group of rows per input state, only the current one shown, rows
--- laid out on a grid with optional header row and trim), remade for the keyboard: the keys are
--- the player's own movement bindings, read again when they change. One group per run state, in
--- the view's top left corner (scaled down in the side window). `profile.legend` turns it off.
+-- The hotkey legend, built like the client's input legend: a dialog panel per run state (only
+-- the current one shown), rows of key caps and what they do. The keys are the player's own
+-- movement bindings.
 local overlay = app.overlay
 
 local ROW_HEIGHT = 24
@@ -27,10 +24,9 @@ local KEY_CAP = {
 }
 local TRIM = "Interface\\Common\\UI-TooltipDivider"
 
--- The rows of each run state. `bindings`: the WoW bindings whose keys the row shows (at most
--- two keys, the first binding's first; `firsts`: only each binding's first key); `keys`: the game's own keys instead (controls.lua); `header`:
--- a title row with the trim under it; `observed`: only while the movement keys are only
--- observed (`profile.capture` off), when the runner runs only while the character does.
+-- `bindings`: the WoW bindings whose keys the row shows (at most two; `firsts`: only each
+-- binding's first); `keys`: the game's own instead; `header`: a title row with trim;
+-- `observed`: only while `profile.capture` is off.
 local LEFT = { "TURNLEFT", "STRAFELEFT" }
 local RIGHT = { "TURNRIGHT", "STRAFERIGHT" }
 local JUMP = { "JUMP" }
@@ -60,7 +56,6 @@ local GROUPS = {
     },
 }
 
--- A key cap: the key's name on a small dark plate.
 local function keyCap(parent)
     local cap = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     cap:SetBackdrop(KEY_CAP)
@@ -72,9 +67,7 @@ local function keyCap(parent)
     return cap
 end
 
--- Writes a key's name (or `text` as is) on a cap and fits the cap to it; returns its width.
--- Every one-character name (A, Q, 1, Ä) gets the same cap, however wide its letter; longer
--- names grow it.
+-- Returns the cap's width: the same for every one-character name, wider for longer ones.
 local function setKey(cap, key, text)
     text = text or GetBindingText(key) or key
     cap.text:SetText(text)
@@ -84,10 +77,8 @@ local function setKey(cap, key, text)
     cap:SetWidth(w)
     return w
 end
--- For the status panel's buttons (messages.lua).
 overlay.KeyCap, overlay.SetKeyCap = keyCap, setKey
 
--- A row: two key caps with a slash between them, and its text.
 local function entry(parent, spec)
     local e = { spec = spec, caps = { keyCap(parent), keyCap(parent) } }
     e.slash = parent:CreateFontString(nil, "OVERLAY", "GameFontDisable")
@@ -121,15 +112,13 @@ function overlay:CreateLegend(f)
         end
         self.legendGroups[state] = group
     end
-    -- The keys follow the player's bindings.
     legend:RegisterEvent("UPDATE_BINDINGS")
     legend:SetScript("OnEvent", function()
         self.legendState = nil
     end)
 end
 
--- The keys a row shows, into `keys` (reused): binding by binding, each one's keys (or only its
--- first), without the game's own keys (they do something else here) and without repeats.
+-- Into `keys` (reused), without the game's own keys (they do something else here) or repeats.
 local function bindingKeys(keys, spec)
     local game = overlay.GAME_KEYS
     for i = #keys, 1, -1 do
@@ -152,7 +141,7 @@ local function bindingKeys(keys, spec)
     return keys
 end
 
--- Writes `keys` on a row's caps and places them from its left edge; returns their width.
+-- Returns their width.
 local function placeKeys(e, keys, x, y)
     local width = 0
     for i, cap in ipairs(e.caps) do
@@ -186,12 +175,10 @@ end
 
 local keys = {}
 
--- Lays out a group: rows on a grid, the texts in one column after the widest keys, the panel
--- around them (as the client's legend sizes its background from the row count).
+-- The texts in one column after the widest keys, the panel sized around them.
 function overlay:LayoutLegend(group)
     local game = self.GAME_KEYS
     local row, keysWidth, textWidth, headerWidth, header = 0, 0, 0, 0, false
-    -- First the keys, to find the column the texts start in.
     for _, e in ipairs(group.entries) do
         local spec = e.spec
         e.shown = not (spec.observed and self.capture)
@@ -229,8 +216,7 @@ function overlay:LayoutLegend(group)
         end
     end
     local width = 2 * INDENT + math.max(headerWidth, keysWidth + LABEL_GAP + textWidth)
-    -- Rows are taller than their contents; the last one's extra room is left out, so the
-    -- panel's bottom edge is as far from the keys as its top edge.
+    -- Without the last row's extra room, so the bottom margin matches the top.
     local height = ROW_HEIGHT * row + 2 * INDENT - (ROW_HEIGHT - KEY_HEIGHT) + (header and HEADER_EXTRA or 0)
     group.panel:SetSize(width, height)
     if group.trim then
@@ -240,15 +226,12 @@ function overlay:LayoutLegend(group)
     end
 end
 
--- Where the legend stands for the view's mode and size (window.lua's Layout); `top` as for the
--- score display.
 function overlay:PlaceLegend(side, top)
     local legend, scale = self.legend, side and SIDE_SCALE or 1
     legend:ClearAllPoints()
     legend:SetScale(scale)
-    -- Clear of the window frame's border, which is drawn over it; a narrow side window without
-    -- the frame has the buttons' row at the top: under it. A point's offsets count in the
-    -- legend's own scale.
+    -- Clear of the window frame's border, and under a narrow side window's buttons. Offsets
+    -- count in the legend's own scale.
     local x, y = 5, top - 5
     if self.framed then
         x, y = 12, top - 10
@@ -258,8 +241,7 @@ function overlay:PlaceLegend(side, top)
     legend:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x / scale, y / scale)
 end
 
--- Once a frame: the group of the run's state, laid out again only when the state, the bindings
--- or the mode changed. None in auto mode, when the game takes no keys.
+-- Laid out again only when the state, bindings or mode changed. None in auto mode.
 function overlay:ShowLegend()
     local state = app.db.profile.legend and not self.auto and self.state.status or "off"
     if self.legendState == state then
