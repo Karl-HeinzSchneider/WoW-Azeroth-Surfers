@@ -15,6 +15,11 @@
     <Script file="slalom.lua"/>
     <Script file="rooftops.lua"/>
     <Script file="gauntlet.lua"/>
+    <Script file="stampede.lua"/>
+    <Script file="tunnel.lua"/>
+    <Script file="terrace.lua"/>
+    <Script file="bridge.lua"/>
+    <Script file="fork.lua"/>
     <!-- Never picked by weight: the track lays it out where a zone ends. -->
     <Script file="gate.lua"/>
 </Ui>

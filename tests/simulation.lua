@@ -205,8 +205,9 @@ local function checkTrack(objects, label)
         local stretches = walls[lane]
         for _, o in ipairs(list) do
             local solid = o.kind == "obstacle" or o.kind == "enemy" or (o.kind == "platform" and not o.ramp)
-            -- Taller than a jump from the ground, starting below the body's top.
-            if solid and g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight then
+            -- Taller than a jump from the ground, starting below the body's top (one on layer 3
+            -- only touches it: 3 * L is a hair under the body's height).
+            if solid and g.Top(o) > 2 * L and o.layer * L < g.geometry.playerHeight - 1e-6 then
                 local last = stretches[#stretches]
                 if last and o.at <= last[2] then
                     last[2] = math.max(last[2], o.at + o.length)

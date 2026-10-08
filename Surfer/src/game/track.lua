@@ -57,6 +57,13 @@ function track.JumpLength(s)
     return s.speed * game.JUMP_TIME
 end
 
+-- Yards past a takeoff from a floor `layer` layers up (0 when nil) by which the runner is down
+-- on the road again, with room to spare (a layer's fall adds under 4 yards at any speed). A
+-- pattern ending in a jump reaches at least that far, so the next one never starts under it.
+function track.Landing(s, layer)
+    return track.JumpLength(s) + (layer or 0) * 4 + 4
+end
+
 -- Called by each pattern file, once:
 --   name    its id (`/surfer spawn <name>` in Surfer_Dev)
 --   weight  how often it comes up: a number, or a table of them by difficulty id (a

@@ -20,6 +20,6 @@ track.Register({
         add(s, "obstacle", wall, at, 0.8, 0, 4)
         add(s, "obstacle", trap, at, 0.5, 0, r(1, 2))
         add(s, "enemy", trap, at + 3, 0.8, 0, 4)
-        return 10
+        return track.Landing(s)
     end,
 })
