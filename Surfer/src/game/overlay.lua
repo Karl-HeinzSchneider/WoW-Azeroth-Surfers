@@ -68,6 +68,7 @@ local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
 -- all), so its head clears a bar to run under; fitted with a female troll (2.68 measured). A
 -- taller one is drawn this tall with the road's camera nearer (`bodyScale`): it still covers
 -- the real one, and the track is drawn bigger around it.
+local REFERENCE_HEIGHT = 1.7
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
