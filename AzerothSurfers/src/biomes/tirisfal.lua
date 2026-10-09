@@ -103,9 +103,9 @@ local function fenceGroup(count, damaged, style)
     }
     items[#items + 1] = {
         model = { 189547, 189551, 189552 },
-        x = 11,
+        x = 8,
         d = start + (count - 2) * FENCE_SECTION,
-        scale = { 0.25, 0.35 },
+        scale = { 0.18, 0.24 },
         yaw = { 0, 360 },
         chance = 0.65,
     }
@@ -210,7 +210,7 @@ app.biomes.Register("tirisfal", {
                 weight = 1.5,
                 length = { 6, 9 },
                 items = {
-                    { model = 204124, x = { 8, 10 }, yaw = { 0, 360 }, scale = { 0.3, 0.45 } },
+                    { model = 204124, x = { 6.5, 8 }, yaw = { 0, 360 }, scale = { 0.18, 0.25 } },
                     { model = 204098, x = 6, d = 3, scale = 0.5, chance = 0.6 },
                 },
             },
@@ -219,7 +219,7 @@ app.biomes.Register("tirisfal", {
                 weight = 1.5,
                 length = { 6, 9 },
                 items = {
-                    { model = { 189547, 189551, 189552 }, x = { 8, 10 }, yaw = { 0, 360 }, scale = { 0.3, 0.45 } },
+                    { model = { 189547, 189551, 189552 }, x = { 6.5, 8 }, yaw = { 0, 360 }, scale = { 0.18, 0.25 } },
                 },
             },
             -- TirisfallTreeStump01/02, sometimes with a second stump and undergrowth.
@@ -239,9 +239,9 @@ app.biomes.Register("tirisfal", {
                 items = {
                     {
                         model = { 204125, 204126, 204127, 204128 },
-                        x = { 8, 10 },
+                        x = { 6.5, 8 },
                         yaw = { -15, 15 },
-                        scale = { 0.3, 0.4 },
+                        scale = { 0.18, 0.25 },
                     },
                 },
             },
