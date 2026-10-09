@@ -31,17 +31,14 @@ local BEHIND = { lobby = -3, run = 5 }
 overlay.OCCLUDER_SINK = SINK
 
 function overlay:CreateOccluder()
-    local scene = CreateFrame("ModelScene", nil, UIParent)
+    -- A child of the view's frame, so it is shown and hidden with the game (and clipped to the side
+    -- window), placed a level under it: drawn before the frame's own textures, the ground.
+    local scene = CreateFrame("ModelScene", nil, self.frame)
     scene:EnableMouse(false)
     scene:SetAllPoints(self.frame)
     scene:SetCameraNearClip(self.CLIP_NEAR)
     scene:SetCameraFarClip(self.CLIP_FAR)
     scene:Hide()
-    -- Not a child of the view's frame (it lies under it): hidden with it, shown again by the
-    -- view's next frame (UpdateOccluder).
-    self.frame:HookScript("OnHide", function()
-        shapes.Hide(scene)
-    end)
     -- Each tile's place (yards ahead, to the right), and once loaded its scale, its top and how far
     -- it reaches each way along the road and across.
     self.occluder = {
@@ -59,7 +56,7 @@ function overlay:CreateOccluder()
     self:PlaceOccluder()
 end
 
--- Under the view's frame, in its strata; on every change of mode (Restack).
+-- A level under the view's frame, in its strata; on every change of mode (Restack).
 function overlay:PlaceOccluder()
     local scene, f = self.occluder.scene, self.frame
     scene:SetFrameStrata(f:GetFrameStrata())
