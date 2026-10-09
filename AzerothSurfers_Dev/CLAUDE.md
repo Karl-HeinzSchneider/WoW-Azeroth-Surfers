@@ -7,13 +7,14 @@ It reaches the addon's private table through
 `LibStub("AceAddon-3.0"):GetAddon("AzerothSurfers"):DevApp()` (`dev.app`) and adds `/surfers`
 subcommands with `dev.Command(name, usage, run)`; `/surfers help` lists them. The addon keeps
 only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invincible`,
-`track.list`/`track.byName`, `overlay.keepWorldScene`, `overlay.referenceHeight`,
-`simulation.ZONE_LENGTH`, `simulation.STREAK`, `lobby.shots` with `overlay.shotName`,
+`track.list`/`track.byName`, `overlay.referenceHeight`, `simulation.ZONE_LENGTH`,
+`simulation.STREAK`, `lobby.shots` with `overlay.shotName`,
 `lobby.items` with `overlay.decorState`, `overlay.OCCLUDER_SINK`, `overlay.occluderOff` and
 `overlay.occluder` with `overlay:PlaceOccluder`.
 
 - `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`.
-- `diagnostics.lua` — `/surfers profile`, `/surfers debug`.
+- `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
+  on the screen against the road's projection of its body).
 - `preview.lua` — `/surfers preview creature|model|turn|off`.
 - `animations.lua` — `/surfers animations [display id]`.
 - `playtest.lua` — `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,

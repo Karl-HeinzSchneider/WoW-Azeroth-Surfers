@@ -436,7 +436,7 @@ function overlay:PlaceSeat()
         actor:SetAnimation(self.seatWant, 0, 1, 0)
         self.seatAnimation = self.seatWant
     end
-    local scale = app.db.profile.overlay.twinScale / self.bodyScale
+    local scale = self:TwinScale()
     local d = -self.state.distance
     actor:SetScale(scale)
     actor:SetYaw(math.rad(lobby.seat.yaw))

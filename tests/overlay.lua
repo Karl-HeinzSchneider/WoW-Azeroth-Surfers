@@ -163,7 +163,8 @@ o.height, o.body, o.bodyScale, o.lastRoad = 2, 2, 1, {}
 o:ApplyBiome()
 o:CreateGround({ CreateTexture = texture })
 o.faces = app.shapes.Pool({ CreateTexture = texture }, "BORDER")
-o.twin, o.twinActor = scene, actor
+-- The twin: an actor of the world scene; `scene` stands in for its square on the screen.
+o.twinAnchor, o.twinActor = scene, actor
 -- The score display, the start dialog and the restart bar: a widget's Create* methods make
 -- another widget, its Get* methods answer 0, the rest do nothing.
 local function zero()
@@ -214,31 +215,26 @@ local function coin(lane, center, layer)
     return g.Box("coin", lane, center - 0.16, 0.32, layer or 1, 1)
 end
 
--- The twin: a copy in a square scene around the character, seen through the road's camera.
+-- The twin: a copy of the character in the world scene at the runner, its square on the screen
+-- around the body.
 o.state = g.New()
 o.state.objects = { obstacle(0, 0) }
 o:Render()
 local feetY = first().y
 assert(actor.shown and actor.alpha == 0.5, "a see-through twin before the run")
 assert(math.abs(actor.position[3] - 0.05) < 1e-9, "the twin's feet stand on the real feet")
-assert(scene.camera[2] == 0 and scene.camera[1] < 0 and scene.camera[3] > 0, "the twin's camera follows behind")
-assert(scene.x == W / 2 and scene.w == scene.h, "a square scene centred on the character")
+assert(actor.position[1] == 0 and actor.position[2] == 0, "at the runner, in the middle lane")
+assert(scene.x == W / 2 and scene.w == scene.h, "a square centred on the character")
 assert(feetY < scene.y and scene.y < H / 2, "the body's middle between its feet and the camera's focus")
--- Seen from above at angle a, the twin spans height * cos(a) / side of its square frame; on
--- the road's projection the body spans about twice the distance from its feet to its middle.
-local side = 1.6 * o.height
-local a = math.atan2(scene.camera[3] - 1, -scene.camera[1])
-local twinHeight = scene.h * o.height * math.cos(a) / side
-local roadHeight = 2 * (scene.y - feetY)
-assert(math.abs(twinHeight / roadHeight - 1) < 0.03, "the twin is exactly as tall as the road's projection")
-assert(
-    math.abs(math.tan(scene.fov / 2) * 2 * math.sqrt(scene.camera[1] ^ 2 + (scene.camera[3] - 1) ^ 2) - side) < 1e-6,
-    "the scene's lens spans its frame"
-)
+o.state.lateral = 1
+o:Render()
+assert(math.abs(actor.position[2] * actor.scale - 2.4) < 1e-9, "in the left lane: the scene's y points left")
+o.state.lateral = 0
+o:Render()
 g.Start(o.state)
 o:Render()
 assert(actor.alpha == 1, "the twin is fully drawn while running")
-print("PASS twin stands on the real character, as tall as the road's projection")
+print("PASS twin stands on the real character, in the world scene at the runner")
 
 -- A tall character (2.5 yards) is drawn at a human's height in the track's world, the camera
 -- nearer by as much: on the screen it covers the real one just as before, and the track around
@@ -250,7 +246,10 @@ o.body, o.bodyScale, o.lastRoad = 2, 1.25, {}
 o:Render()
 assert(math.abs(scene.h / realSize - 1) < 1e-9, "the twin is as big on the screen as the real character")
 assert(math.abs(scene.x - realX) < 1e-6 and math.abs(scene.y - realY) < 1e-6, "and where it stands")
-assert(math.abs(actor.scale - 1 / 1.25) < 1e-9, "the twin itself is smaller")
+assert(
+    math.abs(actor.scale - math.sqrt(2) / 1.25) < 1e-9,
+    "the twin itself is smaller (its size, overlay.lua's TWIN_SIZE)"
+)
 assert(first().w > realWidth * 1.15, "the track is drawn bigger around it")
 o.height, o.body, o.bodyScale, o.lastRoad = 2, 2, 1, {}
 o:Render()
@@ -284,7 +283,7 @@ o.state.height = 1.5
 o:Render()
 assert(math.abs(scene.y - twinY) < 0.001, "the character keeps its place on screen")
 assert(first().y < coinY, "the road and its objects drop while jumping")
-assert(math.abs(actor.position[3] - 1.55) < 1e-9, "the twin rises on the sim's arc")
+assert(math.abs(actor.position[3] - (1.5 / actor.scale + 0.05)) < 1e-9, "the twin rises on the sim's arc")
 o.state.height = 0
 print("PASS jumping drops the road beneath the character")
 

@@ -13,7 +13,6 @@ local shown
 local function stop()
     if shown then
         app.overlay:ReleaseActor(shown.key, shown.actor)
-        app.overlay.keepWorldScene = nil
         shown = nil
     end
 end
@@ -39,7 +38,6 @@ local function show(key, name, animation, degrees)
     actor:SetAlpha(1)
     actor:SetPitch(0)
     shown = { key = key, actor = actor, name = name, clock = 0, index = 1 }
-    app.overlay.keepWorldScene = true
     turn(degrees)
     if animation then
         actor:SetAnimation(animation, 0, 1, 0)

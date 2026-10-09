@@ -35,7 +35,8 @@ local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
 -- The streak (sim.STREAK) beside the character: shown from STREAK_EARLY coins before it scores
 -- more on, gold, orange once it does. Its bottom left corner STREAK_OFFSET pixels off the right
--- of the twin's scene, which is centred on the character and a little larger than it.
+-- of the twin's square on the screen (overlay.lua's twinAnchor), centred on the character and a
+-- little larger than it.
 local STREAK_EARLY, STREAK_SIZE = 1, 20
 local STREAK_HEIGHT = 32
 local STREAK_OFFSET = { -10, 6 }
@@ -136,10 +137,10 @@ function overlay:CreateHud(f)
     coinPanel:SetPoint("TOPRIGHT", scorePanel, "BOTTOMRIGHT", 0, -GAP)
     icon(coinPanel, COIN)
 
-    -- Follows the twin's scene, which follows the character on screen.
+    -- Follows the twin's square, which follows the character on screen.
     local streakPanel = panel(hud)
     streakPanel:SetHeight(STREAK_HEIGHT)
-    streakPanel:SetPoint("BOTTOMLEFT", self.twin, "RIGHT", STREAK_OFFSET[1], STREAK_OFFSET[2])
+    streakPanel:SetPoint("BOTTOMLEFT", self.twinAnchor, "RIGHT", STREAK_OFFSET[1], STREAK_OFFSET[2])
     streakPanel:Hide()
     local streak = text(streakPanel, STREAK_SIZE)
     streak:SetPoint("CENTER")
