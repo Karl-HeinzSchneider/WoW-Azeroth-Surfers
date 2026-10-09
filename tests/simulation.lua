@@ -524,7 +524,9 @@ test("a run from the lobby starts in front of its gate", function()
                     first = math.min(first, o.at)
                 end
             end
-            assert(first >= lobby.rim + gate.after + gate.lead, label .. ": no box before the gate's empty road ends")
+            -- The player takes over past the strip, with CLEAR seconds of empty road ahead.
+            local clear = lobby.rim + gate.after + difficulty.startSpeed * g.CLEAR
+            assert(first >= clear, label .. ": no box in the empty road past the gate")
             if zones then
                 assert(s.nextGate >= lobby.rim + g.ZONE_LENGTH[1], label .. ": the next gate a zone on")
             end
@@ -534,6 +536,24 @@ test("a run from the lobby starts in front of its gate", function()
             end
             assert(coins == 8, label .. ": the lobby's coins")
             assert(runnable(s, lobby.rim + 80), label .. ": runnable from the start")
+        end
+    end
+end)
+
+-- A new run starts with CLEAR seconds of empty road at its start speed: no box before.
+test("a new run starts on empty road", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for seed = 1, 20 do
+            local s = g.New(seed, difficulty.id)
+            g.Start(s)
+            g.Update(s, 1 / 120)
+            for _, o in ipairs(s.objects) do
+                local label = string.format("%s seed %d", difficulty.id, seed)
+                assert(
+                    o.kind == "coin" or o.at >= difficulty.startSpeed * g.CLEAR,
+                    label .. ": a box on the empty road"
+                )
+            end
         end
     end
 end)

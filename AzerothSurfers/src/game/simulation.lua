@@ -64,6 +64,9 @@ local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 game.JUMP_TIME = 2 * JUMP_VELOCITY / GRAVITY
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
+-- Seconds of empty road, at the difficulty's start speed, from where the player takes over to
+-- the first pattern: a new run's start, and past the lobby's gate.
+game.CLEAR = 2
 
 -- Easiest first. Speeds in yards per second; `speedUp`: yards run per yard per second more;
 -- `gap`: seconds of free road between patterns (track.lua). A pattern's `weight` may differ by
@@ -119,7 +122,7 @@ function game.New(seed, difficulty, zones, lobby)
         multiplier = 1,
         speed = difficulty.startSpeed,
         accumulator = 0,
-        nextRow = 22,
+        nextRow = difficulty.startSpeed * game.CLEAR,
         objects = {},
         random = random.New(seed, random.TRACK),
     }

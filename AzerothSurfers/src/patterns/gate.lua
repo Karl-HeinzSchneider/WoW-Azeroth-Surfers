@@ -1,6 +1,7 @@
 ---@type string, AzerothSurfers
 local _, app = ...
 local track = app.track
+local game = app.simulation
 local add, arc = track.Add, track.Arc
 
 -- `before`/`after`: the strip around the rim (yards) that the transition dresses; no other
@@ -52,14 +53,16 @@ track.Register({
     end,
 })
 
--- A run from the lobby (src/scenes/lobby.lua): its coin rows, then a gate at its `rim`; the
--- patterns start past the gate's empty road, and with zones the next gate a zone's length on.
+-- A run from the lobby (src/scenes/lobby.lua): its coin rows, then a gate at its `rim`. It plays
+-- itself up to past the gate's strip (autopilot.Intro); from there the patterns start
+-- simulation.CLEAR seconds on, at the difficulty's speed (the run is still speeding up from its
+-- launch now). With zones, the next gate a zone's length on.
 function track.Lobby(s, lobby)
     for _, row in ipairs(lobby.coins) do
         track.Coins(s, row.lane, row.from, row.count, row.layer or 0)
     end
     track.PlaceGate(s, lobby.rim)
-    s.nextRow = lobby.rim + after(s)
+    s.nextRow = lobby.rim + track.GATE.after + s.difficulty.startSpeed * game.CLEAR
     if s.nextGate then
         s.nextGate = s.nextGate + lobby.rim
     end
