@@ -2,7 +2,7 @@
   "name": "wow-surfer",
   "private": true,
   "version": "0.1.0",
-  "description": "Surfer World of Warcraft addon and its dev tooling",
+  "description": "Azeroth Surfers World of Warcraft addon and its dev tooling",
   "type": "module",
   "engines": {
     "node": ">=20"

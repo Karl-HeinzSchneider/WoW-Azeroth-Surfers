@@ -4,20 +4,26 @@ dofile("tests/load.lua")(app, {
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
+    "scenes/lobby",
     "biomes/durotar",
+    "biomes/transitions/dream",
     "game/random",
     "game/simulation",
     "game/track",
     "patterns/patterns.xml",
+    "game/autopilot",
     "game/light",
     "game/shapes",
     "game/overlay",
     "game/decorations",
+    "game/occluder",
     "game/window",
     "game/menu",
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/menus",
+    "game/screens",
     "game/controls",
 })
 app.db = {
@@ -193,6 +199,9 @@ end
 app.db.profile.legend = true
 o:CreateLegend(widget())
 o:CreateMessages(widget())
+o:CreateScreens(widget())
+-- The portal's wind measures the view.
+o.vortex.parent = o.frame
 o:CreateHoldBar(widget())
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
@@ -556,6 +565,167 @@ function GetTime()
     return 0
 end
 print("PASS announcements fade in, stay their time and fade out")
+
+-- The title, the menu and the way into a run from the lobby: each screen's camera, the glide
+-- between them, the menu's keys, the character standing up, the run starting in the lobby's
+-- lane; the lobby's biome up to its gate.
+local lobby, music = app.lobby, {}
+now = 50
+function GetTime()
+    return now
+end
+function PlayMusic(id)
+    music[#music + 1] = id
+end
+function StopMusic()
+    music[#music + 1] = "stop"
+end
+shown = true
+o.frame.SetPropagateKeyboardInput = function() end
+app.db.profile.music = true
+local difficulty = app.db.profile.difficulty
+o:OpenTitle()
+assert(o.screen == "title" and o.state.lobby == lobby and o.state.status == "ready", "the title shows the lobby")
+assert(music[1] == lobby.music, "the title music plays")
+o:Render()
+local title, menu = lobby.shots.title, lobby.shots.menu
+assert(math.abs(o.camera.x - title.at) < 1e-9 and math.abs(o.camera.offset + title.side) < 1e-9, "the title's shot")
+app.db.profile.biome = "durotar"
+assert(o:BiomeIdAt(lobby.rim + 1) == lobby.biome, "the lobby's biome everywhere before its run")
+o.state.status = "running"
+assert(o:BiomeIdAt(lobby.rim - 1) == lobby.biome and o:BiomeIdAt(lobby.rim + 1) == "durotar", "the lobby's biome")
+o.state.status = "ready"
+app.db.profile.biome = "elwynn"
+o:OnScreenKey("ENTER")
+assert(o.screen == "menu" and o.glide, "Enter goes on to the menu")
+now = now + lobby.glide.menu / 2
+o:Render()
+assert(o.camera.x < title.at and o.camera.x > menu.at, "on the way to the menu's shot")
+now = now + lobby.glide.menu
+o:Render()
+assert(math.abs(o.camera.x - menu.at) < 1e-9 and not o.glide, "at the menu's shot")
+-- The menu (menus.lua): directions by the movement bindings, E accepts, Q goes back; every
+-- other key goes on to WoW.
+IsModifierKeyDown = IsModifierKeyDown or function()
+    return false
+end
+local passed
+o.frame.SetPropagateKeyboardInput = function(_, on)
+    passed = on
+end
+local function press(key, binding)
+    assert(o:OnScreenKey(key, binding), "a screen's key: " .. key)
+    return passed
+end
+local main = o.mainMenu
+assert(press("ENTER") and press("SPACE", "JUMP"), "Enter and jump go on to WoW")
+assert(main:Page().title == nil and main.stack[1].selected == 1, "on the main page, at Play")
+assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Stats")
+assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Stats", "E accepts, whatever E is bound to")
+press("Q", "STRAFELEFT")
+assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
+assert(press("R") == true, "R goes on to WoW on a page without an extra action")
+press("Q", "STRAFELEFT")
+assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
+press("W", "MOVEFORWARD")
+assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
+press("E")
+assert(main:Page().title == "Play", "Play opens its page")
+local seed = o.state.seed
+assert(press("R") == false and o.state.seed ~= seed and o.state.lobby, "R rolls a new seed for the lobby's run")
+-- Whatever the seed, and so the first zone: the same ground, the same look behind the portal,
+-- the same boxes.
+app.db.profile.biome = "auto"
+local curve, looks = o:GroundCurve(), {}
+for i, box in ipairs(o.state.objects) do
+    looks[i] = box.seed
+end
+for _ = 1, 8 do
+    press("R")
+    assert(o:GroundCurve() == curve, "the same ground curve with a new seed")
+    assert(o:BiomeIdAt(lobby.rim + 5) == lobby.biome, "the lobby's ground behind the portal until the run")
+    for i, box in ipairs(o.state.objects) do
+        assert(box.seed == looks[i], "the lobby's boxes look the same with a new seed")
+    end
+end
+app.db.profile.biome = "elwynn"
+main:Page().items[3].input.set(o, "12345")
+assert(o.state.seed == 12345 and o.state.lobby and o.state.status == "ready", "a seed typed in")
+press("DOWN")
+press("D", "TURNRIGHT")
+assert(
+    app.db.profile.difficulty == "hard" and o.state.lobby and o.state.status == "ready",
+    "harder, still in the lobby"
+)
+press("A", "TURNLEFT")
+press("A", "TURNLEFT")
+press("A", "TURNLEFT")
+assert(app.db.profile.difficulty == "easy", "no easier than the easiest")
+press("E")
+assert(app.db.profile.difficulty == "normal", "accept steps it on")
+o.frame.SetPropagateKeyboardInput = function() end
+press("UP")
+press("E")
+assert(o.screen == "start" and o.seated, "Play: the character stands up")
+o:OnScreenKey("SPACE", "JUMP")
+assert(o.state.status == "ready", "no key starts the run on the way into it")
+now = now + 0.1
+-- The model scene's actor, which plays it, is not in this test.
+o.seatAnimation = lobby.seat.standUp
+o:OnSeatAnimFinished()
+o:Render()
+assert(o.seated, "an animation ending right away is not the stand-up's")
+now = now + 0.5
+o:OnSeatAnimFinished()
+o:Render()
+assert(not o.seated and o.startPhase == "turn", "once the stand-up ends, the twin takes over and turns")
+assert(o.state.status == "ready" and math.abs(o.camera.x - menu.at) < 1e-9, "still at the menu's shot")
+now = now + lobby.seat.turnSeconds
+o:Render()
+assert(o.startPhase == "walk" and o.glide and o.state.status == "ready", "it walks to the lane, the camera glides")
+assert(music[#music] == "stop", "the title music ends with the menu")
+o:StepApproach(0.1)
+local walked = o.state.distance
+assert(o.state.lateral < -1 and walked > 0 and o.motion.speed == lobby.launch.speed, "toward the lane, at a walk")
+for _ = 1, 20 do
+    o:StepApproach(0.1)
+end
+assert(o.screen == nil and o.state.status == "running", "in the lane the run starts")
+assert(o.state.lateral == lobby.lane and o.state.distance == lobby.seat.walk, "in the lane, its walk ahead")
+assert(o.state.speed == lobby.launch.speed, "slow at first")
+o:OnScreenKey("A", "STRAFELEFT")
+assert(o.state.lane == lobby.lane, "the run plays itself up to the portal")
+-- The pause and end menus (messages.lua) on the same menu system: Q goes on, R starts over.
+InCombatLockdown = InCombatLockdown or function()
+    return false
+end
+o.frame.SetPropagateKeyboardInput = function(_, on)
+    passed = on
+end
+local status = o.statusMenu
+o:Action("P")
+o:Render()
+assert(o.statusOpen and status:Page().title == "Paused", "paused: its menu")
+assert(status:Page().items[status.stack[1].selected].text == "Go on", "at Go on, past the run's numbers")
+assert(press("Q") == false and o.state.status == "running", "Q goes on")
+o:Render()
+assert(not o.statusOpen, "no menu while running")
+o.state.status, o.state.newBest = "over", true
+o:Render()
+assert(status:Page().title == "Run complete" and status:Page().items[1].note, "the end, with a new best")
+assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
+press("R")
+assert(o.state.status == "running" and not o.state.lobby, "R runs again, a plain run")
+o:Render()
+o.state.status = "over"
+o:Render()
+press("Q")
+assert(o.screen == "menu" and o.state.lobby, "Q goes to the main menu")
+app.db.profile.difficulty = difficulty
+function GetTime()
+    return 0
+end
+print("PASS the title, the menu and the way into a run from the lobby, the pause and end menus")
 
 -- A running frame allocates nothing: no new tables or strings, so no garbage piles up.
 o.state = g.New()

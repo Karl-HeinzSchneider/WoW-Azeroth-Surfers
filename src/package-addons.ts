@@ -4,7 +4,7 @@ import { addonVersion, isDevAddon, requireAddons } from "./addons.js";
 import { packageName, ROOT } from "./config.js";
 import { createZip, directoryEntries, fileNamePart } from "./zip.js";
 
-// Development addons (Surfer_Dev) are never released.
+// Development addons (AzerothSurfers_Dev) are never released.
 const addons = requireAddons().filter((addon) => !isDevAddon(addon));
 const versions = [...new Set(addons.map(addonVersion))];
 const version = versions.length === 1 ? versions[0]! : "mixed";

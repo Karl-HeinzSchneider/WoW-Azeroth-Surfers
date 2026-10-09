@@ -167,7 +167,7 @@ local app = {
     logger = {
         debug = function() end,
         chat = function(_, fmt, ...)
-            print("  /surfer profile | " .. fmt:format(...))
+            print("  /surfers profile | " .. fmt:format(...))
         end,
     },
 }
@@ -176,14 +176,18 @@ dofile("tests/load.lua")(app, {
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
+    "biomes/transitions/dream",
+    "scenes/lobby",
     "game/random",
     "game/simulation",
     "game/track",
     "patterns/patterns.xml",
+    "game/autopilot",
     "game/light",
     "game/shapes",
     "game/overlay",
     "game/decorations",
+    "game/occluder",
     "game/obstacles",
     "game/ambient",
     "game/window",
@@ -191,6 +195,8 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/menus",
+    "game/screens",
     "game/controls",
 })
 local profile = app.dbDefaults.profile
@@ -201,6 +207,11 @@ math.randomseed(1)
 
 local o, g = app.overlay, app.simulation
 o:Create()
+-- Past the title and the menu, straight into a run.
+o.screen, o.shotName, o.seated = nil, nil, false
+-- The run's seed as if it were the first drawn.
+math.randomseed(1)
+o.state = o:NewState()
 local update = o.frame.scripts.OnUpdate
 -- Play 30 seconds at 140 fps: a lane change every 2 s, a jump every 3 s.
 local seconds, fps = 30, 140
@@ -222,7 +233,7 @@ for i = 1, seconds * fps do
     end
 end
 local lua = (os.clock() - clock) / (seconds * fps) * 1000
--- The parts' milliseconds per frame, as Surfer_Dev's /surfer profile reports them.
+-- The parts' milliseconds per frame, as AzerothSurfers_Dev's /surfers profile reports them.
 local parts = {}
 for part, ms in pairs(o.timing) do
     if part ~= "frames" then

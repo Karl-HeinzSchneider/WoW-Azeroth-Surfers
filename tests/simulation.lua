@@ -1,8 +1,15 @@
 local app = {}
-dofile("tests/load.lua")(
-    app,
-    { "game/random", "game/simulation", "game/track", "patterns/patterns.xml", "game/autopilot" }
-)
+dofile("tests/load.lua")(app, {
+    "game/biomes",
+    "biomes/default",
+    "biomes/elwynn",
+    "game/random",
+    "game/simulation",
+    "game/track",
+    "patterns/patterns.xml",
+    "game/autopilot",
+    "scenes/lobby",
+})
 local random = app.random
 local g = app.simulation
 local track = app.track
@@ -488,6 +495,105 @@ test("a run through zones has a gate between each two", function()
         end
     end
     assert(g.New(1).gates == nil, "without zones, no gates")
+end)
+
+-- A run from the lobby starts in its lane with its coins, its gate at its rim and the patterns
+-- past it; with zones the next gate a zone's length on. It can be run through, from the start
+-- to past its first patterns, at every difficulty.
+test("a run from the lobby starts in front of its gate", function()
+    local lobby = {
+        rim = 50,
+        lane = -1,
+        coins = { { lane = -1, from = 10, count = 4 }, { lane = 0, from = 24, count = 4 } },
+    }
+    local gate = track.GATE
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, zones in ipairs({ false, true }) do
+            local label = string.format("%s%s", difficulty.id, zones and " with zones" or "")
+            local s = g.New(3, difficulty.id, zones, lobby)
+            assert(s.lane == -1 and s.lateral == -1, label .. ": in the lobby's lane")
+            assert(s.gates[1] == lobby.rim and #s.gates == 1, label .. ": its gate first")
+            assert((s.zones or false) == zones, label .. ": zones as asked")
+            local first = math.huge
+            for _, o in ipairs(s.objects) do
+                if not o.gate and o.kind ~= "coin" then
+                    first = math.min(first, o.at)
+                end
+            end
+            g.Start(s)
+            s.forward = true
+            -- The first patterns come in as the run goes.
+            local probe = branch(s)
+            probe.distance, probe.height = s.nextRow - 80, 100
+            g.Update(probe, 1 / 120)
+            for _, o in ipairs(probe.objects) do
+                if not o.gate and o.kind ~= "coin" then
+                    first = math.min(first, o.at)
+                end
+            end
+            -- The player takes over past the strip, with CLEAR seconds of empty road ahead.
+            local clear = lobby.rim + gate.after + difficulty.startSpeed * g.CLEAR
+            assert(first >= clear, label .. ": no box in the empty road past the gate")
+            if zones then
+                assert(s.nextGate >= lobby.rim + g.ZONE_LENGTH[1], label .. ": the next gate a zone on")
+            end
+            local coins = 0
+            for _, o in ipairs(s.objects) do
+                coins = coins + (o.kind == "coin" and o.at < lobby.rim - 8 and 1 or 0)
+            end
+            assert(coins == 8, label .. ": the lobby's coins")
+            assert(runnable(s, lobby.rim + 80), label .. ": runnable from the start")
+        end
+    end
+end)
+
+-- A new run starts with CLEAR seconds of empty road at its start speed: no box before.
+test("a new run starts on empty road", function()
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for seed = 1, 20 do
+            local s = g.New(seed, difficulty.id)
+            g.Start(s)
+            g.Update(s, 1 / 120)
+            for _, o in ipairs(s.objects) do
+                local label = string.format("%s seed %d", difficulty.id, seed)
+                assert(
+                    o.kind == "coin" or o.at >= difficulty.startSpeed * g.CLEAR,
+                    label .. ": a box on the empty road"
+                )
+            end
+        end
+    end
+end)
+
+-- The lobby's run plays itself up to past its gate: from the fire, through every coin of the
+-- lobby and the gate's arc, landing on the road; then the player takes over. At every
+-- difficulty and an uneven frame rate.
+test("a run from the lobby plays itself through every coin", function()
+    local lobby, gate = app.lobby, track.GATE
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, zones in ipairs({ false, true }) do
+            local label = string.format("%s%s", difficulty.id, zones and " with zones" or "")
+            local s, frame = g.New(5, difficulty.id, zones, lobby), 0
+            -- As it starts: in the lane after walking there from the fire, at the launch speed.
+            s.distance = lobby.seat.walk
+            assert(s.speed == lobby.launch.speed, label .. ": starts at the launch speed")
+            local total = 0
+            for _, o in ipairs(s.objects) do
+                if o.kind == "coin" and o.at < lobby.rim + gate.after then
+                    total = total + 1
+                end
+            end
+            g.Start(s)
+            while app.autopilot.Intro(s, frame % 3 == 0 and 1 / 30 or 1 / 90) do
+                frame = frame + 1
+            end
+            assert(s.status == "running", label .. ": through the portal")
+            assert(total == 13 and s.coins == total, label .. ": every coin, " .. s.coins .. " of " .. total)
+            assert(s.height == 0 and s.distance >= lobby.rim + gate.after, label .. ": landed past the gate")
+            assert(not app.autopilot.InIntro(s), label .. ": the player's from here")
+            assert(not s.launch and s.speed >= difficulty.startSpeed, label .. ": at the difficulty's speed")
+        end
+    end
 end)
 
 -- The pick honors a pattern's weight by difficulty and its `from`; a run's speed follows its

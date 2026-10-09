@@ -4,9 +4,12 @@ dofile("tests/load.lua")(app, {
     "game/simulation",
     "game/track",
     "patterns/patterns.xml",
+    "game/autopilot",
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/menus",
+    "game/screens",
     "game/controls",
 })
 local r = app.overlay

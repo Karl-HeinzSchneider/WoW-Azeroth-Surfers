@@ -1,0 +1,32 @@
+-- Type annotations only; this file is not listed in the TOC and never runs in-game.
+-- It exists so the Lua language server can type the `...` vararg every file receives.
+-- Every file should start with:
+--   ---@type string, AzerothSurfers
+--   local appName, app = ...
+-- When a file adds something to `app`, add a matching ---@field here.
+
+---@class AzerothSurfers
+---@field TITLE string  # the name players see
+---@field lobby table  # where a run from the menu starts, and what the title and the menu show (src/scenes/lobby.lua)
+---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
+---@field simulation table
+---@field track table  # the track generator and the registry of patterns (src/patterns/*.lua)
+---@field autopilot table  # auto mode's player: plays a run by searching the simulation
+---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfers subcommands of AzerothSurfers_Dev
+---@field biomes table  # the registered biomes (src/biomes/*.lua) and the current one
+---@field light table  # the world's day/night light, shared by the ground and every 3D model
+---@field shapes table  # the faces of the track's boxes and coins, and their texture pool
+---@field overlay table  # the game: full-screen view (overlay.lua) and its controls (controls.lua)
+---@field logger AzerothSurfers.Logger
+---@field addon AzerothSurfers.Addon
+---@field dbDefaults AzerothSurfers.DBDefaults
+---@field db AzerothSurfers.DB
+---@field options AzerothSurfers.Options  # the AceConfig options, in the Settings panel and a standalone window
+---@field minimapButton AzerothSurfers.MinimapButton
+
+-- The AceDB object, with profile/char/global narrowed to the shape of app.dbDefaults.
+-- Ace3 API types (AceAddon, AceDBObject-3.0, ...) come from the ketho.wow-api extension.
+---@class AzerothSurfers.DB : AceDBObject-3.0
+---@field profile AzerothSurfers.DB.Profile
+---@field char AzerothSurfers.DB.Char
+---@field global AzerothSurfers.DB.Global

@@ -1,22 +1,34 @@
-# Surfer
+# Azeroth Surfers
 
 A Subway Surfers-inspired, three-lane runner for WoW Forever (interface 16001).
 Built from the shared addon template with Ace3, checks, formatting, packaging and release workflows.
 
 ## Play
 
-Install the **Surfer** subfolder in Interface/AddOns, reload, and type **/surfer** or click the minimap icon.
+Install the **AzerothSurfers** subfolder in Interface/AddOns, reload, and type **/surfers** (or **/azerothsurfers**) or click the minimap icon.
+
+The game opens on its title screen, at a portal in Elwynn Forest with the title music playing.
+Press your move-forward key (W) or Enter to go on to the main menu, where your character sits
+at a campfire beside the track: **Play** (then **Play**, **Difficulty**, **Seed**, **Auto
+mode**, **Cancel**), **Stats**, **Options** and **Close**. Your move-forward / move-backward
+keys (or the arrow keys) choose, your turn keys change the difficulty, **E** accepts and **Q**
+goes back; the mouse works too, and every other key goes on to WoW (Enter still opens the chat).
+The seed starts random: **R** rolls a new one, or type one into its box (**E** or a click, then
+Enter). On Play
+your character stands up, walks over to the track and runs through the portal into the first
+zone. Paused or after a run, the same kind of menu shows the run's numbers: **Go on** (or
+Q), **Start over** / **Run again** (or R), **Difficulty** for the next run, **Auto mode** and
+**Main menu**, which goes back to the fire.
 
 - Your WoW turn-left / strafe-left binding: left lane.
 - Your WoW turn-right / strafe-right binding: right lane.
-- Your WoW jump binding: jump (also starts the first run).
-- Your WoW move-forward binding: start the first run.
+- Your WoW jump binding: jump.
 - Use the buttons at the top to restart, pause/resume, or close.
 
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
 control the runner. Forward movement no longer triggers a jump. The track advances only while your character actually moves forward relative to its facing. Stopping, moving backward, pure strafing, and pushing against a wall do not advance it. Autorun and mouse movement work too. Jumping and lane transitions still update while stopped.
-**/surfer options** opens addon settings. The game closes and pauses on combat entry
+**/surfers options** opens addon settings. The game closes and pauses on combat entry
 and pauses when hidden. The addon never moves your character; it only changes the camera when
 **Hide your real character** is on.
 
@@ -44,7 +56,7 @@ stands and covers it, in front of the road. It mirrors how you move (running, wa
 backpedalling, jumping), and jumping or running on a platform lifts it with the road dropping
 away beneath it. Coins near you are spinning 3D models from the game files.
 
-The road imitates WoW's follow camera and has to be calibrated once: in **/surfer options**, adjust
+The road imitates WoW's follow camera and has to be calibrated once: in **/surfers options**, adjust
 camera pitch, focus height, field of view and twin size until the see-through twin (shown before
 a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
 the client reports the zoom. **Hide your real character** zooms into first person while the game is
@@ -52,7 +64,7 @@ open, where WoW does not draw your character, and back out after.
 
 ### Modes
 
-In **/surfer options**, under Mode:
+In **/surfers options**, under Mode:
 
 - **Full screen** (the default) is the game as described above, part of the world. **Window frame
   in full screen** adds a border, title bar and close button around the screen.
@@ -69,11 +81,11 @@ once after a run, or hold it for a moment during one. **Q** pauses and goes on.
 
 Every run comes from a **seed**: the same seed always lays out the same track, obstacles and
 roadside. The start dialog shows this run's seed; type a number into its Seed box to play that one
-on every run (empty: a new seed each run). `/surfer seed <number>` and `/surfer seed random` do
+on every run (empty: a new seed each run). `/surfers seed <number>` and `/surfers seed random` do
 the same, and the paused and finished screens show the seed of the run.
 
-The `Surfer_Dev` addon in this repository (never released) adds development tools to `/surfer`:
-`/surfer help` lists them.
+The `AzerothSurfers_Dev` addon in this repository (never released) adds development tools to `/surfers`:
+`/surfers help` lists them.
 
 ## Development
 
