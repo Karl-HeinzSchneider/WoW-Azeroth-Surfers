@@ -9,7 +9,7 @@ packages it.
 | `Surfer/`     | The addon; everything in it ships.                          | [Surfer/CLAUDE.md](Surfer/CLAUDE.md)         |
 | `Surfer_Dev/` | Development tools, linked into a client, never released.    | [Surfer_Dev/CLAUDE.md](Surfer_Dev/CLAUDE.md) |
 | `src/`        | Root tooling (Node 20+, TypeScript run by `tsx`, no build). | one file per `npm run` script                |
-| `tests/`      | Lua tests run without the client.                           | `npm run test:game`                          |
+| `tests/`      | Lua tests run without the client.                           | [docs/tests.md](docs/tests.md)               |
 | `.github/`    | Release workflows (BigWigs packager).                       | see "Releases"                               |
 
 A direct child directory with a same-named `.toc` is an addon; the tooling finds it on its own,
