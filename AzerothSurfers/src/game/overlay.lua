@@ -473,6 +473,9 @@ function overlay:Restack()
     for frame, place in pairs(self.stacked) do
         self:Stack(frame, place)
     end
+    if self.occluder then
+        self:PlaceOccluder()
+    end
 end
 
 -- Forever returns six scalars; the API docs describe two vectors. Accepts both.
@@ -713,6 +716,7 @@ function overlay:ApplyBiome(entering)
     if self.groundParent then
         self:BuildGround()
     end
+    self:BuildOccluder()
     if self.worldScene then
         if not entering or not old or biome.coin ~= old.coin then
             self:LoadCoinModel(1)
@@ -823,6 +827,9 @@ function overlay:Create()
     self:LoadPlayer()
     -- The world scene: 3D decorations and coins, one render pass for all of them.
     self:CreateDecorations(f)
+    -- Under the view's frame: it needs a level above the lowest.
+    f:SetFrameLevel(math.max(f:GetFrameLevel(), 1))
+    self:CreateOccluder()
     self:CreateAmbient()
     self.coinActors, self.modelled = {}, {}
     self:ApplyBiome()
@@ -1116,6 +1123,7 @@ function overlay:Render(lap)
     self:PlaceTwin()
     lap = self:Lap("twin", lap)
     self:ScrollGround()
+    self:UpdateOccluder()
     if self.worldScene then
         -- The scene's camera runs along; its models stand still (decorations.lua).
         self:FollowWorldCamera()

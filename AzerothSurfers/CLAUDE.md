@@ -62,7 +62,8 @@ default in `db.lua` and an entry in `options.lua`.
   glides between them), and the twin covering the real character. **A running frame allocates
   nothing** (`tests/overlay.lua` checks it).
 - Files that extend `app.overlay`: `shapes.lua` (faces and texture pool), `decorations.lua`
-  (roadside models in one world ModelScene), `obstacles.lua` (box models), `ambient.lua`
+  (roadside models in one world ModelScene), `occluder.lua` (the ground's depth: a scene of flat
+  tiles under the 2D ground hides what models have below it), `obstacles.lua` (box models), `ambient.lua`
   (wildlife), `light.lua` (day/night by the game clock), `window.lua` (full screen / side window,
   window frame), `menu.lua` (restart bar, seed box), `hud.lua` (score), `legend.lua` (hotkeys),
   `messages.lua` (pause and end menus, announcements, gate flash and vortex), `menus.lua`

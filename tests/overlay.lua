@@ -16,6 +16,7 @@ dofile("tests/load.lua")(app, {
     "game/shapes",
     "game/overlay",
     "game/decorations",
+    "game/occluder",
     "game/window",
     "game/menu",
     "game/hud",

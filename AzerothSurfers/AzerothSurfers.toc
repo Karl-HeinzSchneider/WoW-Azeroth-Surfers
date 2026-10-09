@@ -31,6 +31,7 @@ src\game\light.lua
 src\game\shapes.lua
 src\game\overlay.lua
 src\game\decorations.lua
+src\game\occluder.lua
 src\game\obstacles.lua
 src\game\ambient.lua
 src\game\window.lua

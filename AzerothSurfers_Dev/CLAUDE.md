@@ -8,7 +8,8 @@ It reaches the addon's private table through `LibStub("AceAddon-3.0"):GetAddon("
 lists them. The addon keeps only the hooks the tools use: `overlay:Lap`, `light.override`,
 `simulation.invincible`, `track.list`/`track.byName`, `overlay.keepWorldScene`,
 `overlay.referenceHeight`, `simulation.ZONE_LENGTH`, `simulation.STREAK`, `lobby.shots` with
-`overlay.shotName`, `lobby.items` with `overlay.decorState`.
+`overlay.shotName`, `lobby.items` with `overlay.decorState`, `overlay.OCCLUDER_SINK`,
+`overlay.occluderOff`.
 
 - `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`.
 - `diagnostics.lua` — `/surfers profile`, `/surfers debug`.
@@ -17,3 +18,5 @@ lists them. The addon keeps only the hooks the tools use: `overlay:Lap`, `light.
 - `playtest.lua` — `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
   `reference`, `shot` (tunes the lobby's camera shots, prints them as Lua), `camp` (moves, turns
   and sizes the lobby's models live, prints them as Lua).
+- `occluder.lua` — `/surfers occluder on|off|show|sink lobby|run <yards>`: the ground's depth
+  (AzerothSurfers' `occluder.lua`) on and off, its tiles over the ground, how far under it.

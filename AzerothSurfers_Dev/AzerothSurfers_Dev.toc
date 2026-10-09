@@ -10,3 +10,4 @@ src\diagnostics.lua
 src\preview.lua
 src\animations.lua
 src\playtest.lua
+src\occluder.lua
