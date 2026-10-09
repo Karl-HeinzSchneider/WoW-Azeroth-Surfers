@@ -31,12 +31,6 @@ local LEFT = { "TURNLEFT", "STRAFELEFT" }
 local RIGHT = { "TURNRIGHT", "STRAFERIGHT" }
 local JUMP = { "JUMP" }
 local GROUPS = {
-    -- The main menu (screens.lua); the title shows none.
-    menu = {
-        { bindings = { "MOVEFORWARD", "MOVEBACKWARD" }, firsts = true, text = "Select" },
-        { bindings = { "TURNLEFT", "TURNRIGHT" }, firsts = true, text = "Difficulty" },
-        { bindings = JUMP, text = "Choose (or Enter)" },
-    },
     running = {
         { bindings = { "MOVEFORWARD" }, text = "Run (hold)", observed = true },
         { bindings = LEFT, text = "Lane left" },
@@ -242,13 +236,9 @@ function overlay:PlaceLegend(side, top)
 end
 
 -- Laid out again only when the state, bindings or mode changed. None in auto mode, on the title
--- and on the way into a run.
+-- and the menu (screens.lua), and on the way into a run.
 function overlay:ShowLegend()
     local state = app.db.profile.legend and not self.auto and (self.screen or self.state.status) or "off"
-    -- The side window's menu has no room beside it.
-    if state == "menu" and self.side then
-        state = "off"
-    end
     if self.legendState == state then
         return
     end

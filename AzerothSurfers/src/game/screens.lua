@@ -295,35 +295,20 @@ function overlay:ChooseItem(i)
     end
 end
 
--- The menu's and the title's keys: the movement keys and Enter, which then do nothing else.
--- True when `key` was one of them.
+-- The keys while a screen shows; true when the run's own handling is not to see `key`. The title
+-- goes on with the move-forward key, Enter or jump; every other key, and every key in the menu
+-- (it is clicked), goes on to WoW untouched.
 function overlay:OnScreenKey(key, binding)
     local screen = self.screen
     if screen == "title" then
-        if key == "ENTER" or binding == "MOVEFORWARD" or binding == "JUMP" then
-            self.frame:SetPropagateKeyboardInput(false)
+        local go = key == "ENTER" or binding == "MOVEFORWARD" or binding == "JUMP"
+        self.frame:SetPropagateKeyboardInput(not go)
+        if go then
             self:ContinueTitle()
-            return true
         end
+        return true
     elseif screen == "menu" then
-        local up = key == "UP" or binding == "MOVEFORWARD"
-        local down = key == "DOWN" or binding == "MOVEBACKWARD"
-        local left = key == "LEFT" or binding == "TURNLEFT" or binding == "STRAFELEFT"
-        local right = key == "RIGHT" or binding == "TURNRIGHT" or binding == "STRAFERIGHT"
-        local choose = key == "ENTER" or binding == "JUMP"
-        if not (up or down or left or right or choose) then
-            return false
-        end
-        self.frame:SetPropagateKeyboardInput(false)
-        if up or down then
-            self:SelectItem(self.selected + (up and -1 or 1))
-        elseif left or right then
-            if self.selected == DIFFICULTY then
-                self:StepDifficulty(left and -1 or 1)
-            end
-        else
-            self:ChooseItem(self.selected)
-        end
+        self.frame:SetPropagateKeyboardInput(true)
         return true
     elseif screen == "start" then
         -- On the way into the run: the run starts by itself once the camera is behind the

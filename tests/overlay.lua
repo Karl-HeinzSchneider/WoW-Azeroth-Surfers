@@ -598,15 +598,22 @@ assert(o.camera.x < title.at and o.camera.x > menu.at, "on the way to the menu's
 now = now + lobby.glide.menu
 o:Render()
 assert(math.abs(o.camera.x - menu.at) < 1e-9 and not o.glide, "at the menu's shot")
-o:OnScreenKey("S", "MOVEBACKWARD")
-assert(o.selected == 2, "down to the difficulty")
-o:OnScreenKey("D", "TURNRIGHT")
+local passed
+o.frame.SetPropagateKeyboardInput = function(_, on)
+    passed = on
+end
+for _, key in ipairs({ { "ENTER" }, { "W", "MOVEFORWARD" }, { "SPACE", "JUMP" }, { "D", "TURNRIGHT" } }) do
+    assert(o:OnScreenKey(key[1], key[2]) and passed == true, "the menu's keys go on to WoW: " .. key[1])
+end
+assert(o.screen == "menu" and o.state.status == "ready", "no key chooses in the menu")
+o.frame.SetPropagateKeyboardInput = function() end
+-- It is clicked.
+o:ChooseItem(2)
 assert(
     app.db.profile.difficulty == "hard" and o.state.lobby and o.state.status == "ready",
     "harder, still in the lobby"
 )
-o:OnScreenKey("W", "MOVEFORWARD")
-o:OnScreenKey("ENTER")
+o:ChooseItem(1)
 assert(o.screen == "start" and o.seated, "Play: the character stands up")
 o:OnScreenKey("SPACE", "JUMP")
 assert(o.state.status == "ready", "no key starts the run on the way into it")

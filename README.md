@@ -10,9 +10,9 @@ Install the **AzerothSurfers** subfolder in Interface/AddOns, reload, and type *
 The game opens on its title screen, at a portal in Elwynn Forest with the title music playing.
 Press your move-forward key (W) or Enter to go on to the main menu, where your character sits
 at a campfire beside the track: **Play**, **Difficulty**, **Watch** (auto mode), **Settings**
-and **Close**, chosen with your move-forward / move-backward keys (or the arrow keys, or the
-mouse) and Enter or jump. On Play your character stands up and runs through the portal into
-the first zone. After a run, **Run again** starts right away, **Main menu** goes back to the fire.
+and **Close**, clicked with the mouse; your keys go on to WoW there (chat, movement). On Play
+your character stands up, walks over to the track and runs through the portal into the first
+zone. After a run, **Run again** starts right away, **Main menu** goes back to the fire.
 
 - Your WoW turn-left / strafe-left binding: left lane.
 - Your WoW turn-right / strafe-right binding: right lane.
