@@ -1,7 +1,10 @@
 ---@type string, Surfer
-local _, app = ...
+local appName, app = ...
 -- The look every other biome starts from, and the reference for writing one. Distances are in
 -- yards; colors { r, g, b } from 0 to 1; textures and models are classic-era game file ids.
+
+-- Our own sounds (Surfer/assets/sounds/).
+local SOUNDS = "Interface\\AddOns\\" .. appName .. "\\assets\\sounds\\"
 app.biomes.Register("default", {
     name = "Plain",
 
@@ -135,10 +138,22 @@ app.biomes.Register("default", {
         night = { 0.45, 0.5, 0.7 },
     },
 
-    -- Tried in order until one loads (11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01); flat
-    -- coins stand in until then.
+    -- The coin's model: entries tried in order until one loads; flat coins stand in until then.
+    --   model  a file id. One the client lacks shows as its error cube, which counts as loaded:
+    --          classic files only.
+    --   size   yards its largest side is scaled to (0.5 if left out); it rests on its layer's
+    --          floor when larger than the layer.
+    --   sound  played on collecting one: a game sound file id, or the path of one of our own
+    --          under Surfer/assets/sounds/ (lootcoinsmall 567428 if left out, as for the flat
+    --          coins). A new file is only found after restarting the game, not on /reload.
+    -- Others to try: g_jewelred 201056, g_jewelblack 201053, ungorocrystal_{blue,green,red,
+    -- yellow}{01,02} 202748-202755, floatingpurplecrystal01 202443, floatingredcrystal01 202447,
+    -- g_relicnesphere 201095, greatpearl_01 198719, goldpilesmall01 200137.
     coin = {
-        models = { 5737987, 2313815, 200137 },
+        models = {
+            -- g_jewelblue
+            { model = 201054, size = 2.6, sound = SOUNDS .. "gem-collect.ogg" },
+        },
     },
 
     -- The flat boxes' colors by kind and face (a barrier's posts apart).

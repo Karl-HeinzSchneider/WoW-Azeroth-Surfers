@@ -133,7 +133,8 @@ function overlay:Action(key)
     end
 end
 
--- sound/interface/lootcoinsmall.ogg: the file, not its kit, so each coin of a trail clinks.
+-- sound/interface/lootcoinsmall.ogg, for a coin model without a `sound` and the flat coins: the
+-- file, not its kit, so each coin of a trail clinks.
 local COIN_SOUND_FILE = 567428
 
 function overlay:Step(elapsed)
@@ -156,8 +157,9 @@ function overlay:Step(elapsed)
         self:SaveBest()
     end
     if s.coins > coins and app.db.profile.coinSound then
+        local entry = self.coinReady and self.biome.coin.models[self.coinModel]
         if PlaySoundFile then
-            PlaySoundFile(COIN_SOUND_FILE, "SFX")
+            PlaySoundFile(entry and entry.sound or COIN_SOUND_FILE, "SFX")
         else
             PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120, "SFX")
         end
