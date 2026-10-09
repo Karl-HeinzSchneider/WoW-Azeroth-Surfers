@@ -140,7 +140,9 @@ local function spawn(self, r, item, base)
     local count = plan(r, item, r() < 0.5 and 1 or -1, speed)
     local at
     if item.move == "fly" then
-        at = base + value(r, item.ahead, 50)
+        -- Start in the background at the configured speed; a full crossing is optional.
+        -- Use current distance so a late frame does not spawn flyers near the camera.
+        at = s.distance + value(r, item.ahead, 90)
     else
         -- A group without a way stays behind one by one, from its last, until one has.
         while count > 0 and not at do

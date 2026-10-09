@@ -110,10 +110,11 @@ app.biomes.Register("default", {
     --              it plays at `speed` / `pace`. Feet sliding forward: lower it; running on the
     --              spot: raise it. `rate` multiplies on top.
     --   height     yards its top is scaled to; or `scale` (1 if left out)
-    --   z, ahead   a flyer's height (10) and how far ahead it crosses (50)
-    --   group      several at once (every line must be clear):
+    --   z, ahead   a flyer's height (10) and starting distance ahead (90)
+    --   group      several at once, for both ground and flying creatures (ground lines must be clear):
     --     count      a whole number or a { min, max } range
     --     gap        yards of its way each starts after the one before (2)
+    --                use 0 with a nonzero offset for side-by-side flights
     --     offset     yards along the road off the first one's line, either side (0)
     --     opposite   0 to 1: how often one crosses the other way (0)
     --   voice      a sound file id or a list, said once as the runner passes ("Creature sounds")

@@ -188,8 +188,28 @@ app.biomes.Register("tirisfal", {
     ambient = {
         every = { 90, 180 },
         creatures = {
-            -- Duskbat (NPC 1512), flying above the track.
-            { creature = 4732, move = "fly", speed = { 8, 11 }, z = { 5, 8 }, ahead = { 35, 55 }, scale = 0.7 },
+            -- Duskbat (NPC 1512): small flocks following each other in the background.
+            {
+                creature = 4732,
+                move = "fly",
+                from = 18,
+                speed = { 10, 13 },
+                z = { 5, 8 },
+                ahead = { 85, 95 },
+                scale = 0.7,
+                group = { count = { 2, 4 }, gap = { 2, 3 }, offset = { 1.5, 3 } },
+            },
+            -- Pairs crossing together on neighbouring flight paths, without a delay.
+            {
+                creature = 4732,
+                move = "fly",
+                from = 18,
+                speed = { 10, 13 },
+                z = { 5, 8 },
+                ahead = { 85, 95 },
+                scale = 0.7,
+                group = { count = 2, gap = 0, offset = { 3, 5 } },
+            },
         },
     },
     decorations = {
