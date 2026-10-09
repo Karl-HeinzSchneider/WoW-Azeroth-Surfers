@@ -37,6 +37,11 @@ function overlay:CreateOccluder()
     scene:SetCameraNearClip(self.CLIP_NEAR)
     scene:SetCameraFarClip(self.CLIP_FAR)
     scene:Hide()
+    -- Not a child of the view's frame (it lies under it): hidden with it, shown again by the
+    -- view's next frame (UpdateOccluder).
+    self.frame:HookScript("OnHide", function()
+        shapes.Hide(scene)
+    end)
     -- Each tile's place (yards ahead, to the right), and once loaded its scale, its top and how far
     -- it reaches each way along the road and across.
     self.occluder = {
