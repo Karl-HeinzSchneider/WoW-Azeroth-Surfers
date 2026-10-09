@@ -547,7 +547,9 @@ test("a run from the lobby plays itself through every coin", function()
         for _, zones in ipairs({ false, true }) do
             local label = string.format("%s%s", difficulty.id, zones and " with zones" or "")
             local s, frame = g.New(5, difficulty.id, zones, lobby), 0
-            s.lateral = -lobby.seat.x / g.geometry.laneWidth
+            -- As it starts: in the lane after walking there from the fire, at the launch speed.
+            s.distance = lobby.seat.walk
+            assert(s.speed == lobby.launch.speed, label .. ": starts at the launch speed")
             local total = 0
             for _, o in ipairs(s.objects) do
                 if o.kind == "coin" and o.at < lobby.rim + gate.after then
@@ -562,6 +564,7 @@ test("a run from the lobby plays itself through every coin", function()
             assert(total == 13 and s.coins == total, label .. ": every coin, " .. s.coins .. " of " .. total)
             assert(s.height == 0 and s.distance >= lobby.rim + gate.after, label .. ": landed past the gate")
             assert(not app.autopilot.InIntro(s), label .. ": the player's from here")
+            assert(not s.launch and s.speed >= difficulty.startSpeed, label .. ": at the difficulty's speed")
         end
     end
 end)

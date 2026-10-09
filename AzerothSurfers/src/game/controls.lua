@@ -146,6 +146,7 @@ function overlay:Step(elapsed)
     else
         s.forward = self:IsMovingForward(elapsed)
     end
+    self:StepApproach(elapsed)
     -- Not before a screen has let the run begin (screens.lua).
     if s.forward and s.status == "ready" and not self.screen then
         sim.Start(s)

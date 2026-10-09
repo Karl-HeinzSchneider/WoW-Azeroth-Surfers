@@ -388,29 +388,61 @@ function overlay:PlaceSeat()
     shapes.Show(actor)
 end
 
+-- The way from the fire to the run's lane: `left` yards to the left, `ahead` yards ahead, and
+-- how long it is.
+local function approach(s)
+    local seat = app.lobby.seat
+    local left = (s.lane + seat.x / LANE) * LANE
+    return left, seat.walk, math.sqrt(left * left + seat.walk * seat.walk)
+end
+
 -- The way into a run from the lobby, once a frame: the character stands up until its animation
--- ends; the twin takes its place, standing, and turns toward the road; then the run starts and
--- plays itself up to the portal (autopilot.Intro) while the camera glides behind the runner.
+-- ends; the twin takes its place, standing, and turns toward the run's lane; then it moves there
+-- (StepApproach) while the camera glides behind it.
 function overlay:StepStart(now)
     local seat, s = app.lobby.seat, self.state
     if self.startPhase == "stand" then
         if self.standDone or now >= self.standUntil then
             self.seated = false
             s.lateral = -seat.x / LANE
-            self.twinYaw, self.twinFace = math.rad(seat.yaw), math.rad(seat.turn)
+            local left, ahead = approach(s)
+            self.twinYaw, self.twinFace = math.rad(seat.yaw), math.atan2(left, ahead)
             self.startPhase, self.turnUntil = "turn", now + seat.turnSeconds
         end
-    elseif now >= self.turnUntil then
-        self.screen, self.startPhase, self.twinFace = nil, nil, nil
+    elseif self.startPhase == "turn" and now >= self.turnUntil then
+        self.startPhase, self.twinFace, self.walked = "walk", nil, 0
         self.shotName = nil
         self:StartGlide(app.lobby.glide.run)
         self:PlayTitleMusic(false)
-        self.legendState = nil
-        sim.Start(s)
-        if self.watching then
-            self.watching = nil
-            self:SetAuto(true)
-        end
+    end
+end
+
+-- Once a step, after the movement is sampled: the twin moves from the fire to the run's lane at
+-- the lobby's launch speed, running for its animation (overlay.lua's AnimateTwin). In the lane
+-- the run starts, slow, and speeds up (simulation.lua's `launch`); up to the portal it plays
+-- itself (autopilot.Intro).
+function overlay:StepApproach(elapsed)
+    if self.startPhase ~= "walk" then
+        return
+    end
+    local s, speed = self.state, app.lobby.launch.speed
+    local left, ahead, length = approach(s)
+    local from = -app.lobby.seat.x / LANE
+    self.walked = math.min(length, self.walked + speed * elapsed)
+    local t = self.walked / length
+    s.distance, s.lateral = ahead * t, from + (s.lane - from) * t
+    local motion = self.motion or {}
+    self.motion = motion
+    motion.forward, motion.left, motion.speed = speed * ahead / length, speed * left / length, speed
+    if t < 1 then
+        return
+    end
+    self.screen, self.startPhase = nil, nil
+    self.legendState = nil
+    sim.Start(s)
+    if self.watching then
+        self.watching = nil
+        self:SetAuto(true)
     end
 end
 

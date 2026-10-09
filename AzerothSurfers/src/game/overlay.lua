@@ -1013,7 +1013,9 @@ function overlay:AnimateTwin(elapsed)
             rate, yaw = speed / (animation == WALK and WALK_SPEED or RUN_SPEED), direction
             -- As the run speeds up the track, the legs speed up with it, or the twin glides.
             if animation == RUN and s.status == "running" then
-                rate = rate * s.speed / sim.RUN_PACE
+                -- Speeding up from the lobby's launch speed, a normal run's at least.
+                local pace = s.speed / sim.RUN_PACE
+                rate = rate * (s.launch and math.max(pace, 1) or pace)
                 -- A tall character is drawn smaller in the track's world: shorter strides.
                 rate = rate * self.bodyScale
             end

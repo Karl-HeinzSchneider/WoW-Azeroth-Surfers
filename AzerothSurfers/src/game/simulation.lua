@@ -130,6 +130,12 @@ function game.New(seed, difficulty, zones, lobby)
     if lobby then
         s.lobby, s.gates = lobby, s.gates or {}
         s.lane, s.lateral = lobby.lane, lobby.lane
+        -- It starts at `launch.speed` and speeds up to the difficulty's (tick).
+        local launch = lobby.launch
+        if launch then
+            s.speed, s.launch = launch.speed, launch.speed
+            s.launchRate = (difficulty.startSpeed - launch.speed) / launch.seconds
+        end
         app.track.Lobby(s, lobby)
     end
     return s
@@ -193,6 +199,14 @@ end
 local function tick(s)
     local difficulty = s.difficulty
     s.speed = math.min(difficulty.topSpeed, difficulty.startSpeed + s.distance / difficulty.speedUp)
+    -- A run from the lobby speeds up from its launch speed first.
+    if s.launch then
+        if s.launch < s.speed then
+            s.speed, s.launch = s.launch, s.launch + s.launchRate * STEP
+        else
+            s.launch = nil
+        end
+    end
     if s.forward then
         local step = s.speed * STEP
         s.distance = s.distance + step

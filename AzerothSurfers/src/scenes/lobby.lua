@@ -78,11 +78,14 @@ app.lobby = {
     },
 
     -- The character at the fire, `x` yards right of the road's middle at d 0: turned `yaw`
-    -- degrees (0 faces the portal, positive to the left), sitting (`sit`: SitGround), standing up (`standUp`: SitGroundUp)
-    -- once Play is chosen, until the animation ends (`standUpMost` seconds at most). Then it turns
-    -- `turn` degrees toward the road over `turnSeconds`, and the run starts: it runs over to
-    -- `lane` while the camera glides behind it.
-    seat = { x = SEAT_X, yaw = -55, sit = 97, standUp = 98, standUpMost = 2, turn = 50, turnSeconds = 0.5 },
+    -- degrees (0 faces the portal, positive to the left), sitting (`sit`: SitGround), standing
+    -- up (`standUp`: SitGroundUp) once Play is chosen, until the animation ends (`standUpMost`
+    -- seconds at most). Then it turns toward `lane` over `turnSeconds` and moves there at
+    -- `launch.speed`, `walk` yards ahead on the way, while the camera glides behind it.
+    seat = { x = SEAT_X, yaw = -55, sit = 97, standUp = 98, standUpMost = 2, turnSeconds = 0.5, walk = 3 },
+    -- In the lane the run starts at `speed` (yards per second: WoW's normal movement speed) and
+    -- speeds up to the difficulty's over `seconds`.
+    launch = { speed = 7, seconds = 1.2 },
 
     -- The camera of each screen: `at` yards along the track, `side` yards to the screen's right,
     -- `height` yards up, `pitch` degrees down (negative: up), `fov` the vertical field of view in
@@ -97,8 +100,8 @@ app.lobby = {
         menu = { at = -5, side = 6.5, height = 1.3, pitch = 5, fov = 55, sideWindow = { at = -5, height = 1.9 } },
     },
     -- Seconds the camera glides from the title to the menu, and from the menu behind the runner
-    -- (while it runs).
-    glide = { menu = 2, run = 1.2 },
+    -- (while it moves to its lane and speeds up).
+    glide = { menu = 2, run = 1.6 },
 
     -- sound/music/gluescreenmusic/wow_main_theme.mp3: the classic login screen's theme, on the
     -- title and in the menu ("Title music").

@@ -631,9 +631,17 @@ assert(not o.seated and o.startPhase == "turn", "once the stand-up ends, the twi
 assert(o.state.status == "ready" and math.abs(o.camera.x - menu.at) < 1e-9, "still at the menu's shot")
 now = now + lobby.seat.turnSeconds
 o:Render()
-assert(o.screen == nil and o.state.status == "running" and o.glide, "the run starts, the camera glides behind")
+assert(o.startPhase == "walk" and o.glide and o.state.status == "ready", "it walks to the lane, the camera glides")
 assert(music[#music] == "stop", "the title music ends with the menu")
-assert(o.state.lateral < -1 and o.state.lane == lobby.lane, "from the fire, toward the lobby's lane")
+o:StepApproach(0.1)
+local walked = o.state.distance
+assert(o.state.lateral < -1 and walked > 0 and o.motion.speed == lobby.launch.speed, "toward the lane, at a walk")
+for _ = 1, 20 do
+    o:StepApproach(0.1)
+end
+assert(o.screen == nil and o.state.status == "running", "in the lane the run starts")
+assert(o.state.lateral == lobby.lane and o.state.distance == lobby.seat.walk, "in the lane, its walk ahead")
+assert(o.state.speed == lobby.launch.speed, "slow at first")
 o:OnScreenKey("A", "STRAFELEFT")
 assert(o.state.lane == lobby.lane, "the run plays itself up to the portal")
 app.db.profile.difficulty = difficulty
