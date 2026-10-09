@@ -104,6 +104,23 @@ test("coins award once, high ones only in a jump", function()
     advance(s, 0.4, 60)
     assert(s.coins == 1 and s.coinTotal == 3, "one of three")
 end)
+test("a coin streak survives a coin missed beside it, breaks on too long a gap", function()
+    local streak, from = g.STREAK, g.STREAK.from
+    streak.from = 3
+    -- A row in lane 0 with one in lane 1 beside it, then one far ahead.
+    local s = fresh(coin(0, 2), coin(0, 5), coin(1, 8), coin(0, 8), coin(0, 11), coin(0, 40))
+    advance(s, 0.45, 60)
+    assert(s.coins == 4 and s.streak == 4 and s.coinTotal == 5, "the coin beside does not break it")
+    -- 25 a coin, `points` more from the third on.
+    assert(s.bonus == 4 * 25 + 2 * streak.points, "scores more from `from` on")
+    while s.distance < 11 + g.StreakReach(s) + 0.5 do
+        g.Update(s, 1 / 60)
+    end
+    assert(s.streak == 0 and s.bestStreak == 4, "too far without a coin breaks it")
+    advance(s, 0.6, 60)
+    assert(s.coins == 5 and s.streak == 1)
+    streak.from = from
+end)
 test("the multiplier scales only what is earned after it is set", function()
     local s = fresh(coin(0, 1))
     advance(s, 0.3, 60)

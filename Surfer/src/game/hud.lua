@@ -2,7 +2,7 @@
 local _, app = ...
 local sim = app.simulation
 -- The score display: the score with the multiplier (a star and "x1") in front of it, the coins
--- under it. Not on the start dialog. Read at a glance while running, so it holds still: a
+-- under it, and the coin streak beside the character. Not on the start dialog. Read at a glance while running, so it holds still: a
 -- fixed-width cell per digit, panels widen only for a digit more, the score redrawn a few
 -- times a second.
 local overlay = app.overlay
@@ -33,6 +33,12 @@ local POP, POP_GROW = 0.3, 0.4
 -- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
+-- The streak (sim.STREAK) beside the character: shown from STREAK_EARLY coins before it scores
+-- more on, gold, orange once it does. Its bottom left corner STREAK_OFFSET pixels off the right
+-- of the twin's scene, which is centred on the character and a little larger than it.
+local STREAK_EARLY, STREAK_SIZE = 1, 20
+local STREAK_HEIGHT = 32
+local STREAK_OFFSET = { -10, 6 }
 local DIGITS = {}
 for d = 0, 9 do
     DIGITS[d] = tostring(d)
@@ -130,12 +136,22 @@ function overlay:CreateHud(f)
     coinPanel:SetPoint("TOPRIGHT", scorePanel, "BOTTOMRIGHT", 0, -GAP)
     icon(coinPanel, COIN)
 
+    -- Follows the twin's scene, which follows the character on screen.
+    local streakPanel = panel(hud)
+    streakPanel:SetHeight(STREAK_HEIGHT)
+    streakPanel:SetPoint("BOTTOMLEFT", self.twin, "RIGHT", STREAK_OFFSET[1], STREAK_OFFSET[2])
+    streakPanel:Hide()
+    local streak = text(streakPanel, STREAK_SIZE)
+    streak:SetPoint("CENTER")
+
     self.hud = {
         frame = hud,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
         coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 8),
         multiplier = multiplier,
         star = star,
+        streakPanel = streakPanel,
+        streak = streak,
     }
 end
 
@@ -189,6 +205,18 @@ function overlay:ShowHud()
         hud.multiplier:SetFormattedText("x%d", s.multiplier)
         local color = s.multiplier > 1 and BOOST or GOLD
         hud.multiplier:SetTextColor(color[1], color[2], color[3])
+    end
+    local shownFrom = math.max(1, sim.STREAK.from - STREAK_EARLY)
+    local streak = s.status == "running" and s.streak >= shownFrom and s.streak or 0
+    if shown.streak ~= streak then
+        shown.streak = streak
+        hud.streakPanel:SetShown(streak > 0)
+        if streak > 0 then
+            hud.streak:SetFormattedText("Streak %d", streak)
+            local color = streak >= sim.STREAK.from and BOOST or GOLD
+            hud.streak:SetTextColor(color[1], color[2], color[3])
+            hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
+        end
     end
     local since = shown.starPop and now - shown.starPop
     if since then

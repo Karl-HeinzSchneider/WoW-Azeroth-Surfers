@@ -147,7 +147,7 @@ function overlay:Step(elapsed)
     if s.forward and s.status == "ready" then
         sim.Start(s)
     end
-    local status, coins = s.status, s.coins
+    local status, coins, streak = s.status, s.coins, s.streak
     if self.auto then
         self:StepAuto(s, elapsed)
     else
@@ -158,8 +158,19 @@ function overlay:Step(elapsed)
     end
     if s.coins > coins and app.db.profile.coinSound then
         local entry = self.coinReady and self.biome.coin.models[self.coinModel]
+        local sound = entry and entry.sound or COIN_SOUND_FILE
+        -- A ladder: the streak's step, the last one from there on; its finale once, on the
+        -- coin that takes the streak past the last step.
+        if type(sound) == "table" then
+            local top = #sound
+            if entry.finale and streak <= top and s.streak > top then
+                sound = entry.finale
+            else
+                sound = sound[math.max(1, math.min(s.streak, top))]
+            end
+        end
         if PlaySoundFile then
-            PlaySoundFile(entry and entry.sound or COIN_SOUND_FILE, "SFX")
+            PlaySoundFile(sound, "SFX")
         else
             PlaySound(SOUNDKIT and SOUNDKIT.LOOT_WINDOW_COIN_SOUND or 120, "SFX")
         end
