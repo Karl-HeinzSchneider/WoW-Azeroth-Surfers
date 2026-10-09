@@ -9,6 +9,8 @@ local SPIDER = { 549870, 549872, 549869, 549868 } -- GiantSpider/GiantSpiderAtta
 local GRAVES = { 190633, 190634, 190635, 190636 } -- Westfall/PassiveDoodads/Tombstones
 -- Duskwood/tombs: TombStone05 to 08 and WoodCross01/02, for roadside plots only.
 local MARKERS = { 190633, 190634, 190635, 190636, 189530, 189532, 189534, 189535, 189540, 189541 }
+-- Native classic Tirisfal canopy trees (02 and 04 to 07).
+local TREES = { 204129, 204131, 204132, 204133, 204134 }
 
 -- Build paired graves at load time. Fixed offsets keep each headstone with its mound;
 -- the decoration system mirrors the complete plot onto the other side of the road.
@@ -102,12 +104,12 @@ local function fenceGroup(count, damaged, style)
         chance = 0.7,
     }
     items[#items + 1] = {
-        model = { 189547, 189551, 189552 },
+        model = TREES,
         x = 8,
         d = start + (count - 2) * FENCE_SECTION,
-        scale = { 0.18, 0.24 },
+        scale = { 0.25, 0.36 },
         yaw = { 0, 360 },
-        chance = 0.65,
+        chance = 0.85,
     }
     if style == "memorial" then
         items[#items + 1] = { model = 198318, x = 7.5, d = start + FENCE_SECTION, scale = 0.65 }
@@ -214,12 +216,13 @@ app.biomes.Register("tirisfal", {
                     { model = 204098, x = 6, d = 3, scale = 0.5, chance = 0.6 },
                 },
             },
-            -- Duskwood's classic SpookyTree01 to 03 give the graveyard bare, twisted trees.
+            -- More frequent, taller canopies with occasional smaller trees between them.
             {
-                weight = 1.5,
+                weight = 3,
                 length = { 6, 9 },
                 items = {
-                    { model = { 189547, 189551, 189552 }, x = { 6.5, 8 }, yaw = { 0, 360 }, scale = { 0.18, 0.25 } },
+                    { model = TREES, x = { 7, 8.5 }, yaw = { 0, 360 }, scale = { 0.28, 0.4 } },
+                    { model = TREES, x = { 7, 8.5 }, d = 4, yaw = { 0, 360 }, scale = { 0.18, 0.25 }, chance = 0.5 },
                 },
             },
             -- TirisfallTreeStump01/02, sometimes with a second stump and undergrowth.
