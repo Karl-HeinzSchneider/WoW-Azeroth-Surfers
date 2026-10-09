@@ -2,18 +2,12 @@
 local _, app = ...
 local sim = app.simulation
 -- What the game shows in the middle of the view, over everything else:
--- * the status panel while a run is paused or over: the run's numbers, the difficulty, the seed
---   and a button per next action, each behind its key's cap (before a run: screens.lua);
+-- * the status menu while a run is paused or over (menus.lua): the run's numbers, the next run's
+--   difficulty and what to do next (before a run: screens.lua's main menu);
 -- * announcements in zone-text style (`Announce`);
 -- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
 local overlay = app.overlay
 
-local WIDTH, PAD, ROW = 300, 28, 22
-local BUTTON_WIDTH, BUTTON_HEIGHT, ACTION_ROW = 130, 22, 28
-local OPTION_ROW, CHECK_SIZE, INPUT_WIDTH = 26, 24, 110
-local ARROW_SIZE, DIFFICULTY_WIDTH = 26, 72
-local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
-local TRIM, TRIM_HEIGHT, TRIM_INDENT = "Interface\\Common\\UI-TooltipDivider", 8, 20
 local SIDE_SCALE = 0.8
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
@@ -40,179 +34,148 @@ local windTail, windHead
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
 
-local TITLES = { paused = "Paused", over = "Run complete" }
--- By state: the action (`DoAction`), its key (a game key or the first bound key of `bindings`;
--- none: no cap), whether the key is held, and the button's text. In auto mode no key does
--- anything.
-local AUTO = { act = "auto", text = "Auto mode" }
-local MENU = { act = "menu", text = "Main menu" }
-local ACTIONS = {
-    paused = {
-        { act = "pause", key = "pause", text = "Go on" },
-        { act = "restart", key = "restart", hold = true, text = "Start over" },
-        AUTO,
-        MENU,
+-- The status menu's pages (menus.lua describes pages and items), built anew for each pause and
+-- each end of a run.
+local GREEN = { 0.1, 1, 0.1 }
+
+local function chosen()
+    return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
+end
+
+-- The run's numbers.
+local NUMBERS = {
+    {
+        text = function(o)
+            local multiplier = o.state.multiplier
+            return multiplier > 1 and string.format("Score  |cffff8c1ax%d|r", multiplier) or "Score"
+        end,
+        info = function(o)
+            return tostring(sim.Score(o.state))
+        end,
     },
-    over = { { act = "restart", key = "restart", text = "Run again" }, AUTO, MENU },
+    {
+        text = "Coins",
+        info = function(o)
+            local s = o.state
+            if s.coinTotal == 0 then
+                return tostring(s.coins)
+            end
+            -- 100% only with every one.
+            return string.format(
+                "%d / %d  |cffaaaaaa%d%%|r",
+                s.coins,
+                s.coinTotal,
+                math.floor(100 * s.coins / s.coinTotal)
+            )
+        end,
+    },
+    {
+        text = "Distance",
+        info = function(o)
+            return string.format("%d yd", math.floor(o.state.distance))
+        end,
+    },
+    {
+        text = "Best",
+        info = function()
+            return tostring(app.db.global.bestScore)
+        end,
+    },
 }
-local STOP = { act = "manual", text = "Stop auto mode" }
-local AUTO_ACTIONS = { paused = { { act = "pause", text = "Go on" }, STOP }, over = { STOP } }
 
-local function row(panel, name)
-    local r = {}
-    r.name = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    r.name:SetText(name)
-    r.value = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
-    r.value:SetJustifyH("RIGHT")
-    return r
-end
+-- From the next run on: says so while it differs from the run's.
+local DIFFICULTY = {
+    text = function(o)
+        return chosen() ~= o.state.difficulty and "Next run" or "Difficulty"
+    end,
+    choice = {
+        get = function()
+            return chosen().name
+        end,
+        can = function(_, dir)
+            return sim.DIFFICULTIES[chosen().level + dir] ~= nil
+        end,
+        step = function(o, dir)
+            o:StepDifficulty(dir)
+        end,
+        wrap = function(o)
+            o:SetDifficulty(sim.DIFFICULTIES[1].id)
+        end,
+    },
+}
 
-local function actionRow(o, panel)
-    local r = {}
-    r.hold = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    r.hold:SetText("Hold")
-    r.cap = o.KeyCap(panel)
-    r.button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    r.button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
-    r.button:SetScript("OnClick", function()
-        o:DoAction(r.act)
-    end)
-    return r
-end
-
-function overlay:DoAction(act)
-    if act == "pause" then
-        self:Action("P")
-    elseif act == "restart" and not InCombatLockdown() then
-        self:Restart()
-    elseif act == "auto" or act == "manual" then
-        self:SetAuto(act == "auto")
-    elseif act == "menu" then
-        self:OpenMenu()
+local function restart(o)
+    if not InCombatLockdown() then
+        o:Restart()
     end
 end
+local GO_ON = {
+    text = "Go on",
+    run = function(o)
+        o:Action("P")
+    end,
+}
+local AUTO = {
+    text = "Auto mode",
+    run = function(o)
+        o:SetAuto(true)
+    end,
+}
+local MENU = {
+    text = "Main menu",
+    run = function(o)
+        o:OpenMenu()
+    end,
+}
+local STOP = {
+    text = "Stop auto mode",
+    run = function(o)
+        o:SetAuto(false)
+    end,
+}
 
-local function arrow(o, panel, art, step)
-    local button = CreateFrame("Button", nil, panel)
-    button:SetSize(ARROW_SIZE, ARROW_SIZE)
-    button:SetNormalTexture(art .. "-Up")
-    button:SetPushedTexture(art .. "-Down")
-    button:SetDisabledTexture(art .. "-Disabled")
-    button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
-    button:SetScript("OnClick", function()
-        o:StepDifficulty(step)
-    end)
-    return button
-end
-
-local function actionKey(o, action)
-    if action.key then
-        return o.GAME_KEYS[action.key]
-    end
-    for _, binding in ipairs(action.bindings or {}) do
-        local key = GetBindingKey(binding)
-        if key then
-            return key
+local function page(title, ...)
+    local items = {}
+    for _, list in ipairs({ ... }) do
+        for _, item in ipairs(list) do
+            items[#items + 1] = item
         end
+    end
+    return { title = title, items = items }
+end
+
+-- The page for run `s`, or nil while it runs or is ready. In auto mode no key does anything:
+-- only clicks.
+local function statusPage(o, s)
+    if s.status == "paused" then
+        if o.auto then
+            return page("Paused", NUMBERS, { GO_ON, STOP })
+        end
+        local p = page("Paused", NUMBERS, { GO_ON, { text = "Start over", run = restart }, DIFFICULTY, AUTO, MENU })
+        -- Q pauses and goes on in a run: here too.
+        p.back = GO_ON.run
+        p.extra = { text = "Start over", run = restart }
+        return p
+    elseif s.status == "over" then
+        local best = s.newBest and { { text = "New best!", note = GREEN } } or {}
+        if o.auto then
+            return page("Run complete", best, NUMBERS, { STOP })
+        end
+        local p = page("Run complete", best, NUMBERS, { { text = "Run again", run = restart }, DIFFICULTY, AUTO, MENU })
+        p.back = MENU.run
+        p.extra = { text = "Run again", run = restart }
+        return p
     end
 end
 
 function overlay:CreateMessages(f)
-    -- The template fills its parent (setAllPoints): the panel is anchored anew and sized by its lines.
     local holder = CreateFrame("Frame", nil, f)
     self:Stack(holder, "messages")
     holder:SetSize(1, 1)
     holder:Hide()
-    local panel = CreateFrame("Frame", nil, holder, "DialogBorderTemplate")
-    panel:ClearAllPoints()
-    panel:SetPoint("CENTER")
-    panel:SetWidth(WIDTH)
-    panel:EnableMouse(true)
-    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    title:SetPoint("TOP", 0, -22)
-    local best = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    best:SetTextColor(0.1, 1, 0.1)
-    best:SetText("New best!")
-    local rows = { row(panel, "Score"), row(panel, "Coins"), row(panel, "Distance"), row(panel, "Best") }
-    local trims = {}
-    for i = 1, 2 do
-        trims[i] = panel:CreateTexture(nil, "ARTWORK")
-        trims[i]:SetTexture(TRIM)
-        trims[i]:SetHeight(TRIM_HEIGHT)
-    end
-    local actions = {}
-    for i = 1, 4 do
-        actions[i] = actionRow(self, panel)
-    end
-
-    local difficultyLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    difficultyLabel:SetText("Difficulty")
-    local easier, harder = arrow(self, panel, ARROWS[1], -1), arrow(self, panel, ARROWS[2], 1)
-    local difficulty = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    difficulty:SetWidth(DIFFICULTY_WIDTH)
-    difficulty:SetPoint("LEFT", easier, "RIGHT")
-    harder:SetPoint("LEFT", difficulty, "RIGHT")
-    local nextRun = panel:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
-    nextRun:SetText("From the next run on")
-
-    local fixed = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-    fixed:SetSize(CHECK_SIZE, CHECK_SIZE)
-    fixed:SetScript("OnClick", function(button)
-        self:SetFixedSeed(button:GetChecked())
-    end)
-    local fixedLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    fixedLabel:SetPoint("LEFT", fixed, "RIGHT", 2, 0)
-    fixedLabel:SetText("Fixed seed")
-    local seedLabel = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    seedLabel:SetText("Seed")
-    -- Only a fixed seed can be edited; otherwise typing is undone, but the seed can be copied.
-    local seedBox = self.NumberBox(panel)
-    local function restore()
-        seedBox:SetText(tostring(app.db.profile.seed or self.state.seed))
-    end
-    seedBox:SetScript("OnEnterPressed", seedBox.ClearFocus)
-    seedBox:SetScript("OnEscapePressed", function()
-        restore()
-        seedBox:ClearFocus()
-    end)
-    seedBox:SetScript("OnTextChanged", function(_, typed)
-        if typed and not app.db.profile.seed then
-            restore()
-        end
-    end)
-    seedBox:SetScript("OnEditFocusGained", function()
-        if not app.db.profile.seed then
-            seedBox:HighlightText()
-        end
-    end)
-    -- Taken when the box loses focus; an empty box keeps the seed.
-    seedBox:SetScript("OnEditFocusLost", function()
-        seedBox:HighlightText(0, 0)
-        local value = tonumber(seedBox:GetText())
-        if app.db.profile.seed and value and app.random.Normalize(value) ~= app.db.profile.seed then
-            self:SetSeed(value)
-        else
-            restore()
-        end
-    end)
-    self.status = {
-        holder = holder,
-        panel = panel,
-        title = title,
-        best = best,
-        rows = rows,
-        trims = trims,
-        actions = actions,
-        fixed = fixed,
-        fixedLabel = fixedLabel,
-        seedLabel = seedLabel,
-        seedBox = seedBox,
-        difficultyLabel = difficultyLabel,
-        difficulty = difficulty,
-        easier = easier,
-        harder = harder,
-        nextRun = nextRun,
-    }
+    self.statusMenu = self:CreateMenu(holder)
+    self.statusMenu.panel:SetPoint("CENTER", holder, "CENTER", 0, 0)
+    self.statusHolder = holder
 
     local banner = CreateFrame("Frame", nil, f)
     self:Stack(banner, "messages")
@@ -269,7 +232,7 @@ function overlay:CreateMessages(f)
 end
 
 function overlay:PlaceMessages(side, h)
-    local panel, banner = self.status.holder, self.banner.frame
+    local panel, banner = self.statusHolder, self.banner.frame
     -- Offsets count in the frame's own scale.
     local scale = side and SIDE_SCALE or 1
     panel:SetScale(scale)
@@ -281,120 +244,9 @@ function overlay:PlaceMessages(side, h)
     banner:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.25 or 0.3) * h / scale)
 end
 
--- Returns where the next line starts.
-function overlay:PlaceTrim(trim, y)
-    local panel = self.status.panel
-    trim:ClearAllPoints()
-    trim:SetPoint("TOPLEFT", panel, "TOPLEFT", TRIM_INDENT, y)
-    trim:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -TRIM_INDENT, y)
-    return y - TRIM_HEIGHT - 6
-end
-
-function overlay:FillStatus(status)
-    local s, st = self.state, self.status
-    local panel = st.panel
-    st.title:SetText(TITLES[status])
-    local y = -22 - st.title:GetStringHeight() - 4
-    y = self:PlaceTrim(st.trims[1], y)
-    st.best:SetShown(status == "over" and s.newBest == true)
-    if st.best:IsShown() then
-        st.best:ClearAllPoints()
-        st.best:SetPoint("TOP", 0, y)
-        y = y - st.best:GetStringHeight() - 8
-    end
-    local values = { sim.Score(s), s.coins, math.floor(s.distance), app.db.global.bestScore }
-    for i, r in ipairs(st.rows) do
-        r.name:ClearAllPoints()
-        r.name:SetPoint("LEFT", panel, "TOPLEFT", PAD, y - ROW / 2)
-        r.value:ClearAllPoints()
-        r.value:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, y - ROW / 2)
-        if i == 2 and s.coinTotal > 0 then
-            -- 100% only with every one.
-            r.value:SetFormattedText(
-                "%d / %d  |cffaaaaaa%d%%|r",
-                s.coins,
-                s.coinTotal,
-                math.floor(100 * s.coins / s.coinTotal)
-            )
-        else
-            r.value:SetText(i == 3 and string.format("%d yd", values[i]) or tostring(values[i]))
-        end
-        y = y - ROW
-    end
-    if s.multiplier > 1 then
-        st.rows[1].name:SetFormattedText("Score  |cffff8c1ax%d|r", s.multiplier)
-    else
-        st.rows[1].name:SetText("Score")
-    end
-    y = self:PlaceTrim(st.trims[2], y - 4)
-    -- While paused, a different one than the run's is for the next run, and says so.
-    local chosen = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
-    st.difficulty:SetText(chosen.name)
-    st.easier:SetEnabled(chosen.level > 1)
-    st.harder:SetEnabled(chosen.level < #sim.DIFFICULTIES)
-    local labelWidth = st.difficultyLabel:GetStringWidth()
-    local x = (WIDTH - labelWidth - 8 - 2 * ARROW_SIZE - DIFFICULTY_WIDTH) / 2
-    st.difficultyLabel:ClearAllPoints()
-    st.difficultyLabel:SetPoint("LEFT", panel, "TOPLEFT", x, y - OPTION_ROW / 2)
-    st.easier:ClearAllPoints()
-    st.easier:SetPoint("LEFT", panel, "TOPLEFT", x + labelWidth + 8, y - OPTION_ROW / 2)
-    y = y - OPTION_ROW
-    st.nextRun:SetShown(status == "paused" and chosen ~= s.difficulty)
-    if st.nextRun:IsShown() then
-        st.nextRun:ClearAllPoints()
-        st.nextRun:SetPoint("TOP", panel, "TOP", 0, y)
-        y = y - st.nextRun:GetStringHeight() - 4
-    end
-    -- White while it can be edited, gray while read-only.
-    local kept = app.db.profile.seed
-    if not st.seedBox:HasFocus() then
-        st.seedBox:SetText(tostring(kept or s.seed))
-    end
-    if kept then
-        st.seedBox:SetTextColor(1, 1, 1)
-    else
-        st.seedBox:SetTextColor(0.6, 0.6, 0.6)
-    end
-    labelWidth = st.seedLabel:GetStringWidth()
-    x = (WIDTH - labelWidth - 12 - INPUT_WIDTH) / 2
-    st.seedLabel:ClearAllPoints()
-    st.seedLabel:SetPoint("LEFT", panel, "TOPLEFT", x, y - OPTION_ROW / 2)
-    st.seedBox:ClearAllPoints()
-    st.seedBox:SetPoint("LEFT", panel, "TOPLEFT", x + labelWidth + 12, y - OPTION_ROW / 2)
-    y = y - OPTION_ROW
-    st.fixed:SetChecked(kept ~= false)
-    local width = CHECK_SIZE + 2 + st.fixedLabel:GetStringWidth()
-    st.fixed:ClearAllPoints()
-    st.fixed:SetPoint("LEFT", panel, "TOPLEFT", (WIDTH - width) / 2, y - OPTION_ROW / 2)
-    y = y - OPTION_ROW - 8
-    local actions = self.auto and AUTO_ACTIONS[status] or ACTIONS[status]
-    for i, r in ipairs(st.actions) do
-        local action = actions[i]
-        local key = action and actionKey(self, action)
-        r.hold:SetShown(action ~= nil and action.hold == true)
-        r.cap:SetShown(key ~= nil)
-        r.button:SetShown(action ~= nil)
-        if action then
-            r.act = action.act
-            r.button:SetText(action.text)
-            if key then
-                self.SetKeyCap(r.cap, key)
-            end
-            r.button:ClearAllPoints()
-            r.button:SetPoint("CENTER", panel, "TOP", 0, y - ACTION_ROW / 2)
-            r.cap:ClearAllPoints()
-            r.cap:SetPoint("RIGHT", r.button, "LEFT", 0, 0)
-            r.hold:ClearAllPoints()
-            r.hold:SetPoint("RIGHT", r.cap, "LEFT", -6, 0)
-            y = y - ACTION_ROW
-        end
-    end
-    panel:SetHeight(-y + 18)
-end
-
--- Once a frame: filled again only when the state or the run changes.
+-- Once a frame: a new page when the run's status or the run changes; its values while shown.
 function overlay:ShowStatus()
-    local s, st = self.state, self.status
+    local s = self.state
     if s.status == "running" and self.announced ~= s then
         self.announced = s
         -- A run from the lobby is welcomed through its portal.
@@ -402,21 +254,25 @@ function overlay:ShowStatus()
             self:WelcomeBiome()
         end
     end
-    if st.shownStatus == s.status and st.shownState == s then
+    if self.statusShown == s.status and self.statusState == s then
+        if self.statusOpen then
+            self.statusMenu:Show()
+        end
         return
     end
-    st.shownStatus, st.shownState = s.status, s
+    self.statusShown, self.statusState = s.status, s
     -- Auto mode's pause button: Go on while paused, nothing to pause between two runs.
     if self.auto then
         local pause = self.controlButtons[3]
         pause:SetText(s.status == "paused" and "Go on" or "Pause")
         pause:SetEnabled(s.status == "running" or s.status == "paused")
     end
-    local shown = TITLES[s.status] ~= nil
-    if shown then
-        self:FillStatus(s.status)
+    local page = statusPage(self, s)
+    self.statusOpen = page ~= nil
+    if page then
+        self.statusMenu:Open(page)
     end
-    st.holder:SetShown(shown)
+    self.statusHolder:SetShown(page ~= nil)
 end
 
 -- `small`: an optional line over it. Replaces an announcement still showing.

@@ -62,9 +62,6 @@ function overlay:SetSeed(seed)
     if self.state.status == "ready" then
         self.state = self:NewState(self.state.lobby)
     end
-    if self.status.holder:IsShown() then
-        self:FillStatus(self.state.status)
-    end
 end
 
 -- From the next run on; a run not started yet takes it at once, with its seed.
@@ -81,9 +78,6 @@ function overlay:SetDifficulty(id)
     end
     if self.state.status == "ready" then
         self.state = self:NewState(self.state.lobby, self.state.seed)
-    end
-    if self.status.holder:IsShown() then
-        self:FillStatus(self.state.status)
     end
 end
 
@@ -232,7 +226,7 @@ function overlay:SetAuto(on)
     end
     self:Layout()
     self.legendState = nil
-    self.status.shownStatus = nil
+    self.statusShown = nil
 end
 
 -- Sample actual displacement, so autorun/mouse movement work and pushing a wall does not.

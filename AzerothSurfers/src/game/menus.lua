@@ -10,13 +10,14 @@ local _, app = ...
 -- A page: { title = text or nil, items = { ... }, back = function(o) for back on the first page,
 -- extra = { text = its hint, run = function(o, menu) } }.
 -- An item:
---   text    its label
+--   text    its label, or function(o) returning it (shown anew when it changes)
 --   run     function(o, menu): run on accept
 --   back    true: accept goes back a page
 --   choice  { get = function(o): the value's text, step = function(o, dir), can = function(o,
 --           dir): whether it can step that way }; left and right step it, accept steps it on
 --           (round from the last to the first: `wrap`, function(o))
 --   info    function(o): a value shown on the right; the line cannot be chosen
+--   note    a color { r, g, b }: the label alone, centered in it; cannot be chosen
 --   input   { get = function(o): the box's text, set = function(o, text) }: a number box; accept
 --           (or a click) types in it, Enter keeps the number, Escape the one before
 local overlay = app.overlay
@@ -197,7 +198,11 @@ function overlay:CreateMenu(parent)
 end
 
 local function selectable(item)
-    return item and not item.info
+    return item and not item.info and not item.note
+end
+
+local function label(o, item)
+    return type(item.text) == "function" and item.text(o) or item.text
 end
 
 -- Whether the page takes `action` (a page without an extra action leaves its key to WoW).
@@ -332,7 +337,14 @@ function Menu:Layout()
         local row = self:Row(i)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - MARKER / 2, y)
-        row.label:SetText(item.text)
+        row.label:SetText(label(self.o, item))
+        row.shownLabel = nil
+        row.label:ClearAllPoints()
+        if item.note then
+            row.label:SetPoint("CENTER", MARKER / 2, 0)
+        else
+            row.label:SetPoint("LEFT", MARKER + 6, 0)
+        end
         row.easier:SetShown(item.choice ~= nil)
         row.harder:SetShown(item.choice ~= nil)
         row.value:SetShown(item.choice ~= nil)
@@ -437,7 +449,7 @@ function Menu:Show()
     if self.shownSelected ~= entry.selected or self.shownPage ~= entry.page then
         self.shownSelected, self.shownPage = entry.selected, entry.page
         for i, item in ipairs(items) do
-            local color = item.info and GRAY or i == entry.selected and WHITE or GOLD
+            local color = item.note or item.info and GRAY or i == entry.selected and WHITE or GOLD
             self.rows[i].label:SetTextColor(color[1], color[2], color[3])
         end
         local row = self.rows[entry.selected]
@@ -449,6 +461,13 @@ function Menu:Show()
     end
     for i, item in ipairs(items) do
         local row = self.rows[i]
+        if type(item.text) == "function" then
+            local text = item.text(o)
+            if row.shownLabel ~= text then
+                row.shownLabel = text
+                row.label:SetText(text)
+            end
+        end
         local value = item.choice and item.choice.get(o)
             or item.info and item.info(o)
             or item.input and item.input.get(o)

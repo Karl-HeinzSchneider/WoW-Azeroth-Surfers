@@ -350,9 +350,10 @@ function overlay:Play(watch)
     self.legendState = nil
 end
 
--- The keys while a screen shows; true when the run's own handling is not to see `key`. The title
--- goes on with the move-forward key, Enter or jump; the menu takes its actions' keys
--- (menus.lua's MenuAction). Every other key goes on to WoW untouched.
+-- The keys while a screen or a menu shows; true when the run's own handling is not to see `key`.
+-- The title goes on with the move-forward key, Enter or jump; the main menu and the pause and end
+-- menu (messages.lua) take their actions' keys (menus.lua's MenuAction). Every other key goes on
+-- to WoW untouched.
 function overlay:OnScreenKey(key, binding)
     local screen = self.screen
     if screen == "title" then
@@ -363,15 +364,9 @@ function overlay:OnScreenKey(key, binding)
         end
         return true
     elseif screen == "menu" then
-        local action = overlay.MenuAction(key, binding)
-        if action and not self.mainMenu:Takes(action) then
-            action = nil
-        end
-        self.frame:SetPropagateKeyboardInput(action == nil)
-        if action then
-            self.mainMenu:Input(action)
-        end
-        return true
+        return self:MenuKey(self.mainMenu, key, binding)
+    elseif not screen and self.statusOpen then
+        return self:MenuKey(self.statusMenu, key, binding)
     elseif screen == "start" or app.autopilot.InIntro(self.state) then
         -- On the way into the run and up to the portal, the run plays itself: the movement keys
         -- do nothing here.
@@ -381,6 +376,19 @@ function overlay:OnScreenKey(key, binding)
         end
     end
     return false
+end
+
+-- `menu` takes `key` if it is one of its actions; every other key goes on to WoW.
+function overlay:MenuKey(menu, key, binding)
+    local action = overlay.MenuAction(key, binding)
+    if action and not menu:Takes(action) then
+        action = nil
+    end
+    self.frame:SetPropagateKeyboardInput(action == nil)
+    if action then
+        menu:Input(action)
+    end
+    return true
 end
 
 -- The lobby's music while the title or the menu shows ("Title music"), if the client has it.

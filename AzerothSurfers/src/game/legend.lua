@@ -39,15 +39,6 @@ local GROUPS = {
         { keys = "pause", text = "Pause" },
         { keys = "restart", text = "Start over (hold)" },
     },
-    paused = {
-        { header = true, text = "Paused" },
-        { keys = "pause", text = "Go on" },
-        { keys = "restart", text = "Start over (hold)" },
-    },
-    over = {
-        { header = true, text = "Run complete" },
-        { keys = "restart", text = "Run again" },
-    },
 }
 
 local function keyCap(parent)

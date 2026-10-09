@@ -65,7 +65,7 @@ default in `db.lua` and an entry in `options.lua`.
   (roadside models in one world ModelScene), `obstacles.lua` (box models), `ambient.lua`
   (wildlife), `light.lua` (day/night by the game clock), `window.lua` (full screen / side window,
   window frame), `menu.lua` (restart bar, seed box), `hud.lua` (score), `legend.lua` (hotkeys),
-  `messages.lua` (pause and end panels, announcements, gate flash and vortex), `menus.lua`
+  `messages.lua` (pause and end menus, announcements, gate flash and vortex), `menus.lua`
   (the menu window: pages of items steered by directions, accept and back; `MenuAction` maps
   keys to them, a gamepad would map to the same), `screens.lua`
   (title screen, main menu, the seated character, the way into a run, title music),

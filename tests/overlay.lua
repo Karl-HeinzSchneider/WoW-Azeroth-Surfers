@@ -694,11 +694,37 @@ assert(o.state.lateral == lobby.lane and o.state.distance == lobby.seat.walk, "i
 assert(o.state.speed == lobby.launch.speed, "slow at first")
 o:OnScreenKey("A", "STRAFELEFT")
 assert(o.state.lane == lobby.lane, "the run plays itself up to the portal")
+-- The pause and end menus (messages.lua) on the same menu system: Q goes on, R starts over.
+InCombatLockdown = InCombatLockdown or function()
+    return false
+end
+o.frame.SetPropagateKeyboardInput = function(_, on)
+    passed = on
+end
+local status = o.statusMenu
+o:Action("P")
+o:Render()
+assert(o.statusOpen and status:Page().title == "Paused", "paused: its menu")
+assert(status:Page().items[status.stack[1].selected].text == "Go on", "at Go on, past the run's numbers")
+assert(press("Q") == false and o.state.status == "running", "Q goes on")
+o:Render()
+assert(not o.statusOpen, "no menu while running")
+o.state.status, o.state.newBest = "over", true
+o:Render()
+assert(status:Page().title == "Run complete" and status:Page().items[1].note, "the end, with a new best")
+assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
+press("R")
+assert(o.state.status == "running" and not o.state.lobby, "R runs again, a plain run")
+o:Render()
+o.state.status = "over"
+o:Render()
+press("Q")
+assert(o.screen == "menu" and o.state.lobby, "Q goes to the main menu")
 app.db.profile.difficulty = difficulty
 function GetTime()
     return 0
 end
-print("PASS the title, the menu and the way into a run from the lobby")
+print("PASS the title, the menu and the way into a run from the lobby, the pause and end menus")
 
 -- A running frame allocates nothing: no new tables or strings, so no garbage piles up.
 o.state = g.New()
