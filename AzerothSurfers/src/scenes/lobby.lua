@@ -6,8 +6,10 @@ local _, app = ...
 -- Distances are yards along the track from the start (d) and to the screen's right of the
 -- road's middle (x); models are classic-era game file ids.
 
--- The fire's spot: on the road's shoulder, right of the right lane.
-local FIRE_X, FIRE_D = 4.9, 0.4
+-- The camp on the grass right of the road: where the character sits, and the fire in front of
+-- it to its right.
+local SEAT_X = 6.5
+local FIRE_X, FIRE_D = 7.9, 1.3
 
 app.lobby = {
     -- How the stretch before the portal looks.
@@ -15,7 +17,8 @@ app.lobby = {
     -- The portal's rim. The gate's strip (track.GATE) around it is dressed by its transition;
     -- the lobby's own models stand before it.
     rim = 50,
-    -- The lane the run starts in, where the character sits (-1: the right one).
+    -- The lane the run starts in (-1: the right one); the character walks over to it from the
+    -- fire.
     lane = -1,
     -- Coin rows in front of the portal: `lane`, the first coin's `from`, `count` (3 yards
     -- apart), `layer` (0 if left out). The gate adds its arc over the middle lane.
@@ -28,11 +31,11 @@ app.lobby = {
     -- `x`, `d`, `z`, `yaw` (degrees), `scale` or `height` (yards its top is scaled to), `lift`;
     -- any number may be a { min, max } range.
     items = {
-        -- passivedoodads/campfire/elwynncampfire, with tree/elwynnlog01 behind it as a bench.
+        -- passivedoodads/campfire/elwynncampfire, with tree/elwynnlog01 beyond it as a bench.
         { model = 189705, x = FIRE_X, d = FIRE_D, height = 0.9 },
-        { model = 189915, x = FIRE_X + 1.6, d = FIRE_D + 0.3, height = 0.5, yaw = 80 },
-        -- trees/stumps/elwynntreestump01 by the fire.
-        { model = 189939, x = FIRE_X + 0.8, d = FIRE_D - 2, height = 0.6, yaw = { 0, 360 } },
+        { model = 189915, x = FIRE_X + 1.4, d = FIRE_D + 0.6, height = 0.5, yaw = 60 },
+        -- trees/stumps/elwynntreestump01 behind the character.
+        { model = 189939, x = SEAT_X + 1.9, d = -1.2, height = 0.6, yaw = { 0, 360 } },
         -- Big trees around the camp and along the road: trees/elwynntreecanopy01 to 04,
         -- canopylesstree01 to 04, elwynntree01/elwynnpine01, 02.
         { model = 189927, x = 12, d = -4, height = 16, yaw = { 0, 360 } },
@@ -47,8 +50,8 @@ app.lobby = {
         -- bush/elwynnbush06 to 09 and detail/elwynnthornbush01, 02 by the road.
         {
             model = { 189697, 189698, 189699, 189700 },
-            x = { 6.5, 8 },
-            d = { -3, -1 },
+            x = { 9.5, 11 },
+            d = { -1, 1 },
             scale = { 0.5, 0.8 },
             yaw = { 0, 360 },
         },
@@ -70,10 +73,11 @@ app.lobby = {
         { model = 189825, x = -6.8, d = 6.48, yaw = 180 },
     },
 
-    -- The character at the fire, in its lane at d 0: turned `yaw` degrees (0 faces the portal,
-    -- positive to the left), sitting (`sit`: SitGround), standing up (`standUp`: SitGroundUp)
-    -- for `standUpSeconds` once Play is chosen.
-    seat = { yaw = -80, sit = 97, standUp = 98, standUpSeconds = 0.7 },
+    -- The character at the fire, `x` yards right of the road's middle at d 0: turned `yaw`
+    -- degrees (0 faces the portal, positive to the left), sitting (`sit`: SitGround), standing up (`standUp`: SitGroundUp)
+    -- for `standUpSeconds` once Play is chosen; then it walks over to `lane` while the camera
+    -- glides behind it.
+    seat = { x = SEAT_X, yaw = -55, sit = 97, standUp = 98, standUpSeconds = 0.7 },
 
     -- The camera of each screen: `at` yards along the track, `side` yards to the screen's right,
     -- `height` yards up, `pitch` degrees down (negative: up), `fov` the vertical field of view in
@@ -83,12 +87,13 @@ app.lobby = {
         -- Straight down the track at the portal, 42 yards on: its top just under the title, the
         -- coins on the track below it.
         title = { at = 8, side = 0, height = 3.4, pitch = 0, fov = 55 },
-        -- Behind the camp, left of the road's middle: the road runs from the lower left to the
-        -- portal, the character sits in the right foreground.
-        menu = { at = -9, side = -1.5, height = 3.2, pitch = 9, fov = 55, sideWindow = { at = -12, height = 3.8 } },
+        -- Low and close behind the camp, at the road's right edge: the whole road lies to the left
+        -- and runs diagonally from the lower left to the portal; the character sits big in the
+        -- right foreground.
+        menu = { at = -2.8, side = 5.2, height = 1.5, pitch = 5, fov = 55, sideWindow = { at = -5, height = 1.9 } },
     },
     -- Seconds the camera glides from the title to the menu, and from the menu into a run.
-    glide = { menu = 2, run = 1.4 },
+    glide = { menu = 2, run = 1.8 },
 
     -- sound/music/gluescreenmusic/wow_main_theme.mp3: the classic login screen's theme, on the
     -- title and in the menu ("Title music").

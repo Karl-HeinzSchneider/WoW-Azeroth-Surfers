@@ -363,7 +363,7 @@ local function fade(sc, name, visible, step)
     frame:SetShown(alpha > 0)
 end
 
--- The character at the lobby's fire, in the lobby's lane at its start.
+-- The character at the lobby's fire, `seat.x` yards right of the road's middle at its start.
 function overlay:PlaceSeat()
     local actor = self.seat
     if not actor then
@@ -385,8 +385,30 @@ function overlay:PlaceSeat()
     actor:SetScale(scale)
     actor:SetYaw(math.rad(lobby.seat.yaw))
     -- The scene's y points left; an actor's position is scaled with it.
-    actor:SetPosition((d + self.sceneRunner) / scale, lobby.lane * LANE / scale, ground(d) / scale)
+    actor:SetPosition((d + self.sceneRunner) / scale, -lobby.seat.x / scale, ground(d) / scale)
     shapes.Show(actor)
+end
+
+-- Of the walk from the fire to the lane, how much goes ahead: the twin turns toward the lane,
+-- not quite sideways.
+local WALK_AHEAD = 0.3
+
+-- On the way into a run from the lobby, once a step after the movement is sampled: the twin
+-- walks from the fire to the run's lane while the camera glides behind it, and walks for its
+-- animation (overlay.lua's AnimateTwin).
+function overlay:StepWalk()
+    local glide, s, from = self.glide, self.state, self.walkFrom
+    if not from or not glide then
+        return
+    end
+    local t = math.min(1, (GetTime() - glide.start) / glide.seconds)
+    s.lateral = from + (s.lane - from) * t
+    -- Positive lanes are on the left, as is positive `left`.
+    local speed = (s.lane - from) * LANE / glide.seconds
+    local motion = self.motion or {}
+    self.motion = motion
+    motion.left, motion.forward = speed, math.abs(speed) * WALK_AHEAD
+    motion.speed = math.abs(speed) * math.sqrt(1 + WALK_AHEAD * WALK_AHEAD)
 end
 
 -- Once a frame: the way into a run, the fades, the prompt's flicker, the menu's choice and the
@@ -399,13 +421,20 @@ function overlay:ShowScreens()
     if self.screen == "start" then
         if self.standUntil then
             if now >= self.standUntil then
-                -- The twin takes the character's place; the camera goes behind it.
+                -- The twin takes the character's place, as it stands, and walks over to the run's
+                -- lane while the camera goes behind it (StepWalk).
+                local seat = app.lobby.seat
                 self.standUntil, self.seated = nil, false
+                self.walkFrom, self.state.lateral = -seat.x / LANE, -seat.x / LANE
+                self.twinYaw = math.rad(seat.yaw)
                 self.shotName = nil
                 self:StartGlide(app.lobby.glide.run)
                 self:PlayTitleMusic(false)
             end
         elseif not self.glide then
+            -- In the lane, whatever the last frame's step left.
+            local s = self.state
+            s.lateral, self.walkFrom = s.lane, nil
             self.screen = nil
             self.legendState = nil
             if self.watching then
