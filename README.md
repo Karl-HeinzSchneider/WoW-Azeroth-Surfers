@@ -8,7 +8,7 @@ Built from the shared addon template with Ace3, checks, formatting, packaging an
 Install the **AzerothSurfers** subfolder in Interface/AddOns, reload, and type **/surfers** (or **/azerothsurfers**) or click the minimap icon.
 
 The game opens on its title screen, at a portal in Elwynn Forest with the title music playing.
-Press your move-forward key (W) or Enter to go on to the main menu, where your character sits
+Press **E** to enter the main menu, where your character sits
 at a campfire beside the track: **Play** (then **Play**, **Difficulty**, **Seed**, **Auto
 mode**, **Cancel**), **Stats**, **Options** and **Close**. Your move-forward / move-backward
 keys (or the arrow keys) choose, your turn keys change the difficulty, **E** accepts and **Q**

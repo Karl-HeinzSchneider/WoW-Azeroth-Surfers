@@ -596,8 +596,15 @@ o.state.status = "running"
 assert(o:BiomeIdAt(lobby.rim - 1) == lobby.biome and o:BiomeIdAt(lobby.rim + 1) == "durotar", "the lobby's biome")
 o.state.status = "ready"
 app.db.profile.biome = "elwynn"
-o:OnScreenKey("ENTER")
-assert(o.screen == "menu" and o.glide, "Enter goes on to the menu")
+IsModifierKeyDown = IsModifierKeyDown or function()
+    return false
+end
+for _, key in ipairs({ { "ENTER" }, { "W", "MOVEFORWARD" }, { "SPACE", "JUMP" } }) do
+    o:OnScreenKey(key[1], key[2])
+end
+assert(o.screen == "title", "only E goes on from the title")
+o:OnScreenKey("E", "STRAFERIGHT")
+assert(o.screen == "menu" and o.glide, "E goes on to the menu")
 now = now + lobby.glide.menu / 2
 o:Render()
 assert(o.camera.x < title.at and o.camera.x > menu.at, "on the way to the menu's shot")
@@ -627,7 +634,7 @@ assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to
 assert(press("R") == true, "R goes on to WoW on a page without an extra action")
 press("Q", "STRAFELEFT")
 assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
-press("W", "MOVEFORWARD")
+press("E")
 assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
 press("E")
 assert(main:Page().title == "Play", "Play opens its page")

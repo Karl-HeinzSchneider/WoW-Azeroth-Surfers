@@ -351,13 +351,14 @@ function overlay:Play(watch)
 end
 
 -- The keys while a screen or a menu shows; true when the run's own handling is not to see `key`.
--- The title goes on with the move-forward key, Enter or jump; the main menu and the pause and end
+-- The title goes on with E (the menus' accept); the main menu and the pause and end
 -- menu (messages.lua) take their actions' keys (menus.lua's MenuAction). Every other key goes on
 -- to WoW untouched.
 function overlay:OnScreenKey(key, binding)
     local screen = self.screen
     if screen == "title" then
-        local go = key == "ENTER" or binding == "MOVEFORWARD" or binding == "JUMP"
+        -- The menus' accept (E), and nothing else.
+        local go = overlay.MenuAction(key, binding) == "accept"
         self.frame:SetPropagateKeyboardInput(not go)
         if go then
             self:ContinueTitle()
@@ -526,13 +527,9 @@ function overlay:ShowScreens()
     fade(sc, "title", self.screen == "title", step)
     fade(sc, "menu", self.screen == "menu", step)
     if self.screen == "title" then
-        local key = GetBindingKey("MOVEFORWARD")
-        if self.screenPrompt ~= (key or false) then
-            self.screenPrompt = key or false
-            sc.promptText:SetText(
-                key and string.format("Press %s / Enter to continue", GetBindingText(key) or key)
-                    or "Press Enter to continue"
-            )
+        if not self.screenPrompt then
+            self.screenPrompt = true
+            sc.promptText:SetText("Press E to enter")
             sc.prompt:SetSize(sc.promptText:GetStringWidth() + 20, sc.promptText:GetStringHeight() + 10)
         end
         local pulse = (math.cos(2 * math.pi * now / PULSE) + 1) / 2
