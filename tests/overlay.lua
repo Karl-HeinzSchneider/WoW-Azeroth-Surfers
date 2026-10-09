@@ -6,6 +6,7 @@ dofile("tests/load.lua")(app, {
     "biomes/elwynn",
     "scenes/lobby",
     "biomes/durotar",
+    "biomes/teldrassil",
     "biomes/transitions/dream",
     "game/random",
     "game/simulation",
@@ -424,7 +425,7 @@ print("PASS biomes override the default, and switching re-skins the running game
 for _, extra in ipairs({ { "hills", 2 }, { "marsh", 2 }, { "peaks", 3 }, { "wastes", 3 } }) do
     biomes.Register(extra[1], { name = extra[1], tier = extra[2] })
 end
-local tierOf = { elwynn = 1, durotar = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
+local tierOf = { elwynn = 1, durotar = 1, teldrassil = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
 -- Gates every 1000 yards, as a run through zones lays them out (simulation.lua).
 local gates = {}
 for k = 1, 40 do
