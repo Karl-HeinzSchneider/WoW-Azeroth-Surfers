@@ -127,7 +127,8 @@ end
 function actor:SetPosition(x, y, z)
     self.position[1], self.position[2], self.position[3] = x, y, z
 end
-function actor:SetAnimation(animation, _, rate)
+function actor:SetAnimation(animation, variation, rate)
+    self.variation = variation
     self.animation, self.rate = animation, rate
 end
 function actor:SetYaw(yaw)
@@ -478,6 +479,14 @@ print("PASS auto: starter zones first, up the tiers, unvisited zones first, the 
 
 -- The twin mirrors how the real character moves, as a player holds the keys.
 local falling = false
+local playerRace = "Human"
+local playerSex = 2
+function UnitSex()
+    return playerSex
+end
+function UnitRace()
+    return playerRace, playerRace
+end
 function IsFalling()
     return falling
 end
@@ -517,6 +526,50 @@ local rate = actor.rate
 hold(7, 0, 7.2, 0.5)
 assert(actor.rate == rate, "small speed changes do not restart the animation")
 print("PASS twin mirrors standing, running, strafing, backpedalling, walking and jumping")
+
+playerRace = "NightElf"
+local seen = {}
+for i = 1, 30 do
+    falling = true
+    hold(0, 0, 0, 0.1)
+    local variation = actor.variation
+    assert(actor.animation == 37 and (variation == 0 or variation == 1), "night elf jump variation")
+    seen[variation] = true
+    hold(0, 0, 0, 0.6)
+    assert(actor.variation == variation, "jump choice stays fixed in the air")
+    hold(0, 0, 0, 0.5)
+    assert(actor.animation == 38 and actor.variation == 0, "long fall uses the standard loop")
+    falling = false
+    hold(0, 0, 0, 0.1)
+    assert(actor.animation == 39 and actor.variation == 0, "landing clears the jump variation")
+end
+assert(seen[0] and seen[1], "night elves use both jump variants")
+for _, race in ipairs({ "NightElf", "BloodElf", "VoidElf", "Worgen", "Vulpera", "Human" }) do
+    for _, sex in ipairs({ 2, 3 }) do
+        playerRace, playerSex = race, sex
+        local variants = {}
+        for i = 1, 30 do
+            falling = true
+            hold(0, 0, 0, 0.1)
+            variants[actor.variation] = true
+            falling = false
+            hold(0, 0, 0, 0.1)
+        end
+        local alternate = race == "NightElf"
+            or race == "Worgen"
+            or race == "Vulpera"
+            or (race == "BloodElf" or race == "VoidElf") and sex == 3
+        assert(variants[0], "every race and sex can use the normal jump")
+        assert(not not variants[1] == alternate, "alternate jump is restricted by race and sex")
+    end
+end
+playerRace = "Human"
+falling = true
+hold(0, 0, 0, 0.1)
+assert(actor.animation == 37 and actor.variation == 0, "other races keep the normal jump")
+falling = false
+hold(0, 0, 0, 0.5)
+print("PASS race-specific jump variants persist until landing or a long fall")
 
 -- Hiding the real character zooms into first person while the view is open, and back out.
 local zoom, calls = 9, {}

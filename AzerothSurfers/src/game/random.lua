@@ -16,6 +16,8 @@ random.AMBIENT = 1209675413
 -- Auto mode's zone route (biomes.lua) and gates (simulation.lua).
 random.ZONES = 1650567391
 random.GATES = 937513201
+-- The character's jump variants, independent of track and scenery choices.
+random.JUMPS = 1458172397
 
 -- x * c mod M, exactly: c split in two halves keeps every product below 2^53.
 local function times(x, c)

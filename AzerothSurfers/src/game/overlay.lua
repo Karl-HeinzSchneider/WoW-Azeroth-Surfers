@@ -61,6 +61,17 @@ local COIN_SIZE = 0.5 -- a coin model's largest side
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
 local WALK_SPEED, RUN_SPEED, BACKWARDS_SPEED = 2.5, 7, 4.5
 local AIR_LOOP = 1.1
+-- Jump-start choices by UnitRace's file token, then UnitSex (2 male, 3 female).
+-- Each choice is { animation, variation }; missing races/sexes keep the standard jump.
+local ALTERNATE_JUMPS = { { JUMP_START, 0 }, { JUMP_START, 1 } }
+local JUMP_ANIMATIONS = {
+    NightElf = { [2] = ALTERNATE_JUMPS, [3] = ALTERNATE_JUMPS },
+    BloodElf = { [3] = ALTERNATE_JUMPS },
+    VoidElf = { [3] = ALTERNATE_JUMPS },
+    Worgen = { [2] = ALTERNATE_JUMPS, [3] = ALTERNATE_JUMPS },
+    Vulpera = { [2] = ALTERNATE_JUMPS, [3] = ALTERNATE_JUMPS },
+}
+local jumpRandom = app.random.New(1, app.random.JUMPS)
 -- Changing lanes, the twin turns this far toward the next lane (WoW's diagonal), for at least
 -- STRAFE_HOLD seconds, STRAFE_TURN times quicker than otherwise.
 local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
@@ -994,7 +1005,22 @@ end
 -- change turns it like a strafe. In auto mode it follows only the run.
 function overlay:AnimateTwin(elapsed)
     local actor, s, motion = self.twinActor, self.state, self.motion or {}
+    if self.jumpState ~= s then
+        self.jumpState = s
+        jumpRandom:Seed(s.seed, app.random.JUMPS)
+        self.wasAirborne, self.airTime, self.landTime = false, 0, nil
+    end
     local airborne = s.height > s.floor or (not self.auto and IsFalling("player"))
+    if airborne and not self.wasAirborne then
+        local _, race = UnitRace("player")
+        local bySex = JUMP_ANIMATIONS[race]
+        local choices = bySex and bySex[UnitSex("player")]
+        local choice = choices and choices[jumpRandom(#choices)]
+        self.jumpAnimation = choice and choice[1] or JUMP_START
+        self.jumpVariation = choice and choice[2] or 0
+        -- A new takeoff must restart even if it follows the same animation.
+        self.twinAnimation = nil
+    end
     self.airTime = airborne and (self.airTime or 0) + elapsed or 0
     if self.wasAirborne and not airborne then
         self.landTime = 0
@@ -1009,9 +1035,10 @@ function overlay:AnimateTwin(elapsed)
     local speed = motion.speed or 0
     -- 0 straight ahead, positive to the left; pushing against a wall runs on the spot.
     local direction = math.atan2(self.towardLeft, self.towardForward)
-    local animation, rate, yaw = STAND, 1, self.twinYaw or 0
+    local animation, rate, yaw, variation = STAND, 1, self.twinYaw or 0, 0
     if airborne then
-        animation = self.airTime < AIR_LOOP and JUMP_START or JUMP
+        animation = self.airTime < AIR_LOOP and self.jumpAnimation or JUMP
+        variation = self.airTime < AIR_LOOP and self.jumpVariation or 0
         -- Turned toward its way through the air; a jump backwards keeps its turn.
         if speed > 0 and self.towardForward >= 0 then
             yaw = direction
@@ -1063,8 +1090,13 @@ function overlay:AnimateTwin(elapsed)
     self.strafeBack = self.strafeTime ~= nil or quick and math.abs(turn) > 0.05
     actor:SetYaw(self.twinYaw)
     -- Setting an animation restarts it: only when it or its speed really changes.
-    if animation ~= self.twinAnimation or math.abs(rate - (self.twinRate or 1)) > 0.1 then
-        actor:SetAnimation(animation, 0, rate, 0)
+    if
+        animation ~= self.twinAnimation
+        or variation ~= self.twinVariation
+        or math.abs(rate - (self.twinRate or 1)) > 0.1
+    then
+        actor:SetAnimation(animation, variation, rate, 0)
+        self.twinVariation = variation
         self.twinAnimation, self.twinRate = animation, rate
     end
 end
