@@ -32,7 +32,7 @@ end
 -- needs verification with /surfers preview model 189469 in this client.
 local FENCE_SCALE = 0.65
 local FENCE_SECTION = 4.16 * FENCE_SCALE
-local function fenceGroup(count, damaged)
+local function fenceGroup(count, damaged, style)
     local start = FENCE_SECTION / 2
     local items = { { model = 189467, x = 5.5, d = start, yaw = 90, scale = 0.65 } }
     local gap = damaged and math.floor(count / 2)
@@ -66,9 +66,55 @@ local function fenceGroup(count, damaged)
             i = i + span
         end
     end
+    -- Dress the same group behind its fence so independent roadside groups cannot
+    -- land between the railings and graves. Leave the damaged entrance free of props.
+    for bay = 2, count - 1, 3 do
+        if not gap or math.abs(bay - gap) > 1 then
+            local d = start + bay * FENCE_SECTION
+            local x = bay % 2 == 0 and 8.5 or 10
+            local plots = graveGroup(
+                1,
+                0,
+                { { x, d } },
+                nil,
+                style == "framed",
+                style == "memorial" and { 189536, 189538 } or nil
+            )
+            for _, item in ipairs(plots.items) do
+                items[#items + 1] = item
+            end
+            items[#items + 1] = {
+                model = { 204097, 204098, 204099 },
+                x = x + 1,
+                d = d - 2,
+                scale = { 0.35, 0.5 },
+                yaw = { 0, 360 },
+                chance = style == "overgrown" and 1 or 0.55,
+            }
+        end
+    end
+    items[#items + 1] = {
+        model = { 204135, 204136 },
+        x = 9,
+        d = start + FENCE_SECTION,
+        scale = { 0.4, 0.55 },
+        yaw = { 0, 360 },
+        chance = 0.7,
+    }
+    items[#items + 1] = {
+        model = { 189547, 189551, 189552 },
+        x = 11,
+        d = start + (count - 2) * FENCE_SECTION,
+        scale = { 0.25, 0.35 },
+        yaw = { 0, 360 },
+        chance = 0.65,
+    }
+    if style == "memorial" then
+        items[#items + 1] = { model = 198318, x = 7.5, d = start + FENCE_SECTION, scale = 0.65 }
+    end
     -- Keep the tested panel/post direction on both verges, including the closing post
     -- and the damaged gap. Only the lateral position changes on the left.
-    return { weight = 0.14, length = (count + 1) * FENCE_SECTION, mirror = false, items = items }
+    return { weight = 0.8, length = (count + 1) * FENCE_SECTION, mirror = false, items = items }
 end
 
 app.biomes.Register("tirisfal", {
@@ -214,14 +260,13 @@ app.biomes.Register("tirisfal", {
             -- Framed earth plots and a pair beside larger monuments.
             graveGroup(1, 9, { { 6.5, 1.5 }, { 9, 5 } }, 189528, true),
             graveGroup(0.4, 9, { { 7, 1.5 }, { 9.5, 5 } }, 189528, true, { 189536, 189538 }),
-            -- Duskwood graveyard fences: long intact and damaged runs with a closing post.
-            fenceGroup(6),
-            fenceGroup(7, true),
-            fenceGroup(8),
-            fenceGroup(9, true),
-            fenceGroup(10),
-            fenceGroup(11, true),
-            fenceGroup(12, true),
+            -- Frequent graveyards, 10-18 bays long, with their own scenery behind the fence.
+            fenceGroup(10, false, "framed"),
+            fenceGroup(12, true, "overgrown"),
+            fenceGroup(14, false, "memorial"),
+            fenceGroup(15, true, "framed"),
+            fenceGroup(16, false, "overgrown"),
+            fenceGroup(18, true, "memorial"),
             -- TirisfallStreetLamp01 and a grave marker along the road.
             {
                 weight = 2,
