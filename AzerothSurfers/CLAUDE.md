@@ -10,13 +10,14 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 2. `src\core\`: `logger.lua` (everything logs), `db.lua` (the defaults), `ace.lua` (creates
    `app.addon`), then the modules that hang off it (`options.lua`, `minimapbutton.lua`).
 3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it), the
-   transitions and `src\scenes\lobby.lua`, then `random` → `simulation` → `track` →
-   `patterns\patterns.xml`, then `overlay.lua` and the files that extend `app.overlay` after it.
-   A Lua mixin comes before the XML that names it.
+   transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
+   `simulation` → `track` → `patterns\patterns.xml` → `autopilot`, then `light` and `shapes`,
+   then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin comes before
+   the XML that names it.
 4. `AzerothSurfers.lua` last; it only logs.
 
-`src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`) and
-`AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, never patch it.
+`src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`)
+and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, never patch it.
 
 ## Core
 
@@ -25,8 +26,9 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 - `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
   `bestScore`).
 - `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
-  `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`, `reset`, and the
-  commands AzerothSurfers_Dev registers in `app.devCommands`.
+  `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
+  `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
+  (`logger.lua`) is the name players see.
 - `options.lua` — `app.options`: **one** AceConfig table for the Settings panel and a standalone
   window. `Refresh()` after a setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon.
@@ -41,38 +43,52 @@ default in `db.lua` and an entry in `options.lua`.
   **Nothing in a run may use `math.random`**: everything a seed should replay draws from a
   generator of the run's seed, each system from its own stream.
 - `simulation.lua` — the pure fixed-step simulation: every object is a box on a lane/layer grid.
-  `New(seed, difficulty, zones, lobby)`; `DIFFICULTIES`; `VIEW` (how far the views show) and `AHEAD`
-  (how far the track is laid out).
+  `New(seed, difficulty, zones, lobby)`; `DIFFICULTIES`; `VIEW` (how far the views show),
+  `AHEAD` (how far the track is laid out), `CLEAR` (seconds of empty road at a run's start).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
   `patterns.xml`**, nothing else. A new or changed pattern changes what a seed lays out.
-- `biomes.lua` — `app.biomes`: biome registry (`Register`, `Get` merges over the default),
-  transitions (`RegisterTransition`, documented there) and auto mode's zone route.
+- `biomes.lua` — `app.biomes`: biome registry (`Register`, `Get` merges over the default,
+  `Derive` registers one biome as another with changes; a `hidden` one is not offered in the
+  options), transitions (`RegisterTransition`, documented there) and auto mode's zone route.
   `src/biomes/default.lua` documents every biome field and is the reference for writing one.
   **Anything visual a region could change belongs in the biome, not as a constant in game
   code**: add the field to `default.lua`, read it from `overlay.biome`, re-apply it in
   `overlay:ApplyBiome()`. Only classic-era game files.
 - `src/scenes/lobby.lua` — `app.lobby`: where a run started from the menu begins (its lane,
   coins and the gate at its `rim`, laid out by `track.Lobby`; up to the portal the run plays
-  itself, `autopilot.Intro`), the camp's models, the title's and the menu's camera shots, the
-  seated character and the title music. A restart during play has no lobby.
+  itself, `autopilot.Intro`, starting slow from `launch`), its biome (`lobby`, Elwynn with more
+  grass, hidden), the camp's models, the title's and the menu's camera shots, the seated
+  character and the title music. Up to its portal the title and the menu look the same whatever
+  the run's seed. A restart during play has no lobby.
+- `autopilot.lua` — `app.autopilot`: auto mode's player (a search on copies of the run), and
+  `Intro`, which plays a run from the lobby up to its portal.
+- `light.lua` — `app.light`: day and night by the game's clock, for the ground and every scene.
+- `shapes.lua` — `app.shapes`: the boxes' and flat coins' faces, their texture pool, the
+  ground's curve (`Ground`).
 - `overlay.lua` — `app.overlay`, the view: road, boxes and coins projected through a camera
   shot (`RunShot` imitates the follow camera; screens.lua's `ViewShot` swaps in a screen's or
   glides between them), and the twin covering the real character. **A running frame allocates
   nothing** (`tests/overlay.lua` checks it).
-- Files that extend `app.overlay`: `shapes.lua` (faces and texture pool), `decorations.lua`
-  (roadside models in one world ModelScene), `occluder.lua` (the ground's depth: a scene of flat
-  tiles under the 2D ground hides what models have below it), `obstacles.lua` (box models), `ambient.lua`
-  (wildlife), `light.lua` (day/night by the game clock), `window.lua` (full screen / side window,
-  window frame), `menu.lua` (restart bar, seed box), `hud.lua` (score), `legend.lua` (hotkeys),
-  `messages.lua` (pause and end menus, announcements, gate flash and vortex), `menus.lua`
-  (the menu window: pages of items steered by directions, accept and back; `MenuAction` maps
-  keys to them, a gamepad would map to the same), `screens.lua`
-  (title screen, main menu, the seated character, the way into a run, title music),
-  `controls.lua` (input, per-frame `Step`, best score, auto mode), `autopilot.lua` (auto
-  mode's player).
+- Files that extend `app.overlay`, in TOC order:
+  - `decorations.lua` — the roadside's and the lobby's models in one world ModelScene.
+  - `occluder.lua` — the ground's depth: a scene of flat tiles under the 2D ground hides what
+    models have below it (the 3D scenes share the depth buffer). How deep under the ground and
+    from where (`SINK`, `BEHIND`) switches at the lobby's portal.
+  - `obstacles.lua` (box models), `ambient.lua` (wildlife), `window.lua` (full screen / side
+    window, window frame), `menu.lua` (restart bar, number box), `hud.lua` (score),
+    `legend.lua` (the running keys).
+  - `messages.lua` — the pause and end menus, announcements, the gate's flash and vortex.
+  - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
+    boxes) steered by directions, accept (E), back (Q) and a page's extra action (R).
+    `MenuAction` maps keys to them; a gamepad would map to the same.
+  - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
+    the seated character, the way into a run, title music; the keys of every screen and menu
+    (`OnScreenKey`).
+  - `controls.lua` — input, per-frame `Step`, best score, auto mode.
 
 Tests: `npm run test:game` runs `tests/*.lua` without the client; `npm run bench:overlay`
 counts WoW API calls per frame. Development tools live in `AzerothSurfers_Dev`
-([../AzerothSurfers_Dev/CLAUDE.md](../AzerothSurfers_Dev/CLAUDE.md)); this addon only keeps the hooks they use.
+([../AzerothSurfers_Dev/CLAUDE.md](../AzerothSurfers_Dev/CLAUDE.md)); this addon only keeps the
+hooks they use.

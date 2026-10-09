@@ -13,16 +13,17 @@ packages it.
 | `.github/`            | Release workflows (BigWigs packager).                       | see "Releases"                                               |
 
 A direct child directory with a same-named `.toc` is an addon; the tooling finds it on its own,
-only `.pkgmeta` needs a `move-folders` line. A `AzerothSurfers_*` companion must declare
-`## Dependencies: AzerothSurfers`. A development addon (`## X-AzerothSurfers-Dev:` in its TOC) is never packaged
-and is listed in `.pkgmeta`'s `ignore`; debugging and biome-building tools go there.
+only `.pkgmeta` needs a `move-folders` line. An `AzerothSurfers_*` companion must declare
+`## Dependencies: AzerothSurfers`. A development addon (`## X-AzerothSurfers-Dev:` in its TOC)
+is never packaged and is listed in `.pkgmeta`'s `ignore`; debugging and biome-building tools go
+there.
 
 ## Working on the code
 
 No build step. `npm run dev:link -- "<WoW>/Interface/AddOns"` once (or `WOW_ADDONS_DIR`), then
-`/reload` in-game. `/surfers` opens the runner, `/surfers options` the settings,
-`/surfers loglevel debug` the debug log, `/surfers auto` lets the game play itself; with
-AzerothSurfers_Dev, `/surfers help` lists the dev tools.
+`/reload` in-game. `/surfers` (or `/azerothsurfers`) opens the game on its title screen,
+`/surfers options` the settings, `/surfers loglevel debug` the debug log, `/surfers auto` lets
+the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev tools.
 
 ## Commands (run from the root after `npm install`)
 
@@ -68,7 +69,8 @@ it ships inside the addon. Uploads need the secrets `CF_API_KEY`, `WAGO_API_TOKE
   (`local _, app = ...` when the name is unused). When a file adds a member to `app`, add a
   `---@field` to `AzerothSurfers/src/types.lua`.
 
-- The only globals are the SavedVariables and XML-required mixins/frames, prefixed `AzerothSurfers…`.
+- The only globals are the SavedVariables and XML-required mixins/frames, prefixed
+  `AzerothSurfers…`.
 - SavedVariables are populated after `ADDON_LOADED` (AceDB `OnInitialize` is the first safe
   place), never at file load.
 - Ace3 types come from the `ketho.wow-api` VS Code extension, not from `lib/`; inherit from them

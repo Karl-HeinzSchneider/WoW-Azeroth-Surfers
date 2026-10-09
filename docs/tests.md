@@ -13,13 +13,13 @@ Needs `lua` on PATH. Run from the repo root: paths are relative to it.
 
 ## The files
 
-| File                | Covers                                                                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `load.lua`          | Not a test. Loads addon files into an `app` table the way the TOC does: `"game/simulation"` is `AzerothSurfers/src/game/simulation.lua`, an `.xml` entry loads each of its `<Script>`s in order. |
-| `simulation.lua`    | The pure game: physics, collisions, coins and streaks, scoring, difficulties, seeds. Every pattern keeps the track's rules and can be run through (a search over inputs). The autopilot.         |
-| `controls.lua`      | Input and movement sampling, coin sound, with the few WoW functions it needs defined as globals.                                                                                                 |
-| `overlay.lua`       | The view with stubbed frames: projection, twin, ground, biomes, light, HUD texts, and that **a running frame allocates nothing**.                                                                |
-| `bench-overlay.lua` | Counts API calls per frame on a generated track. Every frame method is an auto-stub returning nil.                                                                                               |
+| File                | Covers                                                                                                                                                                                                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `load.lua`          | Not a test. Loads addon files into an `app` table the way the TOC does: `"game/simulation"` is `AzerothSurfers/src/game/simulation.lua`, an `.xml` entry loads each of its `<Script>`s in order.                                                                                                                            |
+| `simulation.lua`    | The pure game: physics, collisions, coins and streaks, scoring, difficulties, seeds. Every pattern keeps the track's rules and can be run through (a search over inputs). The autopilot. A new run's empty road; a run from the lobby: its gate in front, and its intro collects every coin at every difficulty.            |
+| `controls.lua`      | Input and movement sampling, coin sound, with the few WoW functions it needs defined as globals.                                                                                                                                                                                                                            |
+| `overlay.lua`       | The view with stubbed frames: projection, twin, ground, biomes, light, HUD texts. The title, the main menu and the way into a run from the lobby, the menus' keys (E, Q, R, every other key on to WoW), a new seed leaving the lobby's look alone, the pause and end menus. And that **a running frame allocates nothing**. |
+| `bench-overlay.lua` | Counts API calls per frame on a generated track. Every frame method is an auto-stub returning nil.                                                                                                                                                                                                                          |
 
 ## How a test looks
 
@@ -57,6 +57,12 @@ end)
 - **Allocation.** The allocation test fails on any table or string built per frame:
   `string.format`, `..`, `{}` in a running path. Use `SetFormattedText`, cached tables, and
   compare values instead of building keys (`overlay.Unchanged`).
+- **Data on a stub.** The stubbed frames and actors in `overlay.lua` and `bench-overlay.lua`
+  answer every unknown field with a function, so a field the addon stores on a frame or an
+  actor (`frame.surferAlpha`, `actor.surferScale`) reads as a function in the tests and breaks
+  them. Keep such data in tables of your own (the menu's `sc.alpha`, the occluder's `occ.scale`).
+  `shapes.Show`'s flag is stored the same way, so in the benchmark a scene shown that way never
+  shows.
 - **Stubs fall behind.** A new WoW API call in drawing code needs a stub in `overlay.lua`
   (and returns a number in `bench-overlay.lua` if the code does arithmetic with it).
   `bench-overlay.lua` is not in `test:game`, so it breaks unnoticed: run it after changing the
