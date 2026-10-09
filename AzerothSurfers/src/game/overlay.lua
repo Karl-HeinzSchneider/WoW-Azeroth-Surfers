@@ -1039,6 +1039,10 @@ function overlay:AnimateTwin(elapsed)
     if self.strafeTime then
         yaw = self.strafeYaw
     end
+    -- Turned toward the road on the way into a run from the lobby (screens.lua).
+    if self.twinFace then
+        yaw = self.twinFace
+    end
     local turn = (yaw - (self.twinYaw or 0) + math.pi) % (2 * math.pi) - math.pi
     self.twinYaw = (self.twinYaw or 0) + turn * math.min(1, elapsed * 10 * (quick and STRAFE_TURN or 1))
     -- Back out of a strafe: quick until the body faces its way again.

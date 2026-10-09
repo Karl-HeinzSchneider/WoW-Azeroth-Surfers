@@ -54,9 +54,9 @@ default in `db.lua` and an entry in `options.lua`.
   code**: add the field to `default.lua`, read it from `overlay.biome`, re-apply it in
   `overlay:ApplyBiome()`. Only classic-era game files.
 - `src/scenes/lobby.lua` — `app.lobby`: where a run started from the menu begins (its lane,
-  coins and the gate at its `rim`, laid out by `track.Lobby`), the camp's models, the title's
-  and the menu's camera shots, the seated character and the title music. A restart during
-  play has no lobby.
+  coins and the gate at its `rim`, laid out by `track.Lobby`; up to the portal the run plays
+  itself, `autopilot.Intro`), the camp's models, the title's and the menu's camera shots, the
+  seated character and the title music. A restart during play has no lobby.
 - `overlay.lua` — `app.overlay`, the view: road, boxes and coins projected through a camera
   shot (`RunShot` imitates the follow camera; screens.lua's `ViewShot` swaps in a screen's or
   glides between them), and the twin covering the real character. **A running frame allocates

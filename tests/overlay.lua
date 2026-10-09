@@ -11,6 +11,7 @@ dofile("tests/load.lua")(app, {
     "game/simulation",
     "game/track",
     "patterns/patterns.xml",
+    "game/autopilot",
     "game/light",
     "game/shapes",
     "game/overlay",
@@ -617,12 +618,24 @@ o:ChooseItem(1)
 assert(o.screen == "start" and o.seated, "Play: the character stands up")
 o:OnScreenKey("SPACE", "JUMP")
 assert(o.state.status == "ready", "no key starts the run on the way into it")
-now = now + lobby.seat.standUpSeconds
+now = now + 0.1
+-- The model scene's actor, which plays it, is not in this test.
+o.seatAnimation = lobby.seat.standUp
+o:OnSeatAnimFinished()
 o:Render()
-assert(not o.seated and o.glide and music[#music] == "stop", "the twin takes over, the camera glides behind it")
-now = now + lobby.glide.run + 0.01
+assert(o.seated, "an animation ending right away is not the stand-up's")
+now = now + 0.5
+o:OnSeatAnimFinished()
 o:Render()
-assert(o.screen == nil and o.state.status == "running" and o.state.lane == lobby.lane, "the run starts in the lane")
+assert(not o.seated and o.startPhase == "turn", "once the stand-up ends, the twin takes over and turns")
+assert(o.state.status == "ready" and math.abs(o.camera.x - menu.at) < 1e-9, "still at the menu's shot")
+now = now + lobby.seat.turnSeconds
+o:Render()
+assert(o.screen == nil and o.state.status == "running" and o.glide, "the run starts, the camera glides behind")
+assert(music[#music] == "stop", "the title music ends with the menu")
+assert(o.state.lateral < -1 and o.state.lane == lobby.lane, "from the fire, toward the lobby's lane")
+o:OnScreenKey("A", "STRAFELEFT")
+assert(o.state.lane == lobby.lane, "the run plays itself up to the portal")
 app.db.profile.difficulty = difficulty
 function GetTime()
     return 0

@@ -387,3 +387,41 @@ function autopilot.Play(s, elapsed)
         due, elapsed = due - part, elapsed - part
     end
 end
+
+-- Whether a run from the lobby still plays itself: up to past its gate's strip.
+function autopilot.InIntro(s)
+    local lobby = s.lobby
+    return lobby ~= nil and s.status == "running" and s.distance < lobby.rim + app.track.GATE.after
+end
+
+-- A run from the lobby plays itself up to past its gate (`lobby.intro`, src/scenes/lobby.lua):
+-- its lane changes, then a jump whose top is at the rim, through the gate's arc of coins. The
+-- frame is split at the takeoff, so the jump starts where it should at any frame rate. False
+-- once the player is to take over.
+function autopilot.Intro(s, elapsed)
+    if not autopilot.InIntro(s) then
+        return false
+    end
+    local lobby = s.lobby
+    s.forward = true
+    local lane = lobby.lane
+    for _, step in ipairs(lobby.intro) do
+        if s.distance >= step.at then
+            lane = step.lane
+        end
+    end
+    if lane ~= s.lane then
+        sim.Move(s, lane > s.lane and 1 or -1)
+    end
+    elapsed = math.min(elapsed, 0.1)
+    local takeoff = lobby.rim - app.track.JumpLength(s) / 2
+    if not s.introJumped and s.distance + s.speed * elapsed >= takeoff then
+        local before = math.max(0, (takeoff - s.distance) / s.speed)
+        sim.Update(s, before)
+        elapsed = elapsed - before
+        s.introJumped = true
+        sim.Jump(s)
+    end
+    sim.Update(s, elapsed)
+    return true
+end

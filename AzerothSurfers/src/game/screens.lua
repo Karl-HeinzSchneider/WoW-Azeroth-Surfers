@@ -39,6 +39,15 @@ local ITEMS = {
     { act = "close", text = "Close" },
 }
 local DIFFICULTY = 2
+-- The bindings that steer a run.
+local MOVES = {
+    MOVEFORWARD = true,
+    TURNLEFT = true,
+    TURNRIGHT = true,
+    STRAFELEFT = true,
+    STRAFERIGHT = true,
+    JUMP = true,
+}
 -- A shot's fields (overlay.lua's RunShot), in a fixed order.
 local FIELDS = { "at", "side", "height", "pitch", "fov" }
 
@@ -152,6 +161,10 @@ function overlay:CreateScreens(f)
     local seat = self.worldScene:CreateActor()
     seat:SetUseCenterForOrigin(false, false, false)
     seat:Hide()
+    -- Without the handler (an older client), standing up takes `standUpMost` seconds.
+    pcall(seat.SetScript, seat, "OnAnimFinished", function()
+        self:OnSeatAnimFinished()
+    end)
     self.seat = seat
     self:LoadSeat()
 end
@@ -232,7 +245,7 @@ function overlay:EnterLobby()
         self:SaveBest()
         self.state = self:NewState(app.lobby)
     end
-    self.standUntil, self.watching = nil, nil
+    self.startPhase, self.watching, self.twinFace = nil, nil, nil
     self.selected = self.selected or 1
     self.seated, self.seatWant = true, app.lobby.seat.sit
     self.legendState = nil
@@ -260,15 +273,16 @@ function overlay:ContinueTitle()
     end
 end
 
--- The character stands up, then the camera glides behind it and the run starts; `watch`: in
+-- The character stands up, turns to the road, and the run starts (ShowScreens); `watch`: in
 -- auto mode.
 function overlay:Play(watch)
     if self.screen ~= "title" and self.screen ~= "menu" then
         return
     end
-    local seat = app.lobby.seat
+    local seat, now = app.lobby.seat, GetTime()
     self.screen, self.watching = "start", watch or nil
-    self.seatWant, self.standUntil = seat.standUp, GetTime() + seat.standUpSeconds
+    self.startPhase, self.seatWant, self.standDone = "stand", seat.standUp, false
+    self.standFrom, self.standUntil = now, now + seat.standUpMost
     self.legendState = nil
 end
 
@@ -310,10 +324,10 @@ function overlay:OnScreenKey(key, binding)
     elseif screen == "menu" then
         self.frame:SetPropagateKeyboardInput(true)
         return true
-    elseif screen == "start" then
-        -- On the way into the run: the run starts by itself once the camera is behind the
-        -- character, not by a key.
-        if binding == "MOVEFORWARD" or binding == "JUMP" then
+    elseif screen == "start" or app.autopilot.InIntro(self.state) then
+        -- On the way into the run and up to the portal, the run plays itself: the movement keys
+        -- do nothing here.
+        if MOVES[binding] then
             self.frame:SetPropagateKeyboardInput(not self.capture)
             return true
         end
@@ -374,26 +388,40 @@ function overlay:PlaceSeat()
     shapes.Show(actor)
 end
 
--- Of the walk from the fire to the lane, how much goes ahead: the twin turns toward the lane,
--- not quite sideways.
-local WALK_AHEAD = 0.3
-
--- On the way into a run from the lobby, once a step after the movement is sampled: the twin
--- walks from the fire to the run's lane while the camera glides behind it, and walks for its
--- animation (overlay.lua's AnimateTwin).
-function overlay:StepWalk()
-    local glide, s, from = self.glide, self.state, self.walkFrom
-    if not from or not glide then
-        return
+-- The way into a run from the lobby, once a frame: the character stands up until its animation
+-- ends; the twin takes its place, standing, and turns toward the road; then the run starts and
+-- plays itself up to the portal (autopilot.Intro) while the camera glides behind the runner.
+function overlay:StepStart(now)
+    local seat, s = app.lobby.seat, self.state
+    if self.startPhase == "stand" then
+        if self.standDone or now >= self.standUntil then
+            self.seated = false
+            s.lateral = -seat.x / LANE
+            self.twinYaw, self.twinFace = math.rad(seat.yaw), math.rad(seat.turn)
+            self.startPhase, self.turnUntil = "turn", now + seat.turnSeconds
+        end
+    elseif now >= self.turnUntil then
+        self.screen, self.startPhase, self.twinFace = nil, nil, nil
+        self.shotName = nil
+        self:StartGlide(app.lobby.glide.run)
+        self:PlayTitleMusic(false)
+        self.legendState = nil
+        sim.Start(s)
+        if self.watching then
+            self.watching = nil
+            self:SetAuto(true)
+        end
     end
-    local t = math.min(1, (GetTime() - glide.start) / glide.seconds)
-    s.lateral = from + (s.lane - from) * t
-    -- Positive lanes are on the left, as is positive `left`.
-    local speed = (s.lane - from) * LANE / glide.seconds
-    local motion = self.motion or {}
-    self.motion = motion
-    motion.left, motion.forward = speed, math.abs(speed) * WALK_AHEAD
-    motion.speed = math.abs(speed) * math.sqrt(1 + WALK_AHEAD * WALK_AHEAD)
+end
+
+-- The stand-up's end. The actor reports the end of every animation: only the stand-up's,
+-- once it has played a moment, counts.
+function overlay:OnSeatAnimFinished()
+    if self.startPhase == "stand" and self.seatAnimation == app.lobby.seat.standUp then
+        if GetTime() - self.standFrom > 0.2 then
+            self.standDone = true
+        end
+    end
 end
 
 -- Once a frame: the way into a run, the fades, the prompt's flicker, the menu's choice and the
@@ -404,31 +432,7 @@ function overlay:ShowScreens()
     local elapsed = now - (sc.time or now)
     sc.time = now
     if self.screen == "start" then
-        if self.standUntil then
-            if now >= self.standUntil then
-                -- The twin takes the character's place, as it stands, and walks over to the run's
-                -- lane while the camera goes behind it (StepWalk).
-                local seat = app.lobby.seat
-                self.standUntil, self.seated = nil, false
-                self.walkFrom, self.state.lateral = -seat.x / LANE, -seat.x / LANE
-                self.twinYaw = math.rad(seat.yaw)
-                self.shotName = nil
-                self:StartGlide(app.lobby.glide.run)
-                self:PlayTitleMusic(false)
-            end
-        elseif not self.glide then
-            -- In the lane, whatever the last frame's step left.
-            local s = self.state
-            s.lateral, self.walkFrom = s.lane, nil
-            self.screen = nil
-            self.legendState = nil
-            if self.watching then
-                self.watching = nil
-                self:SetAuto(true)
-            else
-                sim.Start(self.state)
-            end
-        end
+        self:StepStart(now)
     end
     local step = elapsed / FADE
     fade(sc, "title", self.screen == "title", step)

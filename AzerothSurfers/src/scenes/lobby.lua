@@ -23,9 +23,13 @@ app.lobby = {
     -- Coin rows in front of the portal: `lane`, the first coin's `from`, `count` (3 yards
     -- apart), `layer` (0 if left out). The gate adds its arc over the middle lane.
     coins = {
-        { lane = -1, from = 7, count = 4 },
-        { lane = 0, from = 18, count = 4 },
+        { lane = -1, from = 10, count = 3 },
+        { lane = 0, from = 24, count = 4 },
     },
+    -- The run up to the portal plays itself (autopilot.Intro), through every coin: into `lane`
+    -- from `at` yards on, then a jump whose top is at the rim, through the gate's arc. The
+    -- player takes over past the gate's strip.
+    intro = { { at = 17.5, lane = 0 } },
 
     -- Models, placed like a transition's `items` (biomes.lua): `model` (a file id or a list),
     -- `x`, `d`, `z`, `yaw` (degrees), `scale` or `height` (yards its top is scaled to), `lift`;
@@ -75,9 +79,10 @@ app.lobby = {
 
     -- The character at the fire, `x` yards right of the road's middle at d 0: turned `yaw`
     -- degrees (0 faces the portal, positive to the left), sitting (`sit`: SitGround), standing up (`standUp`: SitGroundUp)
-    -- for `standUpSeconds` once Play is chosen; then it walks over to `lane` while the camera
-    -- glides behind it.
-    seat = { x = SEAT_X, yaw = -55, sit = 97, standUp = 98, standUpSeconds = 0.7 },
+    -- once Play is chosen, until the animation ends (`standUpMost` seconds at most). Then it turns
+    -- `turn` degrees toward the road over `turnSeconds`, and the run starts: it runs over to
+    -- `lane` while the camera glides behind it.
+    seat = { x = SEAT_X, yaw = -55, sit = 97, standUp = 98, standUpMost = 2, turn = 50, turnSeconds = 0.5 },
 
     -- The camera of each screen: `at` yards along the track, `side` yards to the screen's right,
     -- `height` yards up, `pitch` degrees down (negative: up), `fov` the vertical field of view in
@@ -91,8 +96,9 @@ app.lobby = {
         -- lies to the left and runs diagonally from the lower left to the portal.
         menu = { at = -5, side = 6.5, height = 1.3, pitch = 5, fov = 55, sideWindow = { at = -5, height = 1.9 } },
     },
-    -- Seconds the camera glides from the title to the menu, and from the menu into a run.
-    glide = { menu = 2, run = 1.8 },
+    -- Seconds the camera glides from the title to the menu, and from the menu behind the runner
+    -- (while it runs).
+    glide = { menu = 2, run = 1.2 },
 
     -- sound/music/gluescreenmusic/wow_main_theme.mp3: the classic login screen's theme, on the
     -- title and in the menu ("Title music").

@@ -18,15 +18,16 @@ track.GATE = {
     ramp = { layers = 1, length = 1.5, from = 6.5, to = 5 },
 }
 
--- The gate's boxes around `rim`: a step in every lane up to the portal's platform, coins over
--- the middle lane. Marked `gate` (and their `rim`) for the transition's `obstacles`.
+-- The gate's boxes around `rim`: a step in every lane up to the portal's platform, and an arc
+-- of coins over the middle lane. The arc is laid over the road, not the step: a jump from the
+-- road whose top is at the rim collects every one of them at any speed. Marked `gate` (and their `rim`) for the transition's `obstacles`.
 function track.PlaceGate(s, rim)
     local ramp = track.GATE.ramp
     for lane = -1, 1 do
         local box = add(s, "platform", lane, rim - ramp.from, ramp.from + ramp.to, 0, ramp.layers, ramp.length)
         box.gate, box.rim = true, rim
     end
-    arc(s, 0, rim, ramp.layers)
+    arc(s, 0, rim)
     if s.gates then
         s.gates[#s.gates + 1] = rim
     end

@@ -140,18 +140,24 @@ local COIN_SOUND_FILE = 567428
 
 function overlay:Step(elapsed)
     local s = self.state
-    if self.capture or self.auto then
+    -- A run from the lobby runs by itself up to the portal, as when captured.
+    if self.capture or self.auto or autopilot.InIntro(s) then
         s.forward = self:AutoRun()
     else
         s.forward = self:IsMovingForward(elapsed)
     end
-    self:StepWalk()
     -- Not before a screen has let the run begin (screens.lua).
     if s.forward and s.status == "ready" and not self.screen then
         sim.Start(s)
     end
     local status, coins, streak = s.status, s.coins, s.streak
-    if self.auto then
+    if autopilot.Intro(s, elapsed) then
+        -- Up to the portal it plays itself; in auto mode the run is the autopilot's (no best
+        -- score).
+        if self.auto then
+            s.piloted = true
+        end
+    elseif self.auto then
         self:StepAuto(s, elapsed)
     else
         sim.Update(s, elapsed)

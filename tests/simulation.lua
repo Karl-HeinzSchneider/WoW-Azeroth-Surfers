@@ -1,7 +1,7 @@
 local app = {}
 dofile("tests/load.lua")(
     app,
-    { "game/random", "game/simulation", "game/track", "patterns/patterns.xml", "game/autopilot" }
+    { "game/random", "game/simulation", "game/track", "patterns/patterns.xml", "game/autopilot", "scenes/lobby" }
 )
 local random = app.random
 local g = app.simulation
@@ -497,7 +497,7 @@ test("a run from the lobby starts in front of its gate", function()
     local lobby = {
         rim = 50,
         lane = -1,
-        coins = { { lane = -1, from = 7, count = 4 }, { lane = 0, from = 18, count = 4 } },
+        coins = { { lane = -1, from = 10, count = 4 }, { lane = 0, from = 24, count = 4 } },
     }
     local gate = track.GATE
     for _, difficulty in ipairs(g.DIFFICULTIES) do
@@ -530,10 +530,38 @@ test("a run from the lobby starts in front of its gate", function()
             end
             local coins = 0
             for _, o in ipairs(s.objects) do
-                coins = coins + (o.kind == "coin" and o.at < lobby.rim - gate.before and 1 or 0)
+                coins = coins + (o.kind == "coin" and o.at < lobby.rim - 8 and 1 or 0)
             end
             assert(coins == 8, label .. ": the lobby's coins")
             assert(runnable(s, lobby.rim + 80), label .. ": runnable from the start")
+        end
+    end
+end)
+
+-- The lobby's run plays itself up to past its gate: from the fire, through every coin of the
+-- lobby and the gate's arc, landing on the road; then the player takes over. At every
+-- difficulty and an uneven frame rate.
+test("a run from the lobby plays itself through every coin", function()
+    local lobby, gate = app.lobby, track.GATE
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, zones in ipairs({ false, true }) do
+            local label = string.format("%s%s", difficulty.id, zones and " with zones" or "")
+            local s, frame = g.New(5, difficulty.id, zones, lobby), 0
+            s.lateral = -lobby.seat.x / g.geometry.laneWidth
+            local total = 0
+            for _, o in ipairs(s.objects) do
+                if o.kind == "coin" and o.at < lobby.rim + gate.after then
+                    total = total + 1
+                end
+            end
+            g.Start(s)
+            while app.autopilot.Intro(s, frame % 3 == 0 and 1 / 30 or 1 / 90) do
+                frame = frame + 1
+            end
+            assert(s.status == "running", label .. ": through the portal")
+            assert(total == 13 and s.coins == total, label .. ": every coin, " .. s.coins .. " of " .. total)
+            assert(s.height == 0 and s.distance >= lobby.rim + gate.after, label .. ": landed past the gate")
+            assert(not app.autopilot.InIntro(s), label .. ": the player's from here")
         end
     end
 end)
