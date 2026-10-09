@@ -87,10 +87,9 @@ app.lobby = {
         -- Straight down the track at the portal, 42 yards on: its top just under the title, the
         -- coins on the track below it.
         title = { at = 8, side = 0, height = 3.4, pitch = 0, fov = 55 },
-        -- Low and close behind the camp, at the road's right edge: the whole road lies to the left
-        -- and runs diagonally from the lower left to the portal; the character sits big in the
-        -- right foreground.
-        menu = { at = -2.8, side = 5.2, height = 1.5, pitch = 5, fov = 55, sideWindow = { at = -5, height = 1.9 } },
+        -- Low behind the camp, in line with the character, well right of the road: the whole road
+        -- lies to the left and runs diagonally from the lower left to the portal.
+        menu = { at = -5, side = 6.5, height = 1.3, pitch = 5, fov = 55, sideWindow = { at = -5, height = 1.9 } },
     },
     -- Seconds the camera glides from the title to the menu, and from the menu into a run.
     glide = { menu = 2, run = 1.8 },
