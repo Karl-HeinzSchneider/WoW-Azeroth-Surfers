@@ -7,6 +7,7 @@ dofile("tests/load.lua")(app, {
     "scenes/lobby",
     "biomes/durotar",
     "biomes/teldrassil",
+    "biomes/tirisfal",
     "biomes/transitions/dream",
     "game/random",
     "game/simulation",
@@ -386,6 +387,42 @@ o.groundLight, o.lastRoad = nil, {}
 print("PASS a missing ground texture falls back to a color")
 
 -- Biomes override the default field by field; lists are replaced whole.
+-- Menu scenery must not prepopulate the first zone with the lobby's wooden fences.
+do
+    local probe = setmetatable({
+        state = { seed = 17, distance = 0, status = "ready", lobby = { rim = 50, items = {} } },
+        biome = app.biomes.Get("lobby"),
+        decorLens = { calibrated = true },
+        decor = {},
+        decorNext = {},
+        decorRandom = { [-1] = app.random.New(1), [1] = app.random.New(1) },
+        gateRandom = app.random.New(1),
+    }, { __index = app.overlay })
+    local queries = 0
+    function probe:BiomeAt(at)
+        assert(self.state.status == "running", "no procedural lobby scenery beyond the portal before launch")
+        assert(at >= self.state.lobby.rim, "the first zone starts beyond the lobby")
+        queries = queries + 1
+        return { decorations = { groups = {} } }
+    end
+    function probe:StripEnd()
+        return nil
+    end
+    probe:UpdateDecorations()
+    local left, right = probe.decorNext[-1], probe.decorNext[1]
+    probe:UpdateDecorations()
+    assert(
+        queries == 0 and probe.decorNext[-1] == left and probe.decorNext[1] == right,
+        "menu keeps zone scenery pending"
+    )
+    probe.state.status = "running"
+    probe:UpdateDecorations()
+    assert(
+        queries > 0 and probe.decorNext[-1] > left and probe.decorNext[1] > right,
+        "launch generates pending zone scenery"
+    )
+end
+
 local biomes = app.biomes
 local elwynn, plain = biomes.Get("elwynn"), biomes.Get("default")
 assert(elwynn.ground.surfaces.road.texture == 187099, "a biome's own field")
@@ -426,7 +463,7 @@ print("PASS biomes override the default, and switching re-skins the running game
 for _, extra in ipairs({ { "hills", 2 }, { "marsh", 2 }, { "peaks", 3 }, { "wastes", 3 } }) do
     biomes.Register(extra[1], { name = extra[1], tier = extra[2] })
 end
-local tierOf = { elwynn = 1, durotar = 1, teldrassil = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
+local tierOf = { elwynn = 1, durotar = 1, teldrassil = 1, tirisfal = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
 -- Gates every 1000 yards, as a run through zones lays them out (simulation.lua).
 local gates = {}
 for k = 1, 40 do

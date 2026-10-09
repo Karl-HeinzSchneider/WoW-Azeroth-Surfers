@@ -52,10 +52,13 @@ app.biomes.Register("default", {
     --             into the terrain would show its buried part)
     --   d, z      yards along the road from the group's start, and up; 0 if left out
     --   yaw       degrees, 0 if left out
+    --   roll      degrees to tip sideways; nonzero centers the model and rests it on the ground
     --   scale     1 if left out
     --   chance    0 to 1: how often it is placed with its group (always if left out)
     -- Groups are written for the right side (yaw 0 faces the road for a model built facing +y);
     -- the left side's are turned round about their middle, `d` counted back from `length`.
+    -- A group with `mirror = false` keeps its yaw and along-road offsets on both sides
+    -- (for asymmetric fence assemblies); only its lateral position changes sides.
     -- Any number may instead be a { min, max } range, rolled for each one placed. `ambient` and
     -- `diffuse` light them by day.
     decorations = {
