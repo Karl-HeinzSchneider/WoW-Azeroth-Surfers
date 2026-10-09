@@ -1,8 +1,15 @@
 local app = {}
-dofile("tests/load.lua")(
-    app,
-    { "game/random", "game/simulation", "game/track", "patterns/patterns.xml", "game/autopilot", "scenes/lobby" }
-)
+dofile("tests/load.lua")(app, {
+    "game/biomes",
+    "biomes/default",
+    "biomes/elwynn",
+    "game/random",
+    "game/simulation",
+    "game/track",
+    "patterns/patterns.xml",
+    "game/autopilot",
+    "scenes/lobby",
+})
 local random = app.random
 local g = app.simulation
 local track = app.track

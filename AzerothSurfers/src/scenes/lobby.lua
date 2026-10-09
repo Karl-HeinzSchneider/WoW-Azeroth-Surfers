@@ -11,9 +11,27 @@ local _, app = ...
 local SEAT_X = 6.5
 local FIRE_X, FIRE_D = 7.9, 1.3
 
+-- Elwynn Forest with more grass beside the road: the default's bands (default.lua), the grass
+-- 8 yards wider and fading out 9 further. Only the lobby's: never a zone of a run, nor offered
+-- in the options.
+app.biomes.Derive("lobby", "elwynn", {
+    tier = false,
+    hidden = true,
+    ground = {
+        bands = {
+            { surface = "grass", layer = -2, segments = 2, from = 3.3, to = 15.9, opacity = { 1, 1 } },
+            { surface = "grass", layer = -2, segments = 2, from = 15.9, to = 19.9, opacity = { 1, 0 } },
+            { surface = "dirt", layer = -1, segments = 2, from = 3.3, to = 5.3, opacity = { 1, 0 } },
+            { surface = "road", layer = 0, segments = 1, from = 0, to = 3.3, opacity = { 1, 1 } },
+            { surface = "road", layer = 0, segments = 1, from = 3.3, to = 4.3, opacity = { 1, 0 } },
+            { surface = "dirt", layer = 1, segments = 4, from = 0.95, to = 1.45, opacity = { 0.3, 0.3 } },
+        },
+    },
+})
+
 app.lobby = {
     -- How the stretch before the portal looks.
-    biome = "elwynn",
+    biome = "lobby",
     -- The portal's rim. The gate's strip (track.GATE) around it is dressed by its transition;
     -- the lobby's own models stand before it.
     rim = 50,
@@ -35,27 +53,49 @@ app.lobby = {
     -- `x`, `d`, `z`, `yaw` (degrees), `scale` or `height` (yards its top is scaled to), `lift`;
     -- any number may be a { min, max } range.
     items = {
-        -- passivedoodads/campfire/elwynncampfire, with tree/elwynnlog01 beyond it as a bench.
-        { model = 189705, x = FIRE_X, d = FIRE_D, height = 0.9 },
-        { model = 189915, x = FIRE_X + 1.4, d = FIRE_D + 0.6, height = 0.5, yaw = 60 },
-        -- trees/stumps/elwynntreestump01 behind the character.
-        { model = 189939, x = SEAT_X + 1.9, d = -1.2, height = 0.6, yaw = { 0, 360 } },
+        -- The camp, ahead of the character and to its right, where the menu's camera sees it. Flat
+        -- props built a little into the ground are `lift`ed: the ground is only drawn, so a buried
+        -- part would show over it.
+        -- The fire (elwynn/passivedoodads/campfire/elwynncampfire) with a boar roasting over it on
+        -- its own spit (generic/orc/passive doodads/roasts/roastboar).
+        { model = 189705, x = FIRE_X, d = FIRE_D, height = 1.02 },
+        { model = 199231, x = FIRE_X, d = FIRE_D, scale = 0.55, yaw = 30 },
+        -- Across the fire from the character, turned toward it: tree/elwynnlog01 as a bench with
+        -- a mug on it (human/passive doodads/mugs/mug01). By the fire a firewood pile (human/
+        -- passive doodads/firewood/firewoodpile01) and a bucket (buckets/bucket).
+        { model = 189915, x = 9.4, d = 2.7, height = 0.5, yaw = 35, lift = true },
+        { model = 198360, x = 9.3, d = 2.8, z = 0.5, height = 0.15, yaw = 40 },
+        { model = 198197, x = 9.2, d = 0.2, height = 0.45, yaw = 70, lift = true },
+        { model = 198068, x = 7, d = 2.5, height = 0.35, yaw = { 0, 360 } },
+        -- A tent behind the fire (generic/buildings/humantentmedium, a small one), a bearskin rug
+        -- before its door (human/passive doodads/rugs/generalbearskinrug01) and a shovel
+        -- against its side (elwynn/passivedoodads/shovel).
+        { model = 197109, x = 11.8, d = 8, height = 2.4, yaw = 200, lift = true },
+        { model = 198426, x = 10.8, d = 5.8, scale = 0.6, yaw = 110, lift = true },
+        { model = 189854, x = 13.8, d = 7, height = 1.1, yaw = 30 },
+        -- Supplies beside the tent: a crate with a smaller one and a lantern on it (human/
+        -- passive doodads/crates/replacecrate01, 03, lanterns/generallantern01) and a barrel
+        -- (westfall/passivedoodads/barrel/westfallbarrel01).
+        { model = 198165, x = 9.6, d = 6.6, height = 0.6, yaw = 15 },
+        { model = 198167, x = 9.6, d = 6.6, z = 0.6, height = 0.4, yaw = 50 },
+        { model = 198327, x = 9.4, d = 6.4, z = 1, height = 0.35 },
+        { model = 190535, x = 9.2, d = 7.8, height = 1, yaw = { 0, 360 } },
         -- Big trees around the camp and along the road: trees/elwynntreecanopy01 to 04,
         -- canopylesstree01 to 04, elwynntree01/elwynnpine01, 02.
         { model = 189927, x = 12, d = -4, height = 16, yaw = { 0, 360 } },
-        { model = 189928, x = 15, d = 9, height = 18, yaw = { 0, 360 } },
+        { model = 189928, x = 17, d = 14, height = 18, yaw = { 0, 360 } },
         { model = 189929, x = -13, d = 2, height = 17, yaw = { 0, 360 } },
         { model = 189930, x = -16, d = 16, height = 19, yaw = { 0, 360 } },
         { model = 189919, x = 9, d = 18, height = 12, yaw = { 0, 360 } },
         { model = 189921, x = -10, d = 24, height = 13, yaw = { 0, 360 } },
-        { model = { 189924, 189925 }, x = { 8, 10 }, d = { 4, 7 }, height = { 9, 11 }, yaw = { 0, 360 } },
+        { model = { 189924, 189925 }, x = { 14, 16 }, d = { 11, 14 }, height = { 9, 11 }, yaw = { 0, 360 } },
         { model = { 189924, 189925 }, x = { -9, -7 }, d = { 9, 13 }, height = { 9, 11 }, yaw = { 0, 360 } },
         { model = { 189924, 189925 }, x = { 11, 13 }, d = { 25, 28 }, height = { 10, 12 }, yaw = { 0, 360 } },
         -- bush/elwynnbush06 to 09 and detail/elwynnthornbush01, 02 by the road.
         {
             model = { 189697, 189698, 189699, 189700 },
-            x = { 9.5, 11 },
-            d = { -1, 1 },
+            x = { 14, 15.5 },
+            d = { -3, -1 },
             scale = { 0.5, 0.8 },
             yaw = { 0, 360 },
         },

@@ -211,3 +211,63 @@ dev.Command(
         end
     end
 )
+
+-- A camp item's fields, in the order lobby.lua writes them.
+local ITEM_FIELDS = { "model", "x", "d", "z", "height", "scale", "yaw", "lift" }
+
+local function luaValue(v)
+    if type(v) == "table" then
+        local parts = {}
+        for i, part in ipairs(v) do
+            parts[i] = luaValue(part)
+        end
+        return "{ " .. table.concat(parts, ", ") .. " }"
+    elseif type(v) == "number" then
+        return string.format("%g", v)
+    end
+    return tostring(v)
+end
+
+-- The item as a line of Lua, to paste into src/scenes/lobby.lua.
+local function itemLine(item)
+    local parts = {}
+    for _, field in ipairs(ITEM_FIELDS) do
+        if item[field] ~= nil then
+            parts[#parts + 1] = field .. " = " .. luaValue(item[field])
+        end
+    end
+    return "{ " .. table.concat(parts, ", ") .. " },"
+end
+
+dev.Command(
+    "camp",
+    "camp [<n> [x|d|z|yaw|height|scale <number>] [lift on|off] ...]: the lobby's items (camp alone: all, numbered); changes one live",
+    function(rest)
+        local items, words = app.lobby.items, dev.Words(rest)
+        local item = items[words[1]]
+        if not item then
+            for i, each in ipairs(items) do
+                log:chat("%d: %s", i, itemLine(each))
+            end
+            return
+        end
+        for i = 2, #words, 2 do
+            local field, value = words[i], words[i + 1]
+            if field == "lift" and (value == "on" or value == "off") then
+                item.lift = value == "on" or nil
+            elseif (field == "x" or field == "d" or field == "z" or field == "yaw") and type(value) == "number" then
+                item[field] = value
+            elseif (field == "height" or field == "scale") and type(value) == "number" then
+                -- One or the other sizes it.
+                item.height, item.scale = nil, nil
+                item[field] = value
+            else
+                log:chat("/surfers camp <n> [x|d|z|yaw|height|scale <number>] [lift on|off] ...")
+                return
+            end
+        end
+        log:chat("%d: %s", words[1], itemLine(item))
+        -- Placed anew on the next frame.
+        app.overlay.decorState = nil
+    end
+)

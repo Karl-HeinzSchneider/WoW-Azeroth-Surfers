@@ -47,10 +47,19 @@ function biomes.Get(id)
     return merged
 end
 
+-- Biome `id` as biome `from` with `over` laid over it (a scene's own look of a region). Register
+-- it after `from`.
+function biomes.Derive(id, from, over)
+    biomes.Register(id, merge(biomes.list[from], over))
+end
+
+-- What the options offer: every biome but those `hidden` (a scene's own).
 function biomes.Names()
     local names = {}
     for id, biome in pairs(biomes.list) do
-        names[id] = biome.name or id
+        if not biome.hidden then
+            names[id] = biome.name or id
+        end
     end
     return names
 end
