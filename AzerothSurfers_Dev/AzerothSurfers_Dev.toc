@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: Azeroth Surfers Dev
+## Notes: Development tools for Azeroth Surfers: model and creature previews, animation checks, playtest helpers, diagnostics. Never released.
+## Author: Karl-HeinzSchneider
+## Dependencies: AzerothSurfers
+## X-AzerothSurfers-Dev: 1
+
+src\dev.lua
+src\diagnostics.lua
+src\preview.lua
+src\animations.lua
+src\playtest.lua

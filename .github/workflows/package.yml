@@ -1,7 +1,7 @@
 # Shared job of the release workflows (release-tag, release, beta, alpha); not run on its own.
 # Runs the BigWigs packager (https://github.com/BigWigsMods/packager) and uploads the zip to
 # CurseForge, Wago, WoWInterface and GitHub Releases. What goes into the zip is set in .pkgmeta,
-# the project ids come from Surfer/Surfer.toc.
+# the project ids come from AzerothSurfers/AzerothSurfers.toc.
 #
 # The packager takes the release type from the tag on the packaged commit: a tag containing
 # "alpha" is an alpha, one containing "beta" a beta, any other tag a release. An untagged commit

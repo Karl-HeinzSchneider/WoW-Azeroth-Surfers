@@ -1,28 +1,28 @@
 # CLAUDE.md
 
-Surfer is a World of Warcraft addon (Lua 5.1 on Ace3) for the client set by the TOC's
+Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) for the client set by the TOC's
 `## Interface` (`16001` = WoW Forever), plus Node/TypeScript tooling that checks, links and
 packages it.
 
-| Part          | What it is                                                  | Details                                      |
-| ------------- | ----------------------------------------------------------- | -------------------------------------------- |
-| `Surfer/`     | The addon; everything in it ships.                          | [Surfer/CLAUDE.md](Surfer/CLAUDE.md)         |
-| `Surfer_Dev/` | Development tools, linked into a client, never released.    | [Surfer_Dev/CLAUDE.md](Surfer_Dev/CLAUDE.md) |
-| `src/`        | Root tooling (Node 20+, TypeScript run by `tsx`, no build). | one file per `npm run` script                |
-| `tests/`      | Lua tests run without the client.                           | [docs/tests.md](docs/tests.md)               |
-| `.github/`    | Release workflows (BigWigs packager).                       | see "Releases"                               |
+| Part                  | What it is                                                  | Details                                                      |
+| --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
+| `AzerothSurfers/`     | The addon; everything in it ships.                          | [AzerothSurfers/CLAUDE.md](AzerothSurfers/CLAUDE.md)         |
+| `AzerothSurfers_Dev/` | Development tools, linked into a client, never released.    | [AzerothSurfers_Dev/CLAUDE.md](AzerothSurfers_Dev/CLAUDE.md) |
+| `src/`                | Root tooling (Node 20+, TypeScript run by `tsx`, no build). | one file per `npm run` script                                |
+| `tests/`              | Lua tests run without the client.                           | [docs/tests.md](docs/tests.md)                               |
+| `.github/`            | Release workflows (BigWigs packager).                       | see "Releases"                                               |
 
 A direct child directory with a same-named `.toc` is an addon; the tooling finds it on its own,
-only `.pkgmeta` needs a `move-folders` line. A `Surfer_*` companion must declare
-`## Dependencies: Surfer`. A development addon (`## X-Surfer-Dev:` in its TOC) is never packaged
+only `.pkgmeta` needs a `move-folders` line. A `AzerothSurfers_*` companion must declare
+`## Dependencies: AzerothSurfers`. A development addon (`## X-AzerothSurfers-Dev:` in its TOC) is never packaged
 and is listed in `.pkgmeta`'s `ignore`; debugging and biome-building tools go there.
 
 ## Working on the code
 
 No build step. `npm run dev:link -- "<WoW>/Interface/AddOns"` once (or `WOW_ADDONS_DIR`), then
-`/reload` in-game. `/surfer` opens the runner, `/surfer options` the settings,
-`/surfer loglevel debug` the debug log, `/surfer auto` lets the game play itself; with
-Surfer_Dev, `/surfer help` lists the dev tools.
+`/reload` in-game. `/surfers` opens the runner, `/surfers options` the settings,
+`/surfers loglevel debug` the debug log, `/surfers auto` lets the game play itself; with
+AzerothSurfers_Dev, `/surfers help` lists the dev tools.
 
 ## Commands (run from the root after `npm install`)
 
@@ -36,7 +36,7 @@ Surfer_Dev, `/surfer help` lists the dev tools.
 | `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua` (needs `lua`).                                  |
 | `npm run bench:overlay`            | WoW API calls per frame, offline.                                                                     |
 | `npm run dev:link -- <AddOns dir>` | Links (junctions on Windows) every addon into a client; never replaces a path that isn't our link.    |
-| `npm run package:addons`           | Deterministic `dist/Surfer-<version>.zip` without development addons and `CLAUDE.md` files.           |
+| `npm run package:addons`           | Deterministic `dist/AzerothSurfers-<version>.zip` without development addons and `CLAUDE.md` files.   |
 | `npm run package:local`            | The release workflows' BigWigs packager, locally, no upload, into `.release/` (Windows: Git's bash).  |
 
 `lua-language-server --check` uses `.luarc.json`; `lib/` is excluded from LuaLS, StyLua and
@@ -61,14 +61,14 @@ it ships inside the addon. Uploads need the secrets `CF_API_KEY`, `WAGO_API_TOKE
   with
 
   ```lua
-  ---@type string, Surfer
+  ---@type string, AzerothSurfers
   local appName, app = ...
   ```
 
   (`local _, app = ...` when the name is unused). When a file adds a member to `app`, add a
-  `---@field` to `Surfer/src/types.lua`.
+  `---@field` to `AzerothSurfers/src/types.lua`.
 
-- The only globals are the SavedVariables and XML-required mixins/frames, prefixed `Surfer…`.
+- The only globals are the SavedVariables and XML-required mixins/frames, prefixed `AzerothSurfers…`.
 - SavedVariables are populated after `ADDON_LOADED` (AceDB `OnInitialize` is the first safe
   place), never at file load.
 - Ace3 types come from the `ketho.wow-api` VS Code extension, not from `lib/`; inherit from them
@@ -105,7 +105,7 @@ Only classic-era files; the path tells, not the id. Leave out anything under an 
 
 Creatures are named by display id, which the listfile lacks; a Wowhead classic NPC page has it:
 `curl -sL -A "Mozilla/5.0" https://www.wowhead.com/classic/npc=3098 | grep -o "dataset.displayId = [0-9]*"`
-(the Mottled Boar: 503). `/surfer animations <id>` (Surfer_Dev) shows its animations.
+(the Mottled Boar: 503). `/surfers animations <id>` (AzerothSurfers_Dev) shows its animations.
 
 ## Textures and Blizzard frames: reuse art, remake code
 

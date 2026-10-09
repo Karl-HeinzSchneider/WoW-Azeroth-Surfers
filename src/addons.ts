@@ -20,9 +20,9 @@ export function addonDirectories(): AddonDirectory[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** A development addon (`## X-Surfer-Dev:` in its TOC): linked into a client, never packaged. */
+/** A development addon (`## X-AzerothSurfers-Dev:` in its TOC): linked into a client, never packaged. */
 export function isDevAddon(addon: AddonDirectory): boolean {
-  return /^## X-Surfer-Dev:/m.test(readFileSync(addon.toc, "utf-8"));
+  return /^## X-AzerothSurfers-Dev:/m.test(readFileSync(addon.toc, "utf-8"));
 }
 
 export function addonVersion(addon: AddonDirectory): string {

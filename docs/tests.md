@@ -13,13 +13,13 @@ Needs `lua` on PATH. Run from the repo root: paths are relative to it.
 
 ## The files
 
-| File                | Covers                                                                                                                                                                                   |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `load.lua`          | Not a test. Loads addon files into an `app` table the way the TOC does: `"game/simulation"` is `Surfer/src/game/simulation.lua`, an `.xml` entry loads each of its `<Script>`s in order. |
-| `simulation.lua`    | The pure game: physics, collisions, coins and streaks, scoring, difficulties, seeds. Every pattern keeps the track's rules and can be run through (a search over inputs). The autopilot. |
-| `controls.lua`      | Input and movement sampling, coin sound, with the few WoW functions it needs defined as globals.                                                                                         |
-| `overlay.lua`       | The view with stubbed frames: projection, twin, ground, biomes, light, HUD texts, and that **a running frame allocates nothing**.                                                        |
-| `bench-overlay.lua` | Counts API calls per frame on a generated track. Every frame method is an auto-stub returning nil.                                                                                       |
+| File                | Covers                                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `load.lua`          | Not a test. Loads addon files into an `app` table the way the TOC does: `"game/simulation"` is `AzerothSurfers/src/game/simulation.lua`, an `.xml` entry loads each of its `<Script>`s in order. |
+| `simulation.lua`    | The pure game: physics, collisions, coins and streaks, scoring, difficulties, seeds. Every pattern keeps the track's rules and can be run through (a search over inputs). The autopilot.         |
+| `controls.lua`      | Input and movement sampling, coin sound, with the few WoW functions it needs defined as globals.                                                                                                 |
+| `overlay.lua`       | The view with stubbed frames: projection, twin, ground, biomes, light, HUD texts, and that **a running frame allocates nothing**.                                                                |
+| `bench-overlay.lua` | Counts API calls per frame on a generated track. Every frame method is an auto-stub returning nil.                                                                                               |
 
 ## How a test looks
 

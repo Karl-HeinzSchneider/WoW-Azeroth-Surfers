@@ -1,0 +1,44 @@
+## Interface: 16001
+## Title: Azeroth Surfers
+## Notes: A three-lane endless runner starring your character. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/AzerothSurfers/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
+## IconTexture: Interface\Icons\INV_Misc_QuestionMark
+## Author: Karl-HeinzSchneider
+## Version: |cff8080ff@project-version@|r
+## SavedVariables: AzerothSurfersDB
+## X-License: MIT
+## X-Website: https://github.com/Karl-HeinzSchneider/WoW-Surfer
+
+embeds.xml
+
+src\core\logger.lua
+src\core\db.lua
+src\core\ace.lua
+src\core\options.lua
+src\core\minimapbutton.lua
+
+src\game\biomes.lua
+src\biomes\default.lua
+src\biomes\elwynn.lua
+src\biomes\durotar.lua
+src\biomes\transitions\dream.lua
+src\scenes\lobby.lua
+src\game\random.lua
+src\game\simulation.lua
+src\game\track.lua
+src\patterns\patterns.xml
+src\game\autopilot.lua
+src\game\light.lua
+src\game\shapes.lua
+src\game\overlay.lua
+src\game\decorations.lua
+src\game\obstacles.lua
+src\game\ambient.lua
+src\game\window.lua
+src\game\menu.lua
+src\game\hud.lua
+src\game\legend.lua
+src\game\messages.lua
+src\game\screens.lua
+src\game\controls.lua
+
+AzerothSurfers.lua

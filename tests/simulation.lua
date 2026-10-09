@@ -490,6 +490,54 @@ test("a run through zones has a gate between each two", function()
     assert(g.New(1).gates == nil, "without zones, no gates")
 end)
 
+-- A run from the lobby starts in its lane with its coins, its gate at its rim and the patterns
+-- past it; with zones the next gate a zone's length on. It can be run through, from the start
+-- to past its first patterns, at every difficulty.
+test("a run from the lobby starts in front of its gate", function()
+    local lobby = {
+        rim = 50,
+        lane = -1,
+        coins = { { lane = -1, from = 7, count = 4 }, { lane = 0, from = 18, count = 4 } },
+    }
+    local gate = track.GATE
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, zones in ipairs({ false, true }) do
+            local label = string.format("%s%s", difficulty.id, zones and " with zones" or "")
+            local s = g.New(3, difficulty.id, zones, lobby)
+            assert(s.lane == -1 and s.lateral == -1, label .. ": in the lobby's lane")
+            assert(s.gates[1] == lobby.rim and #s.gates == 1, label .. ": its gate first")
+            assert((s.zones or false) == zones, label .. ": zones as asked")
+            local first = math.huge
+            for _, o in ipairs(s.objects) do
+                if not o.gate and o.kind ~= "coin" then
+                    first = math.min(first, o.at)
+                end
+            end
+            g.Start(s)
+            s.forward = true
+            -- The first patterns come in as the run goes.
+            local probe = branch(s)
+            probe.distance, probe.height = s.nextRow - 80, 100
+            g.Update(probe, 1 / 120)
+            for _, o in ipairs(probe.objects) do
+                if not o.gate and o.kind ~= "coin" then
+                    first = math.min(first, o.at)
+                end
+            end
+            assert(first >= lobby.rim + gate.after + gate.lead, label .. ": no box before the gate's empty road ends")
+            if zones then
+                assert(s.nextGate >= lobby.rim + g.ZONE_LENGTH[1], label .. ": the next gate a zone on")
+            end
+            local coins = 0
+            for _, o in ipairs(s.objects) do
+                coins = coins + (o.kind == "coin" and o.at < lobby.rim - gate.before and 1 or 0)
+            end
+            assert(coins == 8, label .. ": the lobby's coins")
+            assert(runnable(s, lobby.rim + 80), label .. ": runnable from the start")
+        end
+    end
+end)
+
 -- The pick honors a pattern's weight by difficulty and its `from`; a run's speed follows its
 -- difficulty.
 test("difficulties pick their patterns and set the speed", function()

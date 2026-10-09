@@ -7,6 +7,7 @@ dofile("tests/load.lua")(app, {
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/screens",
     "game/controls",
 })
 local r = app.overlay

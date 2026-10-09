@@ -4,7 +4,9 @@ dofile("tests/load.lua")(app, {
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
+    "scenes/lobby",
     "biomes/durotar",
+    "biomes/transitions/dream",
     "game/random",
     "game/simulation",
     "game/track",
@@ -18,6 +20,7 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/screens",
     "game/controls",
 })
 app.db = {
@@ -193,6 +196,9 @@ end
 app.db.profile.legend = true
 o:CreateLegend(widget())
 o:CreateMessages(widget())
+o:CreateScreens(widget())
+-- The portal's wind measures the view.
+o.vortex.parent = o.frame
 o:CreateHoldBar(widget())
 -- The first face drawn: a box's front, or a flat coin.
 local function first()
@@ -556,6 +562,65 @@ function GetTime()
     return 0
 end
 print("PASS announcements fade in, stay their time and fade out")
+
+-- The title, the menu and the way into a run from the lobby: each screen's camera, the glide
+-- between them, the menu's keys, the character standing up, the run starting in the lobby's
+-- lane; the lobby's biome up to its gate.
+local lobby, music = app.lobby, {}
+now = 50
+function GetTime()
+    return now
+end
+function PlayMusic(id)
+    music[#music + 1] = id
+end
+function StopMusic()
+    music[#music + 1] = "stop"
+end
+shown = true
+o.frame.SetPropagateKeyboardInput = function() end
+app.db.profile.music = true
+local difficulty = app.db.profile.difficulty
+o:OpenTitle()
+assert(o.screen == "title" and o.state.lobby == lobby and o.state.status == "ready", "the title shows the lobby")
+assert(music[1] == lobby.music, "the title music plays")
+o:Render()
+local title, menu = lobby.shots.title, lobby.shots.menu
+assert(math.abs(o.camera.x - title.at) < 1e-9 and math.abs(o.camera.offset + title.side) < 1e-9, "the title's shot")
+app.db.profile.biome = "durotar"
+assert(o:BiomeIdAt(lobby.rim - 1) == lobby.biome and o:BiomeIdAt(lobby.rim + 1) == "durotar", "the lobby's biome")
+app.db.profile.biome = "elwynn"
+o:OnScreenKey("ENTER")
+assert(o.screen == "menu" and o.glide, "Enter goes on to the menu")
+now = now + lobby.glide.menu / 2
+o:Render()
+assert(o.camera.x < title.at and o.camera.x > menu.at, "on the way to the menu's shot")
+now = now + lobby.glide.menu
+o:Render()
+assert(math.abs(o.camera.x - menu.at) < 1e-9 and not o.glide, "at the menu's shot")
+o:OnScreenKey("S", "MOVEBACKWARD")
+assert(o.selected == 2, "down to the difficulty")
+o:OnScreenKey("D", "TURNRIGHT")
+assert(
+    app.db.profile.difficulty == "hard" and o.state.lobby and o.state.status == "ready",
+    "harder, still in the lobby"
+)
+o:OnScreenKey("W", "MOVEFORWARD")
+o:OnScreenKey("ENTER")
+assert(o.screen == "start" and o.seated, "Play: the character stands up")
+o:OnScreenKey("SPACE", "JUMP")
+assert(o.state.status == "ready", "no key starts the run on the way into it")
+now = now + lobby.seat.standUpSeconds
+o:Render()
+assert(not o.seated and o.glide and music[#music] == "stop", "the twin takes over, the camera glides behind it")
+now = now + lobby.glide.run + 0.01
+o:Render()
+assert(o.screen == nil and o.state.status == "running" and o.state.lane == lobby.lane, "the run starts in the lane")
+app.db.profile.difficulty = difficulty
+function GetTime()
+    return 0
+end
+print("PASS the title, the menu and the way into a run from the lobby")
 
 -- A running frame allocates nothing: no new tables or strings, so no garbage piles up.
 o.state = g.New()
