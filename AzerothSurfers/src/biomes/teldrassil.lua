@@ -8,6 +8,8 @@ local _, app = ...
 local FURBOLG = { 549397, 549401, 549404 }
 -- sound/creature/tiger/mTigerAttackA to D, shared by the classic saber cats.
 local NIGHTSABER = { 562394, 562385, 562393, 562386 }
+-- sound/creature/grell/GrellAttackA to C.
+local GRELL = { 551169, 551174, 551167 }
 
 app.biomes.Derive("teldrassil", "elwynn", {
     name = "Teldrassil",
@@ -56,6 +58,8 @@ app.biomes.Derive("teldrassil", "elwynn", {
         enemy = {
             -- Young Nightsaber (classic NPC 2031, display 11454).
             { layers = 2, items = { { creature = 11454, yaw = 180, attack = 16, sound = NIGHTSABER } } },
+            -- Grell (classic NPC 1988, display 6806), small enough to jump over.
+            { layers = 2, items = { { creature = 6806, yaw = 180, attack = 16, sound = GRELL } } },
             -- Gnarlpine Ursa (classic NPC 2006, display 6798). The display supplies its skin;
             -- loading the raw Furbolg.M2 file leaves its replaceable textures white.
             {
