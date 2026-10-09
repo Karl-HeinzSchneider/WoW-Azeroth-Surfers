@@ -13,11 +13,9 @@ local ground = shapes.Ground
 
 local FONT = "Fonts\\MORPHEUS.ttf"
 local CREDIT = "made by Karl-Heinz Schneider"
--- Pixels at scale 1: the title screen's name and credit, the menu's, its items.
+-- Pixels at scale 1: the title screen's name and credit, and the menu's over its window.
 local TITLE_SIZE, CREDIT_SIZE = 78, 20
-local MENU_TITLE_SIZE, MENU_CREDIT_SIZE, ITEM_SIZE = 42, 14, 28
-local ITEM_HEIGHT, MENU_WIDTH, MARKER = 42, 360, 30
-local VALUE_WIDTH, ARROW_SIZE = 110, 28
+local MENU_TITLE_SIZE, MENU_CREDIT_SIZE = 42, 14
 -- The side window shows them smaller.
 local TITLE_SIDE_SCALE, PROMPT_SIDE_SCALE, MENU_SIDE_SCALE = 0.5, 0.7, 0.6
 -- The prompt's flicker: seconds per pulse, and its faintest.
@@ -27,18 +25,6 @@ local FADE = 0.5
 local GOLD = { 1, 0.82, 0 }
 local CREAM = { 1, 0.9294, 0.7607 }
 local WHITE = { 1, 1, 1 }
--- The login screen's arrow in front of the chosen item; the spell book's page arrows beside the
--- difficulty.
-local MARKER_ART = "Interface\\Glues\\Common\\Glue-RightArrow-Button-Up"
-local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
-local ITEMS = {
-    { act = "play", text = "Play" },
-    { act = "difficulty", text = "Difficulty" },
-    { act = "watch", text = "Watch" },
-    { act = "settings", text = "Settings" },
-    { act = "close", text = "Close" },
-}
-local DIFFICULTY = 2
 -- The bindings that steer a run.
 local MOVES = {
     MOVEFORWARD = true,
@@ -51,6 +37,92 @@ local MOVES = {
 -- A shot's fields (overlay.lua's RunShot), in a fixed order.
 local FIELDS = { "at", "side", "height", "pitch", "fov" }
 
+-- The main menu's pages (menus.lua describes pages and items).
+local function difficulty()
+    return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
+end
+local PAGES = {}
+PAGES.play = {
+    title = "Play",
+    items = {
+        {
+            text = "Play",
+            run = function(o)
+                o:Play(false)
+            end,
+        },
+        {
+            text = "Difficulty",
+            choice = {
+                get = function()
+                    return difficulty().name
+                end,
+                can = function(_, dir)
+                    return sim.DIFFICULTIES[difficulty().level + dir] ~= nil
+                end,
+                step = function(o, dir)
+                    o:StepDifficulty(dir)
+                end,
+                -- From the hardest round to the easiest.
+                wrap = function(o)
+                    o:SetDifficulty(sim.DIFFICULTIES[1].id)
+                end,
+            },
+        },
+        {
+            text = "Auto mode",
+            run = function(o)
+                o:Play(true)
+            end,
+        },
+        { text = "Cancel", back = true },
+    },
+}
+PAGES.stats = {
+    title = "Stats",
+    items = {
+        {
+            text = "Best score",
+            info = function()
+                return tostring(app.db.global.bestScore)
+            end,
+        },
+        { text = "Back", back = true },
+    },
+}
+PAGES.main = {
+    items = {
+        {
+            text = "Play",
+            run = function(_, menu)
+                menu:Push(PAGES.play)
+            end,
+        },
+        {
+            text = "Stats",
+            run = function(_, menu)
+                menu:Push(PAGES.stats)
+            end,
+        },
+        {
+            text = "Options",
+            run = function()
+                app.options:Open()
+            end,
+        },
+        {
+            text = "Close",
+            run = function(o)
+                o.frame:Hide()
+            end,
+        },
+    },
+    -- Back from the first page: to the title.
+    back = function(o)
+        o:BackToTitle()
+    end,
+}
+
 local function text(parent, size, color)
     local t = parent:CreateFontString(nil, "OVERLAY")
     t:SetFontObject(GameFontNormalHuge)
@@ -59,19 +131,6 @@ local function text(parent, size, color)
     t:SetShadowOffset(2, -2)
     t:SetTextColor(color[1], color[2], color[3])
     return t
-end
-
-local function arrow(o, parent, art, step)
-    local button = CreateFrame("Button", nil, parent)
-    button:SetSize(ARROW_SIZE, ARROW_SIZE)
-    button:SetNormalTexture(art .. "-Up")
-    button:SetPushedTexture(art .. "-Down")
-    button:SetDisabledTexture(art .. "-Disabled")
-    button:SetHighlightTexture("Interface\\Buttons\\UI-Common-MouseHilight", "ADD")
-    button:SetScript("OnClick", function()
-        o:StepDifficulty(step)
-    end)
-    return button
 end
 
 function overlay:CreateScreens(f)
@@ -96,10 +155,10 @@ function overlay:CreateScreens(f)
     local promptText = text(prompt, 24, WHITE)
     promptText:SetPoint("CENTER")
 
-    -- The menu: a smaller name and the items under it.
+    -- The menu: a smaller name, and the menu window (menus.lua) under it.
     local menu = CreateFrame("Frame", nil, f)
     self:Stack(menu, "screens")
-    menu:SetSize(MENU_WIDTH, 1)
+    menu:SetSize(1, 1)
     menu:SetAlpha(0)
     menu:Hide()
     local menuName = text(menu, MENU_TITLE_SIZE, GOLD)
@@ -108,35 +167,8 @@ function overlay:CreateScreens(f)
     local menuCredit = text(menu, MENU_CREDIT_SIZE, CREAM)
     menuCredit:SetPoint("TOPLEFT", menuName, "BOTTOMLEFT", 2, -2)
     menuCredit:SetText(CREDIT)
-    local top = -(MENU_TITLE_SIZE + MENU_CREDIT_SIZE + 36)
-    local items = {}
-    for i, spec in ipairs(ITEMS) do
-        local button = CreateFrame("Button", nil, menu)
-        button:SetSize(MENU_WIDTH, ITEM_HEIGHT)
-        button:SetPoint("TOPLEFT", 0, top - (i - 1) * ITEM_HEIGHT)
-        local label = text(button, ITEM_SIZE, GOLD)
-        label:SetPoint("LEFT", MARKER + 8, 0)
-        label:SetText(spec.text)
-        button:SetScript("OnEnter", function()
-            self:SelectItem(i)
-        end)
-        button:SetScript("OnClick", function()
-            self:ChooseItem(i)
-        end)
-        items[i] = { button = button, label = label }
-    end
-    menu:SetHeight(-top + #ITEMS * ITEM_HEIGHT)
-    local marker = menu:CreateTexture(nil, "ARTWORK")
-    marker:SetTexture(MARKER_ART)
-    marker:SetSize(MARKER, MARKER)
-    -- The difficulty's value between its arrows, right of its label.
-    local row = items[DIFFICULTY]
-    local easier, harder = arrow(self, row.button, ARROWS[1], -1), arrow(self, row.button, ARROWS[2], 1)
-    easier:SetPoint("LEFT", row.label, "RIGHT", 12, 0)
-    local value = text(row.button, ITEM_SIZE - 4, WHITE)
-    value:SetWidth(VALUE_WIDTH)
-    value:SetPoint("LEFT", easier, "RIGHT", 2, 0)
-    harder:SetPoint("LEFT", value, "RIGHT", 2, 0)
+    self.mainMenu = self:CreateMenu(menu)
+    self.mainMenu.panel:SetPoint("TOPLEFT", menuCredit, "BOTTOMLEFT", -14, -12)
 
     self.screens = {
         title = title,
@@ -144,15 +176,8 @@ function overlay:CreateScreens(f)
         prompt = prompt,
         promptText = promptText,
         menu = menu,
-        items = items,
-        marker = marker,
-        easier = easier,
-        harder = harder,
-        value = value,
         alpha = {},
     }
-    self.selected = 1
-
     -- The character at the fire: an actor of the world scene, so the fire and the models in
     -- front of it cover it. Placed by its origin, at its feet.
     if not self.worldScene then
@@ -246,7 +271,6 @@ function overlay:EnterLobby()
         self.state = self:NewState(app.lobby)
     end
     self.startPhase, self.watching, self.twinFace = nil, nil, nil
-    self.selected = self.selected or 1
     self.seated, self.seatWant = true, app.lobby.seat.sit
     self.legendState = nil
 end
@@ -264,7 +288,14 @@ function overlay:OpenMenu()
     self:StartGlide(app.lobby.glide.menu)
     self:EnterLobby()
     self.screen, self.shotName = "menu", "menu"
+    self.mainMenu:Open(PAGES.main)
     self:PlayTitleMusic(true)
+end
+
+-- Back from the main menu's first page: the camera glides to the title's shot.
+function overlay:BackToTitle()
+    self:StartGlide(app.lobby.glide.menu)
+    self.screen, self.shotName = "title", "title"
 end
 
 function overlay:ContinueTitle()
@@ -286,32 +317,9 @@ function overlay:Play(watch)
     self.legendState = nil
 end
 
-function overlay:SelectItem(i)
-    self.selected = (i - 1) % #ITEMS + 1
-end
-
-function overlay:ChooseItem(i)
-    self:SelectItem(i)
-    local act = ITEMS[self.selected].act
-    if act == "play" then
-        self:Play(false)
-    elseif act == "watch" then
-        self:Play(true)
-    elseif act == "difficulty" then
-        -- Round from the hardest to the easiest.
-        local current = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
-        local other = sim.DIFFICULTIES[current.level % #sim.DIFFICULTIES + 1]
-        self:SetDifficulty(other.id)
-    elseif act == "settings" then
-        app.options:Open()
-    elseif act == "close" then
-        self.frame:Hide()
-    end
-end
-
 -- The keys while a screen shows; true when the run's own handling is not to see `key`. The title
--- goes on with the move-forward key, Enter or jump; every other key, and every key in the menu
--- (it is clicked), goes on to WoW untouched.
+-- goes on with the move-forward key, Enter or jump; the menu takes its actions' keys
+-- (menus.lua's MenuAction). Every other key goes on to WoW untouched.
 function overlay:OnScreenKey(key, binding)
     local screen = self.screen
     if screen == "title" then
@@ -322,7 +330,11 @@ function overlay:OnScreenKey(key, binding)
         end
         return true
     elseif screen == "menu" then
-        self.frame:SetPropagateKeyboardInput(true)
+        local action = overlay.MenuAction(key, binding)
+        self.frame:SetPropagateKeyboardInput(action == nil)
+        if action then
+            self.mainMenu:Input(action)
+        end
         return true
     elseif screen == "start" or app.autopilot.InIntro(self.state) then
         -- On the way into the run and up to the portal, the run plays itself: the movement keys
@@ -482,26 +494,7 @@ function overlay:ShowScreens()
         local pulse = (math.cos(2 * math.pi * now / PULSE) + 1) / 2
         sc.promptText:SetAlpha(PULSE_LOW + (1 - PULSE_LOW) * pulse)
     elseif self.screen == "menu" then
-        self:ShowMenuChoice()
+        self.mainMenu:Show()
     end
     self:PlaceSeat()
-end
-
--- The chosen item white behind the marker, the others gold; the difficulty's value.
-function overlay:ShowMenuChoice()
-    local sc = self.screens
-    local difficulty = sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
-    if sc.shownChoice == self.selected and sc.shownDifficulty == difficulty then
-        return
-    end
-    sc.shownChoice, sc.shownDifficulty = self.selected, difficulty
-    for i, item in ipairs(sc.items) do
-        local color = i == self.selected and WHITE or GOLD
-        item.label:SetTextColor(color[1], color[2], color[3])
-    end
-    sc.marker:ClearAllPoints()
-    sc.marker:SetPoint("LEFT", sc.items[self.selected].button, "LEFT", 0, 0)
-    sc.value:SetText(difficulty.name)
-    sc.easier:SetEnabled(difficulty.level > 1)
-    sc.harder:SetEnabled(difficulty.level < #sim.DIFFICULTIES)
 end

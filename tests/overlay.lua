@@ -21,6 +21,7 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/menus",
     "game/screens",
     "game/controls",
 })
@@ -599,22 +600,47 @@ assert(o.camera.x < title.at and o.camera.x > menu.at, "on the way to the menu's
 now = now + lobby.glide.menu
 o:Render()
 assert(math.abs(o.camera.x - menu.at) < 1e-9 and not o.glide, "at the menu's shot")
+-- The menu (menus.lua): directions by the movement bindings, E accepts, Q goes back; every
+-- other key goes on to WoW.
+IsModifierKeyDown = IsModifierKeyDown or function()
+    return false
+end
 local passed
 o.frame.SetPropagateKeyboardInput = function(_, on)
     passed = on
 end
-for _, key in ipairs({ { "ENTER" }, { "W", "MOVEFORWARD" }, { "SPACE", "JUMP" }, { "D", "TURNRIGHT" } }) do
-    assert(o:OnScreenKey(key[1], key[2]) and passed == true, "the menu's keys go on to WoW: " .. key[1])
+local function press(key, binding)
+    assert(o:OnScreenKey(key, binding), "a screen's key: " .. key)
+    return passed
 end
-assert(o.screen == "menu" and o.state.status == "ready", "no key chooses in the menu")
-o.frame.SetPropagateKeyboardInput = function() end
--- It is clicked.
-o:ChooseItem(2)
+local main = o.mainMenu
+assert(press("ENTER") and press("SPACE", "JUMP"), "Enter and jump go on to WoW")
+assert(main:Page().title == nil and main.stack[1].selected == 1, "on the main page, at Play")
+assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Stats")
+assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Stats", "E accepts, whatever E is bound to")
+press("Q", "STRAFELEFT")
+assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
+press("Q", "STRAFELEFT")
+assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
+press("W", "MOVEFORWARD")
+assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
+press("E")
+assert(main:Page().title == "Play", "Play opens its page")
+press("DOWN")
+press("D", "TURNRIGHT")
 assert(
     app.db.profile.difficulty == "hard" and o.state.lobby and o.state.status == "ready",
     "harder, still in the lobby"
 )
-o:ChooseItem(1)
+press("A", "TURNLEFT")
+press("A", "TURNLEFT")
+press("A", "TURNLEFT")
+assert(app.db.profile.difficulty == "easy", "no easier than the easiest")
+press("E")
+assert(app.db.profile.difficulty == "normal", "accept steps it on")
+o.frame.SetPropagateKeyboardInput = function() end
+press("UP")
+press("E")
 assert(o.screen == "start" and o.seated, "Play: the character stands up")
 o:OnScreenKey("SPACE", "JUMP")
 assert(o.state.status == "ready", "no key starts the run on the way into it")

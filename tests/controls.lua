@@ -8,6 +8,7 @@ dofile("tests/load.lua")(app, {
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/menus",
     "game/screens",
     "game/controls",
 })

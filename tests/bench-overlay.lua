@@ -194,6 +194,7 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/menus",
     "game/screens",
     "game/controls",
 })
