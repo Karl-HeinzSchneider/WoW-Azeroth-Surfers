@@ -69,10 +69,14 @@ default in `db.lua` and an entry in `options.lua`.
   ground's curve (`Ground`).
 - `overlay.lua` — `app.overlay`, the view: road, boxes and coins projected through a camera
   shot (`RunShot` imitates the follow camera; screens.lua's `ViewShot` swaps in a screen's or
-  glides between them), and the twin covering the real character. **A running frame allocates
-  nothing** (`tests/overlay.lua` checks it).
+  glides between them), and the twin over the real character: an actor of the world scene, so it
+  shares its camera and depth with every model, drawn `TWIN_SIZE` (√2) times as big as the real
+  character (the size it had in a scene of its own). **A running frame allocates nothing**
+  (`tests/overlay.lua` checks it).
 - Files that extend `app.overlay`, in TOC order:
-  - `decorations.lua` — the roadside's and the lobby's models in one world ModelScene.
+  - `decorations.lua` — the world ModelScene (one render pass for every model, the twin's too,
+    with the road's camera; its lens measured against the road) and the roadside's and the
+    lobby's models in it.
   - `occluder.lua` — the ground's depth: a scene of flat tiles under the 2D ground hides what
     models have below it (the 3D scenes share the depth buffer). How deep under the ground and
     from where (`SINK`, `BEHIND`) switches at the lobby's portal.

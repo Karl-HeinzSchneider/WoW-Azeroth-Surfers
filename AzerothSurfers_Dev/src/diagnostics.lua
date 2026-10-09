@@ -7,8 +7,8 @@ local PARTS = {
     "simulation",
     "twin animation, models",
     "road placement",
+    "ground scroll, decorations, obstacles, wildlife",
     "twin",
-    "ground scroll, decorations, obstacles",
     "boxes, coins",
     "texts",
 }
@@ -45,8 +45,8 @@ dev.Command("profile", "profile (twice): milliseconds per frame by part", functi
     for _, part in ipairs(PARTS) do
         log:chat("  %-26s %.3f ms", part, (timing[part] or 0) / frames)
     end
-    local scenes = (o.twin:IsShown() and 1 or 0) + (o.probeScene:IsShown() and 1 or 0)
-    scenes = scenes + (o.worldScene:IsShown() and 1 or 0)
+    local scenes = (o.worldScene:IsShown() and 1 or 0) + (o.probeScene:IsShown() and 1 or 0)
+    scenes = scenes + (o.occluder and o.occluder.scene:IsShown() and 1 or 0)
     log:chat(
         "Last frame: %d faces, %d 3D coins, %d decorations, %d boxes with models, %d model scenes shown, %d ground textures",
         o.faceCount or 0,
@@ -58,15 +58,15 @@ dev.Command("profile", "profile (twice): milliseconds per frame by part", functi
     )
 end)
 
--- /surfers debug: the twin's camera and scene against the game's camera, the world scene's lens
--- against the road, and every model's measured bounds.
+-- /surfers debug: the road's camera against the game's camera, the world scene's lens against
+-- the road, the twin's square on the screen, and every model's measured bounds.
 dev.Command("debug", "debug: cameras, lens calibration, model bounds", function()
     local o = dev.Overlay()
     if not o then
         return
     end
     local cam, ground = o.camera, app.shapes.Ground
-    local settings, scene = app.db.profile.overlay, o.twin
+    local settings, scene = app.db.profile.overlay, o.twinAnchor
     log:chat(
         "zoom %s (used %.2f), cameraFov %s, fov setting %d",
         tostring(GetCameraZoom and GetCameraZoom()),
@@ -75,7 +75,7 @@ dev.Command("debug", "debug: cameras, lens calibration, model bounds", function(
         settings.fov
     )
     log:chat(
-        "UI scale %.3f, scene scale %.3f, screen %.0f x %.0f, scene %.0f x %.0f",
+        "UI scale %.3f, twin square scale %.3f, screen %.0f x %.0f, twin square %.0f x %.0f",
         UIParent:GetEffectiveScale(),
         scene:GetEffectiveScale(),
         o.frame:GetWidth(),
@@ -119,5 +119,61 @@ dev.Command("debug", "debug: cameras, lens calibration, model bounds", function(
         o.body,
         o.referenceHeight,
         o.bodyScale
+    )
+end)
+
+-- On-screen distance (UI units) between two points projected by `scene`, in the scene's own
+-- coordinates; nil while it cannot project.
+local function projected(scene, x1, y1, z1, x2, y2, z2)
+    local ax, ay = scene:Project3DPointTo2D(x1, y1, z1)
+    local bx, by = scene:Project3DPointTo2D(x2, y2, z2)
+    if type(ax) ~= "number" or type(bx) ~= "number" then
+        return nil
+    end
+    return math.sqrt((bx - ax) ^ 2 + (by - ay) ^ 2) / scene:GetEffectiveScale()
+end
+
+-- /surfers twinsize: how big the twin is drawn on the screen (its model's height at its scale, in
+-- the world scene) against the road's projection of the body it stands for: overlay.lua's
+-- TWIN_SIZE times the twin size setting. During a run (the twin is placed).
+dev.Command("twinsize", "twinsize: the twin's size on the screen against the road's projection of its body", function()
+    local o = dev.Overlay()
+    if not o then
+        return
+    end
+    if o.seated or not o.twinActor:IsShown() then
+        log:chat("Start a run first: the twin is not placed while the character sits at the fire.")
+        return
+    end
+    local _, _, low, _, _, high = o.Extents(o.twinActor)
+    if not low then
+        log:chat("The twin's model has not loaded yet.")
+        return
+    end
+    local s, cam = o.state, o.camera
+    local lane = app.simulation.geometry.laneWidth
+    local tall = (high - low) * o.twinActor:GetScale()
+    local feet = cam.feet
+    -- The world scene: the runner at sceneRunner, its lane on the scene's y (pointing left).
+    local x, y = o.sceneRunner, s.lateral * lane
+    local drawn = projected(o.worldScene, x, y, feet, x, y, feet + tall)
+    -- The road's projection of the body: screen-right of the middle.
+    local _, footY = o:Project(0, -s.lateral * lane, feet)
+    local _, topY = o:Project(0, -s.lateral * lane, feet + o.body)
+    local road = footY and topY and math.abs(topY - footY)
+    log:chat(
+        "Twin drawn %.2f yards tall (model %.2f at scale %.3f), body %.2f; on the screen %s against %s (UI units)",
+        tall,
+        high - low,
+        o.twinActor:GetScale(),
+        o.body,
+        drawn and string.format("%.1f", drawn) or "n/a",
+        road and string.format("%.1f", road) or "n/a"
+    )
+    log:chat(
+        "twin / body %s (expected about %.3f: sqrt(2) times the twin size setting %.2f)",
+        (drawn and road and road > 0) and string.format("%.4f", drawn / road) or "n/a",
+        math.sqrt(2) * app.db.profile.overlay.twinScale,
+        app.db.profile.overlay.twinScale
     )
 end)

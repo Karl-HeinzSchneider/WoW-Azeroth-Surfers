@@ -30,7 +30,6 @@ local ORDER = {
     full = {
         view = { "BACKGROUND" },
         world = { "BACKGROUND", 2 },
-        twin = { "LOW", 10 },
         flash = { "LOW", 12 },
         hud = { "LOW", 15 },
         legend = { "MEDIUM", 15 },
@@ -43,7 +42,6 @@ local ORDER = {
     side = {
         view = { "HIGH" },
         world = { "HIGH", 2 },
-        twin = { "HIGH", 10 },
         flash = { "HIGH", 12 },
         hud = { "HIGH", 15 },
         legend = { "HIGH", 15 },
@@ -55,7 +53,7 @@ local ORDER = {
     },
 }
 -- The 3D scenes share the depth buffer: with the same clip planes and camera, their depths
--- compare as in one scene (a bar the twin runs under covers it once past).
+-- compare as in one scene (the world scene with the twin, and the occluder's, occluder.lua).
 local CLIP_NEAR, CLIP_FAR = 0.2, 250
 local COIN_SIZE = 0.5 -- a coin model's largest side
 -- The twin's animations, and the speeds walking, running and backpedalling are animated for. A
@@ -71,8 +69,13 @@ local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
 -- taller one is drawn this tall with the road's camera nearer (`bodyScale`): it still covers
 -- the real one, and the track is drawn bigger around it.
 local REFERENCE_HEIGHT = 1.7
--- The twin's square scene spans this many character heights, room for arms and turns.
+-- The twin's square on the screen (`twinAnchor`) spans this many character heights, room for
+-- arms and turns.
 local TWIN_FRAME = 1.6
+-- How much bigger the twin is drawn than the real character: the size it had in a square scene
+-- of its own, where a field of view spans the frame's diagonal, not its side as that code assumed
+-- (`/surfers twinsize` measured it). Kept as the twin's look.
+local TWIN_SIZE = math.sqrt(2)
 
 -- The view: the road, boxes and coins, and a twin (a copy of the character) running on it that
 -- covers the real one. This file draws; controls.lua adds input, the per-frame step and scoring.
@@ -511,6 +514,12 @@ function overlay:Measure()
     shapes.Hide(self.probeScene)
 end
 
+-- The twin's scale: the twin size setting, a tall character at the track's size
+-- (referenceHeight), and TWIN_SIZE. The character at the lobby's fire too (screens.lua).
+function overlay:TwinScale()
+    return app.db.profile.overlay.twinScale / self.bodyScale * TWIN_SIZE
+end
+
 function overlay:ApplyBodyScale()
     self.bodyScale = math.max(1, self.height / self.referenceHeight)
     self.body = self.height / self.bodyScale
@@ -809,24 +818,19 @@ function overlay:Create()
     probe:SetPoint("TOPLEFT")
     probe:SetAlpha(0)
     self.probeScene, self.probe = probe, probe:CreateActor()
-    -- The twin draws over everything else of the addon (ORDER), its model on the scene's top
-    -- layer.
-    local twin = CreateFrame("ModelScene", nil, f)
-    twin:SetSize(1, 1)
-    twin:SetPoint("CENTER")
-    twin:EnableMouse(false)
-    self:Stack(twin, "twin")
-    twin:SetDrawLayer("OVERLAY")
-    twin:SetCameraNearClip(CLIP_NEAR)
-    twin:SetCameraFarClip(CLIP_FAR)
-    light.AddScene(twin, { 0.8, 0.8, 0.8 }, { 0.6, 0.6, 0.6 })
-    self.twin = twin
-    self.twinActor = twin:CreateActor()
+    -- Where the twin is on the screen: a square around its body (the streak's panel stands beside
+    -- it, hud.lua).
+    local anchor = CreateFrame("Frame", nil, f)
+    anchor:SetSize(1, 1)
+    anchor:SetPoint("CENTER")
+    self.twinAnchor = anchor
+    -- The world scene: 3D decorations, coins and the twin, one render pass for all of them.
+    self:CreateDecorations(f)
+    -- The twin is one of its actors: one camera and one depth with everything else in it.
+    self.twinActor = self.worldScene:CreateActor()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
     self.twinActor:SetYaw(0)
     self:LoadPlayer()
-    -- The world scene: 3D decorations and coins, one render pass for all of them.
-    self:CreateDecorations(f)
     -- Under the view's frame: it needs a level above the lowest.
     f:SetFrameLevel(math.max(f:GetFrameLevel(), 1))
     self:CreateOccluder()
@@ -947,13 +951,15 @@ function overlay:Create()
     self:Render()
 end
 
--- The twin's scene is a square around the projected body with its camera at the road's camera,
--- turned toward the body, so the scene's field-of-view axis cannot change its size. Half
--- see-through while not running full screen, to line it up. On the title and the menu the
--- character sits at the lobby's fire instead (screens.lua).
+-- The twin: an actor of the world scene, at the runner, its lowest point on the runner's floor;
+-- it shares the scene's camera and depth with everything else there, and the scene's lens is
+-- measured against the road. Drawn TWIN_SIZE times as big as the real character. `twinAnchor` follows it on the
+-- screen. Half see-through while not running full screen, to line it up. On the title and the
+-- menu the character sits at the lobby's fire instead (screens.lua). After FollowWorldCamera:
+-- with the camera of the same frame.
 function overlay:PlaceTwin()
-    local s, settings = self.state, app.db.profile.overlay
-    local scene, actor = self.twin, self.twinActor
+    local s = self.state
+    local actor = self.twinActor
     if not actor:IsLoaded() or self.seated then
         actor:Hide()
         return
@@ -966,32 +972,22 @@ function overlay:PlaceTwin()
         end
         self.twinLow = low
     end
-    local middle = cam.feet + self.body / 2
-    -- The runner's place to the screen's right; the road's camera is straight behind it while
-    -- running, beside it in a screen's shot.
+    -- The runner's place to the screen's right.
     local runner = -s.lateral * LANE
-    local x, y, size = project(0, runner, middle)
-    if not x then
-        actor:Hide()
-        return
-    end
-    local side = TWIN_FRAME * self.body
-    scene:ClearAllPoints()
-    scene:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, y)
-    scene:SetSize(side * size, side * size)
-    -- The scene's y points left.
-    local ahead, left, down = -cam.x, cam.offset + runner, cam.z - middle
-    local level = math.sqrt(ahead * ahead + left * left)
-    local distance = math.sqrt(level * level + down * down)
-    scene:SetCameraPosition(cam.x, left, cam.z)
-    scene:SetCameraOrientationByYawPitchRoll(math.atan2(-left, ahead), math.atan2(down, level), 0)
-    scene:SetCameraFieldOfView(2 * math.atan(side / 2 / distance))
-    -- A tall character at the track's size (referenceHeight); its position counts in its scale.
-    local scale = settings.twinScale / self.bodyScale
+    -- The scene's y points left; its position counts in its scale.
+    local scale = self:TwinScale()
     actor:SetScale(scale)
-    actor:SetPosition(0, 0, cam.feet / scale - self.twinLow)
+    actor:SetPosition((self.sceneRunner or 0) / scale, -runner / scale, cam.feet / scale - self.twinLow)
     actor:SetAlpha((s.status == "running" or self.side or self.screen == "start") and 1 or 0.5)
     actor:Show()
+    local x, y, size = project(0, runner, cam.feet + self.body / 2)
+    if x then
+        local side = TWIN_FRAME * self.body * size
+        local anchor = self.twinAnchor
+        anchor:ClearAllPoints()
+        anchor:SetPoint("CENTER", self.frame, "BOTTOMLEFT", x, y)
+        anchor:SetSize(side, side)
+    end
 end
 
 -- The real character's animation cannot be read, so the twin mirrors its movement; a lane
@@ -1120,8 +1116,6 @@ function overlay:Render(lap)
         end
     end
     lap = self:Lap("road placement", lap)
-    self:PlaceTwin()
-    lap = self:Lap("twin", lap)
     self:ScrollGround()
     self:UpdateOccluder()
     if self.worldScene then
@@ -1132,6 +1126,8 @@ function overlay:Render(lap)
         self:UpdateAmbient()
     end
     lap = self:Lap("ground scroll, decorations, obstacles, wildlife", lap)
+    self:PlaceTwin()
+    lap = self:Lap("twin", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
     local faces, count = shapes.Collect(s, -cam.offset, self.fade.to)
@@ -1155,12 +1151,8 @@ function overlay:Render(lap)
                 shapes.Hide(self.coinActors[i])
             end
         end
-        -- Every shown scene costs a render pass, even an empty one.
-        if #self.decor > 0 or #self.critters > 0 or coins > 0 or not self.coinReady or self.keepWorldScene then
-            shapes.Show(self.worldScene)
-        else
-            shapes.Hide(self.worldScene)
-        end
+        -- Never empty: the twin (or the seated character) is always in it.
+        shapes.Show(self.worldScene)
     end
     lap = self:Lap("boxes, coins", lap)
     self:ShowScreens()
