@@ -9,10 +9,12 @@ Install the **AzerothSurfers** subfolder in Interface/AddOns, reload, and type *
 
 The game opens on its title screen, at a portal in Elwynn Forest with the title music playing.
 Press your move-forward key (W) or Enter to go on to the main menu, where your character sits
-at a campfire beside the track: **Play** (then **Play**, **Difficulty**, **Auto mode**,
-**Cancel**), **Stats**, **Options** and **Close**. Your move-forward / move-backward keys (or
-the arrow keys) choose, your turn keys change the difficulty, **E** accepts and **Q** goes back;
-the mouse works too, and every other key goes on to WoW (Enter still opens the chat). On Play
+at a campfire beside the track: **Play** (then **Play**, **Difficulty**, **Seed**, **Auto
+mode**, **Cancel**), **Stats**, **Options** and **Close**. Your move-forward / move-backward
+keys (or the arrow keys) choose, your turn keys change the difficulty, **E** accepts and **Q**
+goes back; the mouse works too, and every other key goes on to WoW (Enter still opens the chat).
+The seed starts random: **R** rolls a new one, or type one into its box (**E** or a click, then
+Enter). On Play
 your character stands up, walks over to the track and runs through the portal into the first
 zone. After a run, **Run again** starts right away, **Main menu** goes back to the fire.
 

@@ -401,10 +401,10 @@ function overlay:ScrollGround()
     -- The zones by where each ends: once a frame, not once a piece.
     onGround.firstId, onGround.firstEnd, onGround.nextId, onGround.nextEnd = self.biomeId, math.huge, nil, math.huge
     local lobby = self.state.lobby
-    if app.db.profile.biome ~= app.biomes.AUTO and lobby and distance + EDGES[1] < lobby.rim then
-        -- The lobby's biome up to its gate, the chosen one past it.
+    if lobby and distance + EDGES[1] < lobby.rim then
+        -- The lobby's biome up to its gate, the first zone's past it (BiomeIdAt).
         onGround.firstId, onGround.firstEnd = lobby.biome, lobby.rim - distance
-        onGround.nextId = app.db.profile.biome
+        onGround.nextId = self:BiomeIdAt(lobby.rim + 1)
         addCut(onGround.firstEnd)
     elseif app.db.profile.biome == app.biomes.AUTO then
         local biomes, route = app.biomes, self:Route()
@@ -638,9 +638,11 @@ end
 -- zone it stands in, so the next zone comes into sight on the horizon.
 function overlay:BiomeIdAt(at)
     local id, biomes = app.db.profile.biome, app.biomes
-    -- Before the lobby's gate, the lobby's own.
-    local lobby = self.state and self.state.lobby
-    if lobby and at < lobby.rim then
+    -- Before the lobby's gate the lobby's own, and everywhere until its run starts: the title and
+    -- the menu look the same whatever the run's seed (and so its first zone).
+    local s = self.state
+    local lobby = s and s.lobby
+    if lobby and (at < lobby.rim or s.status == "ready") then
         return lobby.biome
     end
     if id ~= biomes.AUTO then
@@ -679,10 +681,17 @@ end
 -- In auto, blended toward the next zone's as it nears, so the far ground does not jump.
 function overlay:GroundCurve()
     local curve = self.biome.ground.curve
+    -- Before the lobby's gate, from the lobby's own at the start to the first zone's at the rim:
+    -- the camp looks the same whatever the run's seed (and so its first zone).
+    local s, lobby = self.state, self.state.lobby
+    if lobby and s.distance < lobby.rim then
+        local next = app.biomes.Get(self:BiomeIdAt(lobby.rim + 1)).ground.curve
+        return curve + (next - curve) * math.max(0, s.distance / lobby.rim)
+    end
     if app.db.profile.biome ~= app.biomes.AUTO then
         return curve
     end
-    local s, biomes = self.state, app.biomes
+    local biomes = app.biomes
     local zone = biomes.Zone(self:Route(), s.distance)
     local nearer = math.min(1, math.max(0, 1 - (zone.to - s.distance) / sim.AHEAD))
     if nearer == 0 then

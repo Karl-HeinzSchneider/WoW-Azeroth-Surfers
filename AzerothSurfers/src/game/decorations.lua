@@ -197,6 +197,8 @@ local function release(self, i)
     list[#list] = nil
 end
 
+-- The seed of the lobby's looks (its models' ranges), the same for every run.
+local LOBBY_LOOK = 1
 -- Yards of roadside left bare where a biome has no decorations.
 local EMPTY = 10
 
@@ -301,7 +303,8 @@ function overlay:UpdateDecorations()
             self.decorNext[side] = (s.lobby and s.lobby.rim or s.distance - 15) + r() * value(r, look.spacing, 0)
         end
         if s.lobby then
-            local r = self.gateRandom:Seed(s.seed, random.LOOK)
+            -- The same camp whatever the run's seed: a new one in the menu changes nothing in view.
+            local r = self.gateRandom:Seed(LOBBY_LOOK, random.LOOK)
             for _, item in ipairs(s.lobby.items) do
                 placeFixed(self, r, item, 0)
             end
@@ -340,7 +343,8 @@ function overlay:UpdateDecorations()
     while gates and self.gatesPlaced < #gates and gates[self.gatesPlaced + 1] < s.distance + fade.to do
         local k = self.gatesPlaced + 1
         self.gatesPlaced = k
-        local r = self.gateRandom:Seed(s.seed + k, random.LOOK)
+        -- The lobby's portal as always (its camp's); every other one by the run's seed.
+        local r = self.gateRandom:Seed((s.lobby and k == 1) and LOBBY_LOOK or s.seed + k, random.LOOK)
         local transition = app.biomes.Transition(self:BiomeAt(gates[k] + 1).entrance)
         for _, item in ipairs(transition.items) do
             placeFixed(self, r, item, gates[k])

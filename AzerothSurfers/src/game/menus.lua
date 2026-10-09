@@ -2,11 +2,13 @@
 local _, app = ...
 -- The game's menus: a dialog window (the frame of the pause panel and the hotkey list) showing
 -- one page of a stack, steered by four directions and two buttons. Up and down choose an item,
--- left and right change a choice, accept runs the item, back returns to the page before. Keys map
--- to these actions in one place (`MenuAction`); a gamepad would map to the same. The mouse works
+-- left and right change a choice, accept runs the item, back returns to the page before, and a
+-- page may have one extra action of its own. Keys map to these actions in one place
+-- (`MenuAction`); a gamepad would map to the same. The mouse works
 -- too: an item is chosen by pointing at it and run by a click.
 --
--- A page: { title = text or nil, items = { ... }, back = function(o) for back on the first page }.
+-- A page: { title = text or nil, items = { ... }, back = function(o) for back on the first page,
+-- extra = { text = its hint, run = function(o, menu) } }.
 -- An item:
 --   text    its label
 --   run     function(o, menu): run on accept
@@ -15,6 +17,8 @@ local _, app = ...
 --           dir): whether it can step that way }; left and right step it, accept steps it on
 --           (round from the last to the first: `wrap`, function(o))
 --   info    function(o): a value shown on the right; the line cannot be chosen
+--   input   { get = function(o): the box's text, set = function(o, text) }: a number box; accept
+--           (or a click) types in it, Enter keeps the number, Escape the one before
 local overlay = app.overlay
 
 local FONT = "Fonts\\MORPHEUS.ttf"
@@ -31,9 +35,9 @@ local GRAY = { 0.8, 0.8, 0.8 }
 local MARKER_ART = "Interface\\Glues\\Common\\Glue-RightArrow-Button-Up"
 local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
 
--- Accept and back by the key itself, whatever it is bound to (E and Q strafe by default); the
--- directions by the movement bindings and the arrow keys.
-local ACCEPT_KEY, BACK_KEY = "E", "Q"
+-- Accept, back and a page's extra action by the key itself, whatever it is bound to (E and Q
+-- strafe by default); the directions by the movement bindings and the arrow keys.
+local ACCEPT_KEY, BACK_KEY, EXTRA_KEY = "E", "Q", "R"
 local DIRECTIONS = {
     UP = "up",
     DOWN = "down",
@@ -48,25 +52,28 @@ local DIRECTIONS = {
 }
 
 -- The menu action of `key` (bound to `binding`): "up", "down", "left", "right", "accept",
--- "back", or nil for a key the menu leaves to WoW.
+-- "back", "extra", or nil for a key the menu leaves to WoW.
 function overlay.MenuAction(key, binding)
     if not IsModifierKeyDown() then
         if key == ACCEPT_KEY then
             return "accept"
         elseif key == BACK_KEY then
             return "back"
+        elseif key == EXTRA_KEY then
+            return "extra"
         end
     end
     return DIRECTIONS[key] or DIRECTIONS[binding]
 end
 
 -- The footer's hints: the keys of `bindings` (their first ones) or `key`, and what they do;
--- `choice`: only on a page with a choice.
+-- `choice`: only on a page with a choice; `extra`: the page's extra action, with its text.
 local HINTS = {
     { bindings = { "MOVEFORWARD", "MOVEBACKWARD" }, text = "Select" },
     { bindings = { "TURNLEFT", "TURNRIGHT" }, text = "Change", choice = true },
     { key = ACCEPT_KEY, text = "Accept" },
     { key = BACK_KEY, text = "Back" },
+    { key = EXTRA_KEY, extra = true },
 }
 
 local function text(parent, size, color)
@@ -118,6 +125,29 @@ function Menu:Row(i)
     row.info = text(row, VALUE_SIZE, WHITE)
     row.info:SetJustifyH("RIGHT")
     row.info:SetPoint("RIGHT", 0, 0)
+    -- An input's box (menu.lua's number box): Enter keeps the number, Escape the one before.
+    local box = overlay.NumberBox(row)
+    box:SetPoint("RIGHT", 0, 0)
+    box:SetScript("OnEnterPressed", box.ClearFocus)
+    box:SetScript("OnEditFocusGained", function()
+        self:SelectRow(i)
+        box:HighlightText()
+    end)
+    box:SetScript("OnEditFocusLost", function()
+        box:HighlightText(0, 0)
+        local item = self:Page().items[i]
+        local typed = box:GetText()
+        if item and item.input and typed ~= "" and typed ~= row.shownValue and not row.escaped then
+            item.input.set(self.o, typed)
+        end
+        row.shownValue, row.escaped = nil, nil
+        self:Show()
+    end)
+    box:SetScript("OnEscapePressed", function()
+        row.escaped = true
+        box:ClearFocus()
+    end)
+    row.box = box
     row:SetScript("OnEnter", function()
         self:SelectRow(i)
     end)
@@ -168,6 +198,12 @@ end
 
 local function selectable(item)
     return item and not item.info
+end
+
+-- Whether the page takes `action` (a page without an extra action leaves its key to WoW).
+function Menu:Takes(action)
+    local page = self:Page()
+    return action ~= "extra" or (page ~= nil and page.extra ~= nil)
 end
 
 -- Shows `page` alone.
@@ -247,6 +283,11 @@ function Menu:Input(action)
     elseif action == "back" then
         self:Back()
         return
+    elseif action == "extra" then
+        local extra = entry.page.extra
+        if extra then
+            extra.run(o, self)
+        end
     elseif action == "accept" and item then
         if item.back then
             self:Back()
@@ -257,6 +298,10 @@ function Menu:Input(action)
             elseif item.choice.wrap then
                 item.choice.wrap(o)
             end
+        elseif item.input then
+            -- Typed in from here; the keys go to the box until Enter or Escape.
+            self.rows[entry.selected].box:SetFocus()
+            return
         elseif item.run then
             item.run(o, self)
             return
@@ -292,6 +337,7 @@ function Menu:Layout()
         row.harder:SetShown(item.choice ~= nil)
         row.value:SetShown(item.choice ~= nil)
         row.info:SetShown(item.info ~= nil)
+        row.box:SetShown(item.input ~= nil)
         row.shownValue = nil
         row:Show()
         hasChoice = hasChoice or item.choice ~= nil
@@ -303,7 +349,7 @@ function Menu:Layout()
     y = y - 6
     self:PlaceTrim(self.trims[2], y)
     y = y - TRIM_HEIGHT - 8
-    y = self:LayoutHints(y, hasChoice)
+    y = self:LayoutHints(y, hasChoice, page.extra)
     panel:SetHeight(-y + PAD - 6)
     self.shownSelected = nil
     self:Show()
@@ -318,11 +364,11 @@ end
 
 -- The hints in a row, centered, wrapped onto a second row should they not fit. Returns where the
 -- next line would start.
-function Menu:LayoutHints(y, hasChoice)
+function Menu:LayoutHints(y, hasChoice, extra)
     local shown, total = {}, 0
     for i, spec in ipairs(HINTS) do
         local hint = self:Hint(i)
-        local on = not spec.choice or hasChoice
+        local on = (not spec.choice or hasChoice) and (not spec.extra or extra ~= nil)
         hint.label:SetShown(on)
         for _, cap in ipairs(hint.caps) do
             cap:Hide()
@@ -341,7 +387,7 @@ function Menu:LayoutHints(y, hasChoice)
                     width = width + cap.width + (k > 1 and CAP_GAP or 0)
                 end
             end
-            hint.label:SetText(spec.text)
+            hint.label:SetText(spec.extra and extra.text or spec.text)
             hint.width = width + LABEL_GAP + hint.label:GetStringWidth()
             shown[#shown + 1] = hint
             total = total + hint.width
@@ -403,13 +449,18 @@ function Menu:Show()
     end
     for i, item in ipairs(items) do
         local row = self.rows[i]
-        local value = item.choice and item.choice.get(o) or item.info and item.info(o)
-        if value and row.shownValue ~= value then
+        local value = item.choice and item.choice.get(o)
+            or item.info and item.info(o)
+            or item.input and item.input.get(o)
+        -- Not while typing in it.
+        if value and row.shownValue ~= value and not (item.input and row.box:HasFocus()) then
             row.shownValue = value
             if item.choice then
                 row.value:SetText(value)
                 row.easier:SetEnabled(item.choice.can(o, -1))
                 row.harder:SetEnabled(item.choice.can(o, 1))
+            elseif item.input then
+                row.box:SetText(value)
             else
                 row.info:SetText(value)
             end

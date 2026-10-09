@@ -69,6 +69,22 @@ PAGES.play = {
                 end,
             },
         },
+        -- The run's seed: a new random one with each new run from the lobby, R for another, or
+        -- typed in.
+        {
+            text = "Seed",
+            input = {
+                get = function(o)
+                    return tostring(o.state.seed)
+                end,
+                set = function(o, typed)
+                    local seed = tonumber(typed)
+                    if seed then
+                        o:SetRunSeed(seed)
+                    end
+                end,
+            },
+        },
         {
             text = "Auto mode",
             run = function(o)
@@ -76,6 +92,12 @@ PAGES.play = {
             end,
         },
         { text = "Cancel", back = true },
+    },
+    extra = {
+        text = "New seed",
+        run = function(o)
+            o:SetRunSeed(app.random.Seed())
+        end,
     },
 }
 PAGES.stats = {
@@ -292,6 +314,17 @@ function overlay:OpenMenu()
     self:PlayTitleMusic(true)
 end
 
+-- The seed of the run about to start from the lobby. With a fixed seed (the options), it is the
+-- fixed one too.
+function overlay:SetRunSeed(seed)
+    seed = app.random.Normalize(seed)
+    if app.db.profile.seed then
+        self:SetSeed(seed)
+    else
+        self.state = self:NewState(app.lobby, seed)
+    end
+end
+
 -- Back from the main menu's first page: the camera glides to the title's shot.
 function overlay:BackToTitle()
     self:StartGlide(app.lobby.glide.menu)
@@ -331,6 +364,9 @@ function overlay:OnScreenKey(key, binding)
         return true
     elseif screen == "menu" then
         local action = overlay.MenuAction(key, binding)
+        if action and not self.mainMenu:Takes(action) then
+            action = nil
+        end
         self.frame:SetPropagateKeyboardInput(action == nil)
         if action then
             self.mainMenu:Input(action)

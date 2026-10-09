@@ -62,6 +62,11 @@ function track.Lobby(s, lobby)
         track.Coins(s, row.lane, row.from, row.count, row.layer or 0)
     end
     track.PlaceGate(s, lobby.rim)
+    -- The same looks whatever the run's seed, so a new seed in the menu changes nothing in view.
+    -- The seeds were still drawn: the track past the gate is the seed's own.
+    for i, o in ipairs(s.objects) do
+        o.seed = i
+    end
     s.nextRow = lobby.rim + track.GATE.after + s.difficulty.startSpeed * game.CLEAR
     if s.nextGate then
         s.nextGate = s.nextGate + lobby.rim

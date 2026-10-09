@@ -590,7 +590,10 @@ o:Render()
 local title, menu = lobby.shots.title, lobby.shots.menu
 assert(math.abs(o.camera.x - title.at) < 1e-9 and math.abs(o.camera.offset + title.side) < 1e-9, "the title's shot")
 app.db.profile.biome = "durotar"
+assert(o:BiomeIdAt(lobby.rim + 1) == lobby.biome, "the lobby's biome everywhere before its run")
+o.state.status = "running"
 assert(o:BiomeIdAt(lobby.rim - 1) == lobby.biome and o:BiomeIdAt(lobby.rim + 1) == "durotar", "the lobby's biome")
+o.state.status = "ready"
 app.db.profile.biome = "elwynn"
 o:OnScreenKey("ENTER")
 assert(o.screen == "menu" and o.glide, "Enter goes on to the menu")
@@ -620,12 +623,33 @@ assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "dow
 assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Stats", "E accepts, whatever E is bound to")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
+assert(press("R") == true, "R goes on to WoW on a page without an extra action")
 press("Q", "STRAFELEFT")
 assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
 press("W", "MOVEFORWARD")
 assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
 press("E")
 assert(main:Page().title == "Play", "Play opens its page")
+local seed = o.state.seed
+assert(press("R") == false and o.state.seed ~= seed and o.state.lobby, "R rolls a new seed for the lobby's run")
+-- Whatever the seed, and so the first zone: the same ground, the same look behind the portal,
+-- the same boxes.
+app.db.profile.biome = "auto"
+local curve, looks = o:GroundCurve(), {}
+for i, box in ipairs(o.state.objects) do
+    looks[i] = box.seed
+end
+for _ = 1, 8 do
+    press("R")
+    assert(o:GroundCurve() == curve, "the same ground curve with a new seed")
+    assert(o:BiomeIdAt(lobby.rim + 5) == lobby.biome, "the lobby's ground behind the portal until the run")
+    for i, box in ipairs(o.state.objects) do
+        assert(box.seed == looks[i], "the lobby's boxes look the same with a new seed")
+    end
+end
+app.db.profile.biome = "elwynn"
+main:Page().items[3].input.set(o, "12345")
+assert(o.state.seed == 12345 and o.state.lobby and o.state.status == "ready", "a seed typed in")
 press("DOWN")
 press("D", "TURNRIGHT")
 assert(
