@@ -1,7 +1,10 @@
 ---@type string, Surfer
-local _, app = ...
+local appName, app = ...
 -- The look every other biome starts from, and the reference for writing one. Distances are in
 -- yards; colors { r, g, b } from 0 to 1; textures and models are classic-era game file ids.
+
+-- Our own sounds (Surfer/assets/sounds/).
+local SOUNDS = "Interface\\AddOns\\" .. appName .. "\\assets\\sounds\\"
 app.biomes.Register("default", {
     name = "Plain",
 
@@ -135,10 +138,32 @@ app.biomes.Register("default", {
         night = { 0.45, 0.5, 0.7 },
     },
 
-    -- Tried in order until one loads (11xp_coin01, 8du_zuldazar_coin01, goldpilesmall01); flat
-    -- coins stand in until then.
+    -- The coins. `models`: entries tried in order until one loads; flat coins until then.
+    --   model   a file id. One the client lacks shows as its error cube, which counts as loaded.
+    --   size    yards its largest side is scaled to (0.5 if left out); larger than a layer, it
+    --           rests on the layer's floor.
+    --   sound   played on collecting one: a game sound file id or one of ours (SOUNDS), or a
+    --           list of them, one per step of a streak (game.STREAK), the last from there on.
+    --           Left out: lootcoinsmall (567428), as for the flat coins. A new file of ours is
+    --           only found after restarting the game, not on /reload.
+    --   finale  with a list: played once instead, on the coin that goes past its last step.
     coin = {
-        models = { 5737987, 2313815, 200137 },
+        models = {
+            {
+                model = 201054, -- g_jewelblue
+                size = 2.6,
+                sound = {
+                    SOUNDS .. "pickup_gem_streak_01.ogg",
+                    SOUNDS .. "pickup_gem_streak_02.ogg",
+                    SOUNDS .. "pickup_gem_streak_03.ogg",
+                    SOUNDS .. "pickup_gem_streak_04.ogg",
+                    SOUNDS .. "pickup_gem_streak_05.ogg",
+                    SOUNDS .. "pickup_gem_streak_06.ogg",
+                    SOUNDS .. "pickup_gem_streak_07.ogg",
+                    SOUNDS .. "pickup_gem_streak_08.ogg",
+                },
+            },
+        },
     },
 
     -- The flat boxes' colors by kind and face (a barrier's posts apart).

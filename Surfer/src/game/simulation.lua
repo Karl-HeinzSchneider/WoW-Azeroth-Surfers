@@ -107,6 +107,10 @@ function game.New(seed, difficulty, zones)
         forward = false,
         coins = 0,
         coinTotal = 0, -- coins come past, collected or missed
+        -- Coins collected one right after another (game.STREAK), and where the last one was.
+        streak = 0,
+        streakAt = 0,
+        bestStreak = 0,
         -- Distance points (fractional) and coin points, each at the multiplier of its moment.
         points = 0,
         bonus = 0,
@@ -126,6 +130,21 @@ end
 
 -- At multiplier 1; a yard run is one point.
 local COIN_POINTS = 25
+
+-- A streak: coins collected one right after another. A coin missed beside it (a parallel row)
+-- does not break it, running on too far without one does:
+--   gap      yards from one collected coin to the next that keep a streak (6: one empty spot
+--            in a row)
+--   seconds  or that long at the speed of the moment, if further (a change of lanes or two)
+--   from     the streak's length from which every coin scores `points` more, at the multiplier
+-- Surfer_Dev's /surfer streak changes them while playing.
+game.STREAK = { gap = 7, seconds = 0.35, from = 7, points = 25 }
+
+-- Yards past the last collected coin a streak holds at the speed of the moment.
+function game.StreakReach(s)
+    local streak = game.STREAK
+    return math.max(streak.gap, streak.seconds * s.speed)
+end
 
 function game.Score(s)
     return math.floor(s.points) + s.bonus
@@ -199,13 +218,22 @@ local function tick(s)
     while s.nextRow < s.distance + game.AHEAD do
         game.Spawn(s)
     end
+    if s.streak > 0 and s.distance > s.streakAt + game.StreakReach(s) then
+        s.streak = 0
+    end
     for i = #s.objects, 1, -1 do
         local o = s.objects[i]
         if not o.hit and o.kind ~= "platform" and game.Overlaps(s, o) then
             if o.kind == "coin" then
                 o.hit = true
                 s.coins = s.coins + 1
-                s.bonus = s.bonus + COIN_POINTS * s.multiplier
+                s.streak, s.streakAt = s.streak + 1, s.distance
+                s.bestStreak = math.max(s.bestStreak, s.streak)
+                local points = COIN_POINTS
+                if s.streak >= game.STREAK.from then
+                    points = points + game.STREAK.points
+                end
+                s.bonus = s.bonus + points * s.multiplier
             elseif not game.invincible then -- Surfer_Dev's /surfer god
                 s.status = "over"
                 return

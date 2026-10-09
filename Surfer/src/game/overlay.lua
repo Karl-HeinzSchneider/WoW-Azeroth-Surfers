@@ -68,6 +68,7 @@ local STRAFE_YAW, STRAFE_HOLD, STRAFE_TURN = math.pi / 4, 0.08, 3.5
 -- all), so its head clears a bar to run under; fitted with a female troll (2.68 measured). A
 -- taller one is drawn this tall with the road's camera nearer (`bodyScale`): it still covers
 -- the real one, and the track is drawn bigger around it.
+local REFERENCE_HEIGHT = 1.7
 -- The twin's square scene spans this many character heights, room for arms and turns.
 local TWIN_FRAME = 1.6
 
@@ -691,9 +692,9 @@ function overlay:NewCoinActor()
     actor:SetUseCenterForOrigin(true, true, true)
     actor:SetPosition(-1000, 0, 0)
     actor.surferAlpha = false
-    local id = self.biome.coin.models[self.coinModel]
-    if id then
-        actor:SetModelByFileID(id)
+    local entry = self.biome.coin.models[self.coinModel]
+    if entry then
+        actor:SetModelByFileID(entry.model)
     end
     if self.coinReady then
         actor:SetScale(self.coinScale)
@@ -709,18 +710,19 @@ function overlay:LoadCoinModel(index)
     if #self.coinActors == 0 then
         self:NewCoinActor()
     end
-    local id = self.biome.coin.models[index]
+    local entry = self.biome.coin.models[index]
     for _, actor in ipairs(self.coinActors) do
-        if id and not actor:SetModelByFileID(id) then
+        if entry and not actor:SetModelByFileID(entry.model) then
             return self:LoadCoinModel(index + 1)
         end
     end
 end
 
--- Fits the coin model into COIN_SIZE once it has loaded, or moves on to the next candidate.
+-- Fits the coin model into its entry's size (COIN_SIZE if none) once it has loaded, or moves on
+-- to the next entry.
 function overlay:UpdateCoinModel(elapsed)
-    local models = self.biome.coin.models
-    if self.coinReady or not self.worldScene or not models[self.coinModel] then
+    local entry = self.biome.coin.models[self.coinModel]
+    if self.coinReady or not self.worldScene or not entry then
         return
     end
     local minX, minY, minZ, maxX, maxY, maxZ = extents(self.coinActors[1])
@@ -728,18 +730,19 @@ function overlay:UpdateCoinModel(elapsed)
     if size > 0.001 then
         -- A coin lying flat (as doodads do) is stood up to face the camera, then spun.
         local flat = maxZ - minZ < 0.3 * math.max(maxX - minX, maxY - minY)
-        self.coinScale, self.coinPitch = COIN_SIZE / size, flat and math.pi / 2 or 0
+        self.coinSize = entry.size or COIN_SIZE
+        self.coinScale, self.coinPitch = self.coinSize / size, flat and math.pi / 2 or 0
         for _, actor in ipairs(self.coinActors) do
             actor:SetScale(self.coinScale)
             actor:SetPitch(self.coinPitch)
         end
         self.coinReady = true
-        app.logger:debug("Coin model %d loaded", models[self.coinModel])
+        app.logger:debug("Coin model %d loaded", entry.model)
         return
     end
     self.coinWait = self.coinWait + elapsed
     if self.coinWait > 3 then
-        app.logger:debug("Coin model %d did not load", models[self.coinModel])
+        app.logger:debug("Coin model %d did not load", entry.model)
         self:LoadCoinModel(self.coinModel + 1)
     end
 end
@@ -1007,16 +1010,18 @@ function overlay:AnimateTwin(elapsed)
     end
 end
 
--- Spinning with its own phase, fading in far ahead like the ground.
+-- Spinning with its own phase, fading in far ahead like the ground. In the middle of its layer,
+-- or resting on the layer's floor when larger.
 function overlay:PlaceCoin(i, o)
     local actor = self.coinActors[i] or self:NewCoinActor()
     local d = o.at + o.length / 2 - self.state.distance
     -- The scene's y points left; an actor's position is scaled with it.
     local scale = self.coinScale
+    local lift = math.max(sim.LAYER, self.coinSize) / 2
     actor:SetPosition(
         (d + self.sceneRunner) / scale,
         o.lane * LANE / scale,
-        ((o.layer + 0.5) * sim.LAYER + ground(d)) / scale
+        (o.layer * sim.LAYER + lift + ground(d)) / scale
     )
     actor:SetYaw(GetTime() * 3 + o.at)
     local alpha = self:FadeAlpha(d)

@@ -39,6 +39,39 @@ dev.Command("multiplier", "multiplier <n>: score n times from now on (the HUD's 
     log:chat("Multiplier: x%d", o.state.multiplier)
 end)
 
+-- sim.STREAK's fields, in the order the command lists them.
+local STREAK_FIELDS = { "gap", "seconds", "from", "points" }
+
+dev.Command(
+    "streak",
+    "streak [gap <yards>] [seconds <s>] [from <coins>] [points <n>]: what keeps a coin streak and what it scores (streak alone: the settings)",
+    function(rest)
+        local streak, words = app.simulation.STREAK, dev.Words(rest)
+        for i = 1, #words, 2 do
+            local field, value = words[i], words[i + 1]
+            if streak[field] == nil or type(value) ~= "number" or value < 0 then
+                log:chat("/surfer streak [gap <yards>] [seconds <s>] [from <coins>] [points <n>]")
+                return
+            end
+            streak[field] = value
+        end
+        local parts = {}
+        for i, field in ipairs(STREAK_FIELDS) do
+            parts[i] = field .. " " .. tostring(streak[field])
+        end
+        log:chat("Streak: %s", table.concat(parts, ", "))
+        local o = app.overlay
+        if o.state then
+            log:chat(
+                "Holds %.1f yards at %d yards a second; this run's best %d",
+                app.simulation.StreakReach(o.state),
+                o.state.speed,
+                o.state.bestStreak
+            )
+        end
+    end
+)
+
 dev.Command(
     "reference",
     "reference <yards>: the height a taller character is drawn at in the track's world (the track grows around it)",

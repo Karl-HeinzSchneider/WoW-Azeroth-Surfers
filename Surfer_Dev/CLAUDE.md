@@ -7,10 +7,11 @@ It reaches Surfer's private table through `LibStub("AceAddon-3.0"):GetAddon("Sur
 (`dev.app`) and adds `/surfer` subcommands with `dev.Command(name, usage, run)`; `/surfer help`
 lists them. Surfer keeps only the hooks the tools use: `overlay:Lap`, `light.override`,
 `simulation.invincible`, `track.list`/`track.byName`, `overlay.keepWorldScene`,
-`overlay.referenceHeight`, `simulation.ZONE_LENGTH`.
+`overlay.referenceHeight`, `simulation.ZONE_LENGTH`, `simulation.STREAK`.
 
 - `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`.
 - `diagnostics.lua` — `/surfer profile`, `/surfer debug`.
 - `preview.lua` — `/surfer preview creature|model|turn|off`.
 - `animations.lua` — `/surfer animations [display id]`.
-- `playtest.lua` — `/surfer light`, `god`, `multiplier`, `spawn`, `zonelength`, `reference`.
+- `playtest.lua` — `/surfer light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
+  `reference`.
