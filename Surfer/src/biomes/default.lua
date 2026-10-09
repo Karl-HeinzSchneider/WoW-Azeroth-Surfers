@@ -138,26 +138,19 @@ app.biomes.Register("default", {
         night = { 0.45, 0.5, 0.7 },
     },
 
-    -- The coin's model: entries tried in order until one loads; flat coins stand in until then.
-    --   model  a file id. One the client lacks shows as its error cube, which counts as loaded:
-    --          classic files only.
-    --   size   yards its largest side is scaled to (0.5 if left out); it rests on its layer's
-    --          floor when larger than the layer.
-    --   sound  played on collecting one: a game sound file id, or the path of one of our own
-    --          under Surfer/assets/sounds/ (lootcoinsmall 567428 if left out, as for the flat
-    --          coins). A new file is only found after restarting the game, not on /reload. Or a
-    --          ladder, a list of them: the streak's step (game.STREAK), the last one from there
-    --          on.
-    --   finale with a ladder: played once instead when the streak goes past its last step; the
-    --          last step again from the next coin on.
-    -- Others to try: g_jewelred 201056, g_jewelblack 201053, ungorocrystal_{blue,green,red,
-    -- yellow}{01,02} 202748-202755, floatingpurplecrystal01 202443, floatingredcrystal01 202447,
-    -- g_relicnesphere 201095, greatpearl_01 198719, goldpilesmall01 200137.
+    -- The coins. `models`: entries tried in order until one loads; flat coins until then.
+    --   model   a file id. One the client lacks shows as its error cube, which counts as loaded.
+    --   size    yards its largest side is scaled to (0.5 if left out); larger than a layer, it
+    --           rests on the layer's floor.
+    --   sound   played on collecting one: a game sound file id or one of ours (SOUNDS), or a
+    --           list of them, one per step of a streak (game.STREAK), the last from there on.
+    --           Left out: lootcoinsmall (567428), as for the flat coins. A new file of ours is
+    --           only found after restarting the game, not on /reload.
+    --   finale  with a list: played once instead, on the coin that goes past its last step.
     coin = {
         models = {
-            -- g_jewelblue
             {
-                model = 201054,
+                model = 201054, -- g_jewelblue
                 size = 2.6,
                 sound = {
                     SOUNDS .. "pickup_gem_streak_01.ogg",
