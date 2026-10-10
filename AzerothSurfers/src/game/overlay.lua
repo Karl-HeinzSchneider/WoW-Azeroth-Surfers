@@ -813,10 +813,9 @@ function overlay:Create()
     local f = CreateFrame("Frame", "AzerothSurfersOverlay", UIParent)
     self.frame = f
     f:SetAllPoints(UIParent)
-    -- Above the 3D world, below the rest of the UI (full screen, ORDER); clicks go through to
-    -- the world.
+    -- Above the 3D world, below the rest of the UI (full screen, ORDER).
     f:SetFrameStrata(ORDER.full.view[1])
-    f:EnableMouse(false)
+    f:EnableMouse(true)
     -- The ground; the boxes on it draw on BORDER.
     self:CreateGround(f)
     self.faces = shapes.Pool(f, "BORDER")

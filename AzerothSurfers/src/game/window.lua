@@ -153,9 +153,9 @@ function overlay:ApplyMode()
     f:SetMovable(side)
     f:SetResizable(side)
     f:SetClampedToScreen(side)
-    -- The side window takes clicks inside it; full screen, they go through to the world.
-    f:EnableMouse(side)
-    -- Wheel input belongs to the game's camera in both modes; world clicks still pass through.
+    -- Both modes block world hover and targeting inside the game's viewport.
+    f:EnableMouse(true)
+    -- Wheel input belongs to the game's camera in both modes.
     f:EnableMouseWheel(true)
     f:SetClipsChildren(side)
     self.sky:SetShown(side)
