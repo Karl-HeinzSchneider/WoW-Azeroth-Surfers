@@ -63,6 +63,43 @@ test("a jump peaks past layer 2, lands and cannot double jump", function()
     advance(s, 0.6, 60)
     assert(s.height == 0 and s.velocity == 0)
 end)
+test("ducking passes under a box on layer 2 for its time, a jump ends it", function()
+    local low = function()
+        return g.Box("barrier", 0, 4, 0.5, 2, 1)
+    end
+    local s = fresh(low())
+    advance(s, 0.3, 60)
+    assert(s.status == "over")
+    s = fresh(low())
+    g.Duck(s)
+    advance(s, 0.3, 60)
+    assert(s.status == "running" and s.distance > 5)
+    advance(s, g.DUCK_TIME, 60)
+    assert(s.duck == 0 and g.BodyHeight(s) == g.geometry.playerHeight)
+    s = fresh()
+    g.Duck(s)
+    g.Jump(s)
+    assert(s.duck == 0 and s.velocity > 0)
+end)
+test("ducking in the air drops faster and ducks on landing", function()
+    local s, plain = fresh(), fresh()
+    g.Jump(s)
+    g.Jump(plain)
+    advance(s, 0.2, 60)
+    advance(plain, 0.2, 60)
+    g.Duck(s)
+    assert(s.duck == 0)
+    local landed
+    for frame = 1, 60 do
+        advance(s, 1 / 60, 60)
+        if s.height == 0 then
+            landed = frame
+            break
+        end
+    end
+    advance(plain, landed / 60, 60)
+    assert(plain.height > 0 and s.duck > 0)
+end)
 test("pause freezes simulation", function()
     local s = fresh()
     g.Jump(s)
@@ -315,11 +352,19 @@ test("every pattern keeps the track's rules", function()
 end)
 
 -- Whether a runner can get through a run's track up to `goal`: a depth-first search over the
--- inputs (nothing, jump, a lane either way, both) every DT seconds, through the simulation
+-- inputs (nothing, jump, a lane either way, both, duck) every DT seconds, through the simulation
 -- itself. Each branch is a copy of the run (its own list of boxes: the simulation drops the
 -- passed ones).
 local DT = 0.05
-local INPUTS = { { 0, false }, { 0, true }, { -1, false }, { 1, false }, { -1, true }, { 1, true } }
+local INPUTS = {
+    { 0, false },
+    { 0, "jump" },
+    { -1, false },
+    { 1, false },
+    { -1, "jump" },
+    { 1, "jump" },
+    { 0, "duck" },
+}
 local function branch(s)
     local c = {}
     for k, v in pairs(s) do
@@ -341,12 +386,13 @@ local function runnable(start, goal)
             return true
         end
         local key = string.format(
-            "%d %d %d %d %d",
+            "%d %d %d %d %d %d",
             step,
             s.lane,
             math.floor(s.lateral * 20 + 0.5),
             math.floor(s.height * 20 + 0.5),
-            math.floor(s.velocity * 4 + 0.5)
+            math.floor(s.velocity * 4 + 0.5),
+            math.floor(s.duck * 20 + 0.5)
         )
         if seen[key] then
             return false
@@ -357,8 +403,10 @@ local function runnable(start, goal)
             if input[1] ~= 0 then
                 g.Move(c, input[1])
             end
-            if input[2] then
+            if input[2] == "jump" then
                 g.Jump(c)
+            elseif input[2] == "duck" then
+                g.Duck(c)
             end
             g.Update(c, DT)
             if go(c, step + 1) then

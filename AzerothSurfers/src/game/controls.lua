@@ -111,6 +111,8 @@ function overlay:Action(key)
         else
             sim.Jump(s)
         end
+    elseif key == "DOWN" or key == "S" then
+        sim.Duck(s)
     elseif key == "P" then
         sim.Pause(s)
     elseif key == "ENTER" then
@@ -322,6 +324,8 @@ function overlay:OnKey(key)
         self:Action("RIGHT")
     elseif binding == "JUMP" then
         self:Action("SPACE")
+    elseif binding == "MOVEBACKWARD" then
+        self:Action("DOWN")
     elseif binding == "MOVEFORWARD" and self.state.status == "ready" then
         sim.Start(self.state)
     end

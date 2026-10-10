@@ -12,7 +12,8 @@ local game = app.simulation
 -- * boxes from `at` on, coins leading in at most LEAD_IN yards before it; it returns its
 --   length, how far past `at` it reaches (no box starts beyond it), and the next pattern
 --   starts past that;
--- * at every point one lane can be run, jumped or climbed through;
+-- * at every point one lane can be run, jumped, climbed or ducked through, and none needs a
+--   lane change, a jump and a duck in one go;
 -- * coins COIN_SPACING apart in a lane, never inside a box, on a platform only over its top.
 local track = { list = {}, byName = {}, choices = {} }
 app.track = track

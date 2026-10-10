@@ -39,6 +39,15 @@ app.biomes.Derive("teldrassil", "elwynn", {
         -- Initial fit; check the opening against the barrier in-game.
         barrier = {
             { items = { { model = 198761, ground = true, height = 4, yaw = 180 } } },
+            -- The low one to duck under: the same arch, a wooden beam (deadminelumberpilesmall,
+            -- as Elwynn's bar) across its opening 1.3 yards up. Initial fit; check in-game.
+            {
+                layer = 2,
+                items = {
+                    { model = 198761, ground = true, height = 4, yaw = 180 },
+                    { model = 198340, yaw = 90, z = 0.1, scale = 0.65 },
+                },
+            },
         },
         obstacle = {
             -- ElfCrate01 and ElfBarrel01: the same readable heights as other starter zones.

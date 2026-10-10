@@ -13,12 +13,26 @@ local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
 local ATTACK_RANGE = 7
 
 local fitting = {}
+-- Variants for the box's own layer first, then those for any.
+local EXACT = { true, false }
 
 -- Seeded by each box (`o.seed`): it looks the same in whatever order it comes into sight.
 local looks = random.New(1, random.LOOK)
 
--- A variant for the box's kind and height, picked once; false when there is none (flat). A
--- gate's boxes take the transition's `obstacles`.
+-- Whether `variant` fits box `o`: its `layers`, and its `layer` (exact: only variants for the
+-- box's layer; else those without one).
+local function fits(variant, o, exact)
+    if variant.layers and variant.layers ~= o.layers then
+        return false
+    end
+    if exact then
+        return variant.layer == o.layer
+    end
+    return variant.layer == nil
+end
+
+-- A variant for the box's kind, height and layer, picked once; false when there is none (flat).
+-- A gate's boxes take the transition's `obstacles`.
 function overlay:ObstacleLook(o)
     local look = o.surferLook
     if look == nil then
@@ -30,9 +44,14 @@ function overlay:ObstacleLook(o)
             for i = #fitting, 1, -1 do
                 fitting[i] = nil
             end
-            for _, variant in ipairs(variants) do
-                if not variant.layers or variant.layers == o.layers then
-                    fitting[#fitting + 1] = variant
+            for _, exact in ipairs(EXACT) do
+                for _, variant in ipairs(variants) do
+                    if fits(variant, o, exact) then
+                        fitting[#fitting + 1] = variant
+                    end
+                end
+                if #fitting > 0 then
+                    break
                 end
             end
             if #fitting > 0 then

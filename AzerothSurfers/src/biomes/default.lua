@@ -70,10 +70,12 @@ app.biomes.Register("default", {
     },
 
     -- The track's boxes as 3D models, by kind: obstacle (1, 2 or 4 layers of 0.6 yards, 1.3
-    -- wide), enemy (2 or 4 layers, 1.2 wide), barrier (a bar 1.8 to 2.4 yards up, 2.2 wide) and
-    -- platform (1 to 5 layers, 2.1 wide, 12 to 60 long, maybe a ramp). A box may stand on a
-    -- platform. Each kind is a list of variants; a box picks one by `weight` among those whose
-    -- `layers` is its own (any if left out). A variant's `items`:
+    -- wide), enemy (2 or 4 layers, 1.2 wide), barrier (a bar 2.2 wide, on layer 3: 1.8 to 2.4
+    -- yards up, run under it; or a low one on layer 2: 1.2 to 1.8, duck under it) and platform
+    -- (1 to 5 layers, 2.1 wide, 12 to 60 long, maybe a ramp). A box may stand on a platform.
+    -- Each kind is a list of variants; a box picks one by `weight` among those whose `layers` is
+    -- its own (any if left out), and whose `layer` (bottom) is its own: without one for its
+    -- layer, among those without `layer`. A variant's `items`:
     --   model   a file id, or a list to pick one from at random
     --   x       yards to the screen's right of the lane's middle, 0 if left out
     --   d       yards along the box from its start, its middle if left out

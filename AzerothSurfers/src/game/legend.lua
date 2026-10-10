@@ -36,6 +36,7 @@ local GROUPS = {
         { bindings = LEFT, text = "Lane left" },
         { bindings = RIGHT, text = "Lane right" },
         { bindings = JUMP, text = "Jump" },
+        { bindings = { "MOVEBACKWARD" }, text = "Duck / drop" },
         { keys = "pause", text = "Pause" },
         { keys = "restart", text = "Start over (hold)" },
     },

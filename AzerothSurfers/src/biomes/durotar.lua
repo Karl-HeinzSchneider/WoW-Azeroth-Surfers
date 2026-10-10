@@ -120,6 +120,17 @@ app.biomes.Register("durotar", {
                     { model = 198340, yaw = 90, z = 0.1, scale = 0.65 },
                 },
             },
+            -- The low one to duck under: the same, with a second beam a layer lower (`z` counts
+            -- from the low box's bottom, a layer under the high one's).
+            {
+                layer = 2,
+                items = {
+                    { model = 199210, x = -1, ground = true, height = 2.15 },
+                    { model = 199210, x = 1, ground = true, height = 2.15 },
+                    { model = 198340, yaw = 90, z = 0.7, scale = 0.65 },
+                    { model = 198340, yaw = 90, z = 0.1, scale = 0.65 },
+                },
+            },
         },
         -- Elwynn's lumber piles for now: deadminelumberpilesmall for one layer,
         -- deadminelumberpilelarge for two and three, stacked for four and five.
