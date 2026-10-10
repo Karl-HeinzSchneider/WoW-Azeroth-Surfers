@@ -428,6 +428,37 @@ local display = {
                 applyMode()
             end,
         },
+        drawStrata = {
+            type = "select",
+            order = 5,
+            name = "Draw layer",
+            desc = "The game's frame strata in both display modes. Higher layers draw above lower ones regardless of frame level. Does not change other UI frames.",
+            values = { BACKGROUND = "Background", LOW = "Low", MEDIUM = "Medium", HIGH = "High" },
+            sorting = { "BACKGROUND", "LOW", "MEDIUM", "HIGH" },
+            get = function()
+                return app.db.profile.drawStrata
+            end,
+            set = function(_, value)
+                app.db.profile.drawStrata = value
+                applyMode()
+            end,
+        },
+        drawLevel = {
+            type = "range",
+            order = 6,
+            name = "Base frame level",
+            desc = "Draw order within the selected layer. The scene is 2 levels above this base; controls and menus are up to 25 levels above it. Default: 1.",
+            min = 1,
+            max = 1000,
+            step = 1,
+            get = function()
+                return app.db.profile.drawLevel
+            end,
+            set = function(_, value)
+                app.db.profile.drawLevel = value
+                applyMode()
+            end,
+        },
         lookHeader = header(10, "Road and ground"),
         opacity = overlaySetting(
             11,

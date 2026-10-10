@@ -16,6 +16,9 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   (duck/slide candidates).
 - `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).
+  `/surfers layers` reports existing unit frames, action bars, bags, chat and game frames sorted
+  by strata and level, with visibility and parent names. `/surfers layers FrameName` inspects
+  one named frame and its direct children. It never changes their layers or opens UI panels.
 - `preview.lua` — `/surfers preview creature|model|player|turn|off` (`player`: your own character,
   cycling through `dev.CROUCH`).
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`

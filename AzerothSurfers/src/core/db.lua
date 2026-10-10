@@ -19,6 +19,8 @@ local profile = {
     biome = "auto",
     -- "full": the game covers the screen around the real character; "side": a window of its own.
     mode = "full",
+    drawStrata = "HIGH", -- the game's draw layer in both display modes
+    drawLevel = 1, -- base frame level; scene and controls retain their relative offsets
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
     capture = true,
     -- The game's keys by action (keys.lua's ACTIONS): { key 1, key 2, gamepad button }, false

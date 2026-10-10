@@ -2,6 +2,129 @@
 local _, dev = ...
 local app, log = dev.app, dev.log
 
+-- Read-only snapshot; no UI is opened or restacked to collect it.
+local UI_FRAMES = {
+    "UIParent",
+    "PlayerFrame",
+    "TargetFrame",
+    "FocusFrame",
+    "PetFrame",
+    "TargetFrameToT",
+    "MainMenuBar",
+    "MainActionBar",
+    "MultiBarBottomLeft",
+    "MultiBarBottomRight",
+    "MultiBarLeft",
+    "MultiBarRight",
+    "MultiBar5",
+    "MultiBar6",
+    "MultiBar7",
+    "PetActionBarFrame",
+    "PetActionBar",
+    "StanceBarFrame",
+    "StanceBar",
+    "OverrideActionBar",
+    "ExtraActionBarFrame",
+    "ActionButton1",
+    "MultiBarBottomLeftButton1",
+    "MicroButtonAndBagsBar",
+    "BagsBar",
+    "MainMenuBarBackpackButton",
+    "CharacterBag0Slot",
+    "ContainerFrameCombinedBags",
+    "BankFrame",
+    "GeneralDockManager",
+    "ChatFrameMenuButton",
+}
+local STRATA = {
+    WORLD = 0,
+    BACKGROUND = 1,
+    LOW = 2,
+    MEDIUM = 3,
+    HIGH = 4,
+    DIALOG = 5,
+    FULLSCREEN = 6,
+    FULLSCREEN_DIALOG = 7,
+    TOOLTIP = 8,
+}
+
+dev.Command("layers", "layers [FrameName]: UI strata and levels, or a named frame and its children", function(rest)
+    local rows, seen = {}, {}
+    local function add(frame, label)
+        if not frame or not frame.GetFrameStrata or not frame.GetFrameLevel or seen[frame] then
+            return
+        end
+        seen[frame] = true
+        local parent = frame:GetParent()
+        rows[#rows + 1] = {
+            name = frame:GetName() or label,
+            strata = frame:GetFrameStrata(),
+            level = frame:GetFrameLevel(),
+            visible = frame:IsVisible(),
+            parent = parent and (parent:GetName() or "unnamed") or "none",
+        }
+    end
+    local name = (rest or ""):match("^%s*(%S+)")
+    if name then
+        local frame = _G[name]
+        if not frame or not frame.GetFrameStrata then
+            log:chat("No frame named %s (names are case-sensitive).", name)
+            return
+        end
+        add(frame, name)
+        for i, child in ipairs({ frame:GetChildren() }) do
+            add(child, name .. ".child" .. i)
+        end
+    else
+        for _, frameName in ipairs(UI_FRAMES) do
+            add(_G[frameName], frameName)
+        end
+        for i = 1, NUM_CONTAINER_FRAMES or 13 do
+            local frameName = "ContainerFrame" .. i
+            add(_G[frameName], frameName)
+        end
+        local function chat(frameName)
+            for _, suffix in ipairs({ "", "Tab", "EditBox", "ButtonFrame" }) do
+                add(_G[frameName .. suffix], frameName .. suffix)
+            end
+        end
+        for _, frameName in ipairs(CHAT_FRAMES or {}) do
+            chat(frameName)
+        end
+        for i = 1, NUM_CHAT_WINDOWS or 10 do
+            chat("ChatFrame" .. i)
+        end
+        local o = app.overlay
+        if o then
+            add(o.frame, "Surfers.view")
+            for frame, place in pairs(o.stacked or {}) do
+                add(frame, "Surfers." .. place)
+            end
+        end
+    end
+    table.sort(rows, function(a, b)
+        local ar, br = STRATA[a.strata] or -1, STRATA[b.strata] or -1
+        if ar ~= br then
+            return ar < br
+        elseif a.level ~= b.level then
+            return a.level < b.level
+        end
+        return a.name < b.name
+    end)
+    log:chat("UI layers, back to front (%d frames). Strata first, then level; ties have no guaranteed order.", #rows)
+    for _, row in ipairs(rows) do
+        log:chat(
+            "%s %d | %s | %s | parent %s",
+            row.strata,
+            row.level,
+            row.name,
+            row.visible and "visible" or "hidden",
+            row.parent
+        )
+    end
+    log:chat("Only existing frames are listed. Open bags/chat panels and run again to include them.")
+end)
+
 -- The parts of a frame the overlay times with overlay:Lap while profiling.
 local PARTS = {
     "simulation",

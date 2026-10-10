@@ -22,35 +22,17 @@ local COLUMN, COLUMN_NEAR = 2.4, 12
 -- A band's pieces by its `segments`.
 local SEGMENTS = { [1] = edges(1), [2] = edges(2), [4] = edges(4) }
 local EDGES = SEGMENTS[1]
--- The addon's draw order by mode, bottom to top: { strata, level above the view's }. Full
--- screen the game lies under the UI but its frame and buttons stay above it; the legend is a
--- strata over the player frame (LOW), which would otherwise draw between its background and
--- border. The side window is all in one strata. Fixed, so nothing else can change them.
+-- Levels relative to the configured base, shared by both display modes.
 local ORDER = {
-    full = {
-        view = { "BACKGROUND" },
-        world = { "BACKGROUND", 2 },
-        flash = { "LOW", 12 },
-        hud = { "LOW", 15 },
-        legend = { "MEDIUM", 15 },
-        window = { "HIGH", 20 },
-        controls = { "HIGH", 21 },
-        screens = { "HIGH", 23 },
-        messages = { "HIGH", 24 },
-        menu = { "HIGH", 25 },
-    },
-    side = {
-        view = { "HIGH" },
-        world = { "HIGH", 2 },
-        flash = { "HIGH", 12 },
-        hud = { "HIGH", 15 },
-        legend = { "HIGH", 15 },
-        window = { "HIGH", 20 },
-        controls = { "HIGH", 21 },
-        screens = { "HIGH", 23 },
-        messages = { "HIGH", 24 },
-        menu = { "HIGH", 25 },
-    },
+    world = 2,
+    flash = 12,
+    hud = 15,
+    legend = 15,
+    window = 20,
+    controls = 21,
+    screens = 23,
+    messages = 24,
+    menu = 25,
 }
 -- The 3D scenes share the depth buffer: with the same clip planes and camera, their depths
 -- compare as in one scene (the world scene with the twin, and the occluder's, occluder.lua).
@@ -489,7 +471,7 @@ end
 function overlay:Stack(frame, place)
     self.stacked = self.stacked or {}
     self.stacked[frame] = place
-    local strata, level = ORDER[self.side and "side" or "full"][place][1], ORDER.full[place][2]
+    local strata, level = app.db.profile.drawStrata or "HIGH", ORDER[place]
     frame:SetFixedFrameStrata(false)
     frame:SetFixedFrameLevel(false)
     frame:SetFrameStrata(strata)
@@ -499,7 +481,12 @@ function overlay:Stack(frame, place)
 end
 
 function overlay:Restack()
-    self.frame:SetFrameStrata(ORDER[self.side and "side" or "full"].view[1])
+    self.frame:SetFixedFrameStrata(false)
+    self.frame:SetFixedFrameLevel(false)
+    self.frame:SetFrameStrata(app.db.profile.drawStrata or "HIGH")
+    self.frame:SetFrameLevel(app.db.profile.drawLevel or 1)
+    self.frame:SetFixedFrameStrata(true)
+    self.frame:SetFixedFrameLevel(true)
     for frame, place in pairs(self.stacked) do
         self:Stack(frame, place)
     end
@@ -814,7 +801,8 @@ function overlay:Create()
     self.frame = f
     f:SetAllPoints(UIParent)
     -- Above the 3D world, below the rest of the UI (full screen, ORDER).
-    f:SetFrameStrata(ORDER.full.view[1])
+    f:SetFrameStrata(app.db.profile.drawStrata or "HIGH")
+    f:SetFrameLevel(app.db.profile.drawLevel or 1)
     f:EnableMouse(true)
     -- The ground; the boxes on it draw on BORDER.
     self:CreateGround(f)
@@ -838,7 +826,6 @@ function overlay:Create()
     self.twinActor:SetYaw(0)
     self:LoadPlayer()
     -- Under the view's frame: it needs a level above the lowest.
-    f:SetFrameLevel(math.max(f:GetFrameLevel(), 1))
     self:CreateOccluder()
     self:CreateAmbient()
     self.coinActors, self.modelled = {}, {}

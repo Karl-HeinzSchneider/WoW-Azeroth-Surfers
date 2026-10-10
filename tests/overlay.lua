@@ -202,6 +202,37 @@ function GetBindingText(key)
     return key
 end
 app.db.profile.legend = true
+do
+    local function frame()
+        return {
+            SetFixedFrameStrata = function() end,
+            SetFixedFrameLevel = function() end,
+            SetFrameStrata = function(self, value)
+                self.strata = value
+            end,
+            SetFrameLevel = function(self, value)
+                self.level = value
+            end,
+            GetFrameLevel = function(self)
+                return self.level
+            end,
+        }
+    end
+    local root, world, menu = frame(), frame(), frame()
+    local view = setmetatable({ frame = root, stacked = { [world] = "world", [menu] = "menu" } }, { __index = o })
+    local strata, level = app.db.profile.drawStrata, app.db.profile.drawLevel
+    for _, side in ipairs({ false, true }) do
+        view.side = side
+        for _, layer in ipairs({ "LOW", "MEDIUM", "HIGH" }) do
+            app.db.profile.drawStrata, app.db.profile.drawLevel = layer, 100
+            view:Restack()
+            assert(root.strata == layer and world.strata == layer and menu.strata == layer)
+            assert(root.level == 100 and world.level == 102 and menu.level == 125, "relative levels survive restacking")
+        end
+    end
+    app.db.profile.drawStrata, app.db.profile.drawLevel = strata, level
+end
+print("PASS configurable draw strata and base level in both display modes")
 o:CreateLegend(widget())
 -- Legend and menu hints reuse caps when the input device changes.
 do

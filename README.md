@@ -68,8 +68,10 @@ checks that on generated tracks.
 
 ## How it looks
 
-The game is drawn full screen around your character: the road, obstacles and coins sit under the
-rest of the UI, and changing lanes slides the road under your character, which the camera keeps
+The game is drawn above action bars and unit frames by default. Under **Display**, **Draw layer**
+and **Base frame level** let you change its draw order; the game's controls keep their relative
+levels above its scene. These settings apply to both display modes and leave other UI frames alone.
+Changing lanes slides the road under your character, which the camera keeps
 centered. A twin (a copy of your character with your gear) runs on the track, framed by the
 game's own camera. It mirrors how you move (running, walking, strafing,
 backpedalling, jumping), and jumping or running on a platform lifts it with the road dropping
