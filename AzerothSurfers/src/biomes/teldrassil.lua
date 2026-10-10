@@ -90,6 +90,42 @@ app.biomes.Derive("teldrassil", "elwynn", {
                 pace = 9,
                 group = { count = { 1, 3 }, gap = { 2, 4 }, offset = { 0, 3 }, opposite = 0.2 },
             },
+            -- Strigid Owl (NPC 1995, display 10832), Screecher (1996, 4877) and Hunter (1997,
+            -- 10830), as Tirisfal's bats: a few following each other in the background.
+            {
+                creature = { 10832, 4877, 10830 },
+                move = "fly",
+                from = 18,
+                speed = { 10, 13 },
+                z = { 5, 8 },
+                ahead = { 85, 95 },
+                scale = 0.7,
+                group = { count = { 1, 3 }, gap = { 2, 3 }, offset = { 1.5, 3 } },
+            },
+            -- Pairs side by side on neighbouring flight paths.
+            {
+                creature = { 10832, 4877, 10830 },
+                move = "fly",
+                from = 18,
+                speed = { 10, 13 },
+                z = { 5, 8 },
+                ahead = { 85, 95 },
+                scale = 0.7,
+                weight = 0.5,
+                group = { count = 2, gap = 0, offset = { 3, 5 } },
+            },
+            -- Now and then a white one alone: the Winterspring Owl (NPC 7455, display 6212,
+            -- Creature/Owl/OwlWhite), not native to Teldrassil but classic.
+            {
+                creature = 6212,
+                move = "fly",
+                from = 18,
+                speed = { 10, 13 },
+                z = { 5, 8 },
+                ahead = { 85, 95 },
+                scale = 0.7,
+                weight = 0.25,
+            },
         },
     },
 
