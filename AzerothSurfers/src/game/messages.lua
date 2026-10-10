@@ -38,6 +38,7 @@ local GOLD = { 1, 0.82, 0 }
 -- The status menu's pages (menus.lua describes pages and items), built anew for each pause and
 -- each end of a run.
 local GREEN = { 0.1, 1, 0.1 }
+local GRAY = { 0.7, 0.7, 0.7 }
 
 local function chosen()
     return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
@@ -215,7 +216,10 @@ local function statusPage(o, s)
         p.extra = { text = "Start over", run = restart }
         return p
     elseif s.status == "over" then
-        local best = s.newBest and { { text = "New best!", note = GREEN } } or {}
+        -- A run begun further into its seed ("Start at") saves no best score: says so.
+        local best = s.newBest and { { text = "New best!", note = GREEN } }
+            or s.practice and { { text = string.format("From %d yd: no best score", s.practice), note = GRAY } }
+            or {}
         if o.auto then
             return page("Run complete", best, NUMBERS, { STOP })
         end

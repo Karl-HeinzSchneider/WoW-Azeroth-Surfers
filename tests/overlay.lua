@@ -920,6 +920,19 @@ assert(not o.statusOpen, "no menu while running")
 o.state.status, o.state.newBest = "over", true
 o:Render()
 assert(status:Page().title == "Run complete" and status:Page().items[1].note, "the end, with a new best")
+-- The page is built at each end: a run that ended again.
+local function ended()
+    o.state.status = "running"
+    o:Render()
+    o.state.status = "over"
+    o:Render()
+end
+o.state.newBest, o.state.practice = nil, 3000
+ended()
+assert(status:Page().items[1].text == "From 3000 yd: no best score", "a run begun further in says it saves none")
+o.state.practice = nil
+ended()
+assert(not status:Page().items[1].note, "a plain run without a new best: no note")
 assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
 -- Captured, a key the menu leaves unused stays with the game: the character does not jump.
 o.capture = true

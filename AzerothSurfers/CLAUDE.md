@@ -99,10 +99,12 @@ default in `db.lua` and an entry in `options.lua`.
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score), `legend.lua` (the running keys).
-  - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at, difficulty), announcements, the gate's flash and vortex.
+  - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
+    difficulty), announcements, the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
-    boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key
-    (keyboard or gamepad) to them through keys.lua's menu actions.
+    boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
+    page's extra action. `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's
+    menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the keys of every screen and menu
     (`OnScreenKey`).
