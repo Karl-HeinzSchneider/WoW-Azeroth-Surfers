@@ -563,7 +563,7 @@ function overlay:Route()
     if self.routeState ~= s then
         -- A run without zones (begun before auto was picked) stays in its first one, or the
         -- first past the lobby's gate.
-        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby)
+        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby or s.fromLobby)
     end
     return self.route
 end

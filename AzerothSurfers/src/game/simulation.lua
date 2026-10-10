@@ -364,20 +364,24 @@ local function tick(s)
     end
 end
 
--- A run of the same seed from `to` yards on, to play a stretch of it again: the track up to
--- there is laid out as running it lays it out, then dropped up to the first pattern
--- game.CLEAR seconds past the runner, which starts there on empty road. From that pattern on
--- the track is the seed's own. A gate in the dropped stretch is still a zone's end, without its
--- step. It scores from there on, at the multiplier its gates gave, and saves no best score
--- (`practice`).
--- Only a run not started yet, and not from the lobby, whose launch would differ.
+-- A seed's run from the lobby (game.New with `lobby`, not started yet) begun `to` yards into
+-- it instead, past the lobby's portal at the least: the track up to there is laid out as
+-- running it from the menu lays it out (its launch and gate too), then dropped up to the first
+-- pattern game.CLEAR seconds (at the difficulty's start speed) past `to`; the runner starts
+-- there on empty road, in the middle lane. From that pattern on the track is the seed's own, the
+-- same as from the menu. A gate in the dropped stretch is still a zone's end, without its step.
+-- It scores from there on, at the multiplier its gates gave; past the portal it saves no best
+-- score (`practice`). `fromLobby`: the lobby it no longer has, for the route of its zones.
 -- The furthest a run starts (yards): every yard up to it is stepped through at once.
 game.MAX_START = 100000
 function game.Skip(s, to)
-    if s.status ~= "ready" or s.lobby or not to or to <= s.distance then
+    local lobby = s.lobby
+    if s.status ~= "ready" or not lobby then
         return
     end
-    local forward, starts = s.forward, {}
+    local practice = to and to > s.start and to or nil
+    to = math.max(to or 0, s.start)
+    local starts = {}
     s.forward = true
     while s.distance < to do
         move(s)
@@ -386,9 +390,10 @@ function game.Skip(s, to)
             game.Spawn(s)
         end
     end
-    s.forward = forward
-    -- The first pattern far enough ahead (the next one to be laid out, if none is yet).
-    local clear, first = s.distance + s.speed * game.CLEAR, s.nextRow
+    s.forward = false
+    -- The first pattern far enough ahead (the next one to be laid out, if none is yet). Past the
+    -- portal, the lobby's own first one: track.Lobby puts it just that far on.
+    local clear, first = to + s.difficulty.startSpeed * game.CLEAR, s.nextRow
     for i = #starts, 1, -1 do
         if starts[i] < clear then
             break
@@ -403,7 +408,9 @@ function game.Skip(s, to)
         end
     end
     s.objects = kept
-    s.start, s.points, s.practice = s.distance, 0, to
+    s.lobby, s.fromLobby, s.launch = nil, lobby, nil
+    s.lane, s.lateral = 0, 0
+    s.start, s.points, s.practice = s.distance, 0, practice
 end
 
 function game.Update(s, elapsed)

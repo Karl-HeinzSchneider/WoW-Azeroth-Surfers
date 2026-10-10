@@ -50,9 +50,10 @@ default in `db.lua` and an entry in `options.lua`.
   Nothing scores before a run's `start` (a run from the lobby: where the player takes over past
   the portal); `Run(s)` is the yards counted. Each gate past `start` adds `GATE_MULTIPLIER` to
   the multiplier.
-  `Skip(s, yards)` starts a run that far into its seed (the options' "Start at", with a fixed
-  seed; never a run from the lobby): the track is laid out step by step as running lays it out,
-  so from the first pattern past the empty road on it is the seed's own.
+  `Skip(s, yards)` begins a run from the lobby that far into its seed, past its portal at the
+  least: the track is laid out step by step as running it from the menu lays it out, so from the
+  first pattern past the empty road on it is the seed's own. With a fixed seed every restart is
+  one (the options' "Start at"), so it plays the menu's track.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
@@ -69,7 +70,7 @@ default in `db.lua` and an entry in `options.lua`.
   itself, `autopilot.Intro`, starting slow from `launch`), its biome (`lobby`, Elwynn with more
   grass, hidden), the camp's models, the title's and the menu's camera shots, the seated
   character and the title music. Up to its portal the title and the menu look the same whatever
-  the run's seed. A restart during play has no lobby.
+  the run's seed. A restart during play has no lobby (with a fixed seed: one skipped past).
 - `autopilot.lua` — `app.autopilot`: auto mode's player (a search on copies of the run), and
   `Intro`, which plays a run from the lobby up to its portal.
 - `light.lua` — `app.light`: day and night by the game's clock, for the ground and every scene.

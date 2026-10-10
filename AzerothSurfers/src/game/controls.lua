@@ -38,12 +38,19 @@ function overlay:SaveBest()
 end
 
 -- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's. With a
--- fixed seed, a run not from the lobby starts `startAt` yards into it.
+-- fixed seed, any other run is the lobby's run of that seed begun past its portal, or
+-- `startAt` yards in (simulation.Skip): the same track as from the menu.
 function overlay:NewState(lobby, seed)
     local profile = app.db.profile
-    local s = sim.New(seed or profile.seed or nil, profile.difficulty, profile.biome == app.biomes.AUTO, lobby)
-    if profile.seed and (profile.startAt or 0) > 0 then
-        sim.Skip(s, profile.startAt)
+    local fixed = profile.seed and not lobby
+    local s = sim.New(
+        seed or profile.seed or nil,
+        profile.difficulty,
+        profile.biome == app.biomes.AUTO,
+        lobby or (fixed and app.lobby) or nil
+    )
+    if fixed then
+        sim.Skip(s, profile.startAt or 0)
     end
     return s
 end
