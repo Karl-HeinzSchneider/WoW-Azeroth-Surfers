@@ -210,13 +210,14 @@ function overlay:ResetDecorations()
 end
 
 -- `side`: 1 right, -1 left; the left one's group is turned round about its middle.
-local function place(self, r, length, item, at, side, clear)
+local function place(self, r, length, item, at, side, clear, mirror)
     local model = choose(r, item.model)
     local actor = self:AcquireActor(model)
     local d = self.spareDecor[#self.spareDecor] or {}
     self.spareDecor[#self.spareDecor] = nil
     local along = value(r, item.d, 0)
-    if side < 0 then
+    local turn = side < 0 and mirror ~= false
+    if turn then
         along = length - along
     end
     d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
@@ -225,7 +226,11 @@ local function place(self, r, length, item, at, side, clear)
     d.z = value(r, item.z, 0)
     d.height = value(r, item.height, nil)
     d.y = -side * d.x
-    d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (side < 0 and math.pi or 0), value(r, item.scale, 1)
+    d.yaw, d.scale = math.rad(value(r, item.yaw, 0)) + (turn and math.pi or 0), value(r, item.scale, 1)
+    d.roll = math.rad(value(r, item.roll, 0))
+    actor:SetRoll(d.roll)
+    actor:SetPitch(0)
+    actor:SetUseCenterForOrigin(d.roll ~= 0, d.roll ~= 0, d.roll ~= 0)
     actor:SetYaw(d.yaw)
     actor:SetScale(d.scale)
     self.decor[#self.decor + 1] = d
@@ -244,6 +249,10 @@ local function placeFixed(self, r, item, at)
     d.z = value(r, item.z, 0)
     d.y = -d.x
     d.yaw, d.scale = math.rad(value(r, item.yaw, 0)), value(r, item.scale, 1)
+    d.roll = 0
+    actor:SetRoll(0)
+    actor:SetPitch(0)
+    actor:SetUseCenterForOrigin(false, false, false)
     -- Or scaled so its top is that many yards up, once its model has loaded (FitDecoration).
     d.height = value(r, item.height, nil)
     actor:SetYaw(d.yaw)
@@ -262,6 +271,20 @@ function overlay:FitDecoration(d, clear)
     if d.height then
         d.scale = d.height / math.max(bounds[6], 0.01)
         d.actor:SetScale(d.scale)
+    end
+    -- Rolled scenery uses its center as origin and rests its rotated bounds on the ground.
+    -- This keeps a fallen fence flat without burying it or letting it reach into the road.
+    if d.roll and d.roll ~= 0 then
+        local hx, hy, hz = (bounds[4] - bounds[1]) / 2, (bounds[5] - bounds[2]) / 2, (bounds[6] - bounds[3]) / 2
+        local sin, cos = math.abs(math.sin(d.roll)), math.abs(math.cos(d.roll))
+        d.raise = hy * sin + hz * cos
+        d.shiftX, d.shiftY = 0, 0
+        if not d.overhang then
+            local reach = hx * math.abs(math.sin(d.yaw)) + (hy * cos + hz * sin) * math.abs(math.cos(d.yaw))
+            d.x = math.max(d.x, clear + reach * d.scale)
+            d.y = -d.side * d.x
+        end
+        return
     end
     -- In its own units.
     if d.lift then
@@ -312,7 +335,9 @@ function overlay:UpdateDecorations()
     end
     for side = -1, 1, 2 do
         local r = self.decorRandom[side]
-        while self.decorNext[side] < s.distance + fade.to do
+        -- Before launch BiomeAt deliberately returns the lobby everywhere. Do not cache
+        -- its Elwynn scenery beyond the portal: generate that stretch once the run starts.
+        while not (s.lobby and s.status == "ready") and self.decorNext[side] < s.distance + fade.to do
             local at = self.decorNext[side]
             local here = self:BiomeAt(at).decorations
             local strip = self:StripEnd(at)
@@ -330,7 +355,7 @@ function overlay:UpdateDecorations()
                 else
                     for _, item in ipairs(group.items) do
                         if not item.chance or r() < item.chance then
-                            place(self, r, length, item, at, side, here.clear)
+                            place(self, r, length, item, at, side, here.clear, group.mirror)
                         end
                     end
                     self.decorNext[side] = at + length + value(r, here.spacing, 0)

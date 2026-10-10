@@ -7,6 +7,7 @@ dofile("tests/load.lua")(app, {
     "scenes/lobby",
     "biomes/durotar",
     "biomes/teldrassil",
+    "biomes/tirisfal",
     "biomes/transitions/dream",
     "game/random",
     "game/simulation",
@@ -386,6 +387,42 @@ o.groundLight, o.lastRoad = nil, {}
 print("PASS a missing ground texture falls back to a color")
 
 -- Biomes override the default field by field; lists are replaced whole.
+-- Menu scenery must not prepopulate the first zone with the lobby's wooden fences.
+do
+    local probe = setmetatable({
+        state = { seed = 17, distance = 0, status = "ready", lobby = { rim = 50, items = {} } },
+        biome = app.biomes.Get("lobby"),
+        decorLens = { calibrated = true },
+        decor = {},
+        decorNext = {},
+        decorRandom = { [-1] = app.random.New(1), [1] = app.random.New(1) },
+        gateRandom = app.random.New(1),
+    }, { __index = app.overlay })
+    local queries = 0
+    function probe:BiomeAt(at)
+        assert(self.state.status == "running", "no procedural lobby scenery beyond the portal before launch")
+        assert(at >= self.state.lobby.rim, "the first zone starts beyond the lobby")
+        queries = queries + 1
+        return { decorations = { groups = {} } }
+    end
+    function probe:StripEnd()
+        return nil
+    end
+    probe:UpdateDecorations()
+    local left, right = probe.decorNext[-1], probe.decorNext[1]
+    probe:UpdateDecorations()
+    assert(
+        queries == 0 and probe.decorNext[-1] == left and probe.decorNext[1] == right,
+        "menu keeps zone scenery pending"
+    )
+    probe.state.status = "running"
+    probe:UpdateDecorations()
+    assert(
+        queries > 0 and probe.decorNext[-1] > left and probe.decorNext[1] > right,
+        "launch generates pending zone scenery"
+    )
+end
+
 local biomes = app.biomes
 local elwynn, plain = biomes.Get("elwynn"), biomes.Get("default")
 assert(elwynn.ground.surfaces.road.texture == 187099, "a biome's own field")
@@ -426,7 +463,7 @@ print("PASS biomes override the default, and switching re-skins the running game
 for _, extra in ipairs({ { "hills", 2 }, { "marsh", 2 }, { "peaks", 3 }, { "wastes", 3 } }) do
     biomes.Register(extra[1], { name = extra[1], tier = extra[2] })
 end
-local tierOf = { elwynn = 1, durotar = 1, teldrassil = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
+local tierOf = { elwynn = 1, durotar = 1, teldrassil = 1, tirisfal = 1, hills = 2, marsh = 2, peaks = 3, wastes = 3 }
 -- Gates every 1000 yards, as a run through zones lays them out (simulation.lua).
 local gates = {}
 for k = 1, 40 do
@@ -819,3 +856,82 @@ local grown = collectgarbage("count") - before
 collectgarbage("restart")
 assert(grown < 0.5, string.format("300 frames allocated %.2f KB", grown))
 print(string.format("PASS 300 running frames allocate nothing (%.2f KB)", grown))
+
+-- Flying groups start in the background at their configured speed.
+assert(loadfile("AzerothSurfers/src/game/ambient.lua"))("AzerothSurfers", app)
+do
+    local noop = function() end
+    local bounds = { -0.5, -0.5, 0, 0.5, 0.5, 1 }
+    local function flight(seed, gap, count, runSpeed)
+        local item = {
+            creature = 4732,
+            move = "fly",
+            speed = 8,
+            ahead = 90,
+            from = 18,
+            z = 6,
+            group = { count = count, gap = gap, offset = 4 },
+        }
+        local biome = { ground = { fade = { from = 95, to = 135 } }, ambient = { every = 100, creatures = { item } } }
+        local p = setmetatable({
+            state = {
+                seed = seed,
+                distance = 0,
+                speed = runSpeed,
+                status = "running",
+                difficulty = { topSpeed = runSpeed },
+            },
+            biome = biome,
+            sceneRunner = 0,
+        }, { __index = app.overlay })
+        function p:BiomeAt()
+            return biome
+        end
+        function p:AcquireActor()
+            return {
+                SetAlpha = noop,
+                SetUseCenterForOrigin = noop,
+                SetPitch = noop,
+                SetYaw = noop,
+                SetScale = noop,
+                SetPosition = noop,
+                SetAnimation = noop,
+            }
+        end
+        p.ReleaseActor, p.FadeAlpha = noop, function()
+            return 1
+        end
+        function p:ModelBounds()
+            return bounds
+        end
+        p:CreateAmbient()
+        p:UpdateAmbient()
+        p.state.distance = 100
+        p:UpdateAmbient()
+        assert(#p.critters == count, "all flying group members spawn")
+        local signature = {}
+        for k, c in ipairs(p.critters) do
+            assert(math.abs(c.start) == 18, "flyers start at the configured lateral distance")
+            assert(c.at - 100 >= 85 and c.at - 100 <= 95, "flock starts in the background before the fade")
+            assert((gap == 0 and c.delay == 0) or (gap > 0 and (k == 1 or c.delay > 0)), "pair or trailing formation")
+            assert(c.speed == 8, "flight speed is not increased to outrun the camera")
+            signature[k] = string.format("%.6f/%.6f/%.6f", c.at, c.delay, c.step)
+        end
+        assert(p.critters[1].at ~= p.critters[2].at, "neighbouring flight paths have depth separation")
+        p.ambientNext = math.huge
+        for step = 1, 600 do
+            if #p.critters == 0 then
+                break
+            end
+            p.state.distance = p.state.distance + runSpeed * 0.02
+            p:UpdateAmbient()
+        end
+        assert(#p.critters == 0, "flyers are released after crossing or passing the camera")
+        return table.concat(signature, ",")
+    end
+    for _, speed in ipairs({ 26, 54 }) do
+        assert(flight(7, 3, 4, speed) == flight(7, 3, 4, speed), "flocks replay from the seed")
+        flight(12, 0, 2, speed)
+    end
+end
+print("PASS flying flocks and pairs spawn in the background at their configured speed")

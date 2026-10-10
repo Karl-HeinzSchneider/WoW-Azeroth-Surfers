@@ -21,6 +21,7 @@ src\biomes\default.lua
 src\biomes\elwynn.lua
 src\biomes\durotar.lua
 src\biomes\teldrassil.lua
+src\biomes\tirisfal.lua
 src\biomes\transitions\dream.lua
 src\scenes\lobby.lua
 src\game\random.lua
