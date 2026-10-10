@@ -88,7 +88,7 @@ local NUMBERS = {
             local s = o.state
             if s.challenge then
                 local best = app.challenges.Best(s.challenge)
-                return best and tostring(best.score) or "-"
+                return best and tostring(best.score) or "0"
             end
             return tostring(app.db.global.bestScore)
         end,

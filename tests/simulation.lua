@@ -977,6 +977,9 @@ test("challenges change at the reset, the same for everyone", function()
     assert(not c.Save(after, record(400, true, "normal")))
     assert(c.Save(after, record(450, true, "normal")) and c.Best(after).score == 450)
     assert(c.Best(before) == nil, "by period")
+    app.db.global.challenges[before.key] = { normal = record(300, true, "normal") }
+    assert(c.Best(before) == nil, "an earlier version's records are no best")
+    assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "and are replaced")
     app.db = nil
 end)
 print(string.format("%d simulation tests passed", count))

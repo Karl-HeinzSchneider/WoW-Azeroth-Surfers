@@ -141,7 +141,7 @@ local function challengePage(id)
                 info = function()
                     local record = best()
                     if not record then
-                        return "none yet"
+                        return "0"
                     end
                     -- One that did not reach the portal: how far it got.
                     return record.finished and tostring(record.score)
@@ -152,7 +152,7 @@ local function challengePage(id)
                 text = "Coins",
                 info = function()
                     local record = best()
-                    return record and string.format("%d / %d", record.coins, record.coinTotal) or "-"
+                    return record and string.format("%d / %d", record.coins, record.coinTotal) or "0"
                 end,
             },
             {

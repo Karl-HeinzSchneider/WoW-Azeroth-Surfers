@@ -154,7 +154,11 @@ end
 --   score, coins, coinTotal, distance (yards), finished (reached the last portal),
 --   difficulty (its id), goal (yards), at (seconds since 1970, UTC)
 function challenges.Best(period)
-    return app.db.global.challenges[period.key]
+    local record = app.db.global.challenges[period.key]
+    -- Anything else under the key (an earlier version's records by difficulty) is no best.
+    if type(record) == "table" and type(record.score) == "number" then
+        return record
+    end
 end
 
 -- Whether `record` beats `best`: reaching the portal first, then the score.
@@ -170,7 +174,7 @@ end
 -- Keeps `record` (fields as in Best) if it beats the saved one; true then.
 function challenges.Save(period, record)
     local all = app.db.global.challenges
-    if not beats(record, all[period.key]) then
+    if not beats(record, challenges.Best(period)) then
         return false
     end
     all[period.key] = record
