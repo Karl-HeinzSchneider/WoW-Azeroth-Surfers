@@ -7,7 +7,8 @@ local ZOMBIE = { 565178, 565179, 565185, 565176 } -- Zombie/ZombieAttackA to D
 local DARKHOUND = { 546876, 546881, 546874, 546885 } -- DarkHound/mDarkHoundAttackA to D
 local SPIDER = { 549870, 549872, 549869, 549868 } -- GiantSpider/GiantSpiderAttackA to D
 local GRAVES = { 190633, 190634, 190635, 190636 } -- Westfall/PassiveDoodads/Tombstones
--- Duskwood/tombs: TombStone05 to 08 and WoodCross01/02, for roadside plots only.
+-- Grave markers for roadside plots only: GRAVES, Duskwood/tombs/TombStone05 to 08 and
+-- WoodCross01/02.
 local MARKERS = { 190633, 190634, 190635, 190636, 189530, 189532, 189534, 189535, 189540, 189541 }
 -- Native classic Tirisfal canopy trees (02 and 04 to 07).
 local TREES = { 204129, 204131, 204132, 204133, 204134 }
@@ -29,9 +30,8 @@ local function graveGroup(weight, length, plots, groundModel, framed, markers)
     return { weight = weight, length = length, items = items }
 end
 
--- Keep spacing in the same units as the scaled models. The original 4.16-yard
--- spacing was unscaled, leaving large gaps at scale 0.65. Native length still
--- needs verification with /surfers preview model 189469 in this client.
+-- Duskwood fence sections, assumed as long as Elwynn's (4.16 yards) and scaled with the
+-- models. Still to verify in this client: /surfers preview model 189469.
 local FENCE_SCALE = 0.65
 local FENCE_SECTION = 4.16 * FENCE_SCALE
 local function fenceGroup(count, damaged, style)
@@ -103,10 +103,15 @@ local function fenceGroup(count, damaged, style)
         yaw = { 0, 360 },
         chance = 0.7,
     }
+    -- A tree near the far end, on a bay without a grave (graves are on bays 2, 5, 8, ...).
+    local treeBay = count - 2
+    if (treeBay - 2) % 3 == 0 then
+        treeBay = treeBay - 1
+    end
     items[#items + 1] = {
         model = TREES,
         x = 8,
-        d = start + (count - 2) * FENCE_SECTION,
+        d = start + treeBay * FENCE_SECTION,
         scale = { 0.25, 0.36 },
         yaw = { 0, 360 },
         chance = 0.85,
@@ -123,6 +128,7 @@ app.biomes.Register("tirisfal", {
     name = "Tirisfal Glades",
     tier = 1,
     ground = {
+        -- Gentle slope: half a yard down at 50 yards ahead (the default: 1.25).
         curve = 0.0002,
         surfaces = {
             -- tileset/TirisFall: StoneRoad01, DirtRock02 and grass01.
@@ -139,7 +145,7 @@ app.biomes.Register("tirisfal", {
     },
     light = { night = { 0.44, 0.55, 0.5 } },
     obstacles = {
-        -- Share only the proven platforms; all roadside scenery is Tirisfal's own.
+        -- Elwynn's lumber piles to run on, until Tirisfal has its own.
         platform = app.biomes.Get("elwynn").obstacles.platform,
         obstacle = {
             -- DuskwoodFootLocker01; cap each at one yard tall to keep its broad model compact.
@@ -147,6 +153,7 @@ app.biomes.Register("tirisfal", {
             { layers = 2, items = { { model = 198238, height = 1, yaw = { -8, 8 } } } },
             { layers = 2, items = { { model = GRAVES, height = 1.24, yaw = { 170, 190 } } } },
             { layers = 4, items = { { model = GRAVES, height = 2.4, yaw = { 170, 190 } } } },
+            -- Two footlockers stacked: 2 yards, a little under the wall's box.
             {
                 layers = 4,
                 items = {
@@ -155,7 +162,7 @@ app.biomes.Register("tirisfal", {
                 },
             },
         },
-        -- UndeadFencePost supports the same readable overhead timber as Elwynn.
+        -- deadminelumberpilesmall across two Undead/StoneFence/UndeadFencePost posts.
         barrier = {
             {
                 items = {
@@ -229,6 +236,7 @@ app.biomes.Register("tirisfal", {
         ambient = { 0.6, 0.68, 0.57 },
         diffuse = { 0.45, 0.5, 0.4 },
         groups = {
+            -- Nothing for a while.
             { weight = 2, length = { 5, 10 }, items = {} },
             -- TirisfalGlade/PassiveDoodads/Bushes: low vegetation near the road.
             {
@@ -311,7 +319,8 @@ app.biomes.Register("tirisfal", {
                     { model = 190634, x = 7, d = 3, scale = 0.7, chance = 0.5 },
                 },
             },
-            -- Lordaeron's banner appears only occasionally among the vegetation.
+            -- Lordaeron's banner (Lordaeron_citybanner_01) only now and then, a
+            -- LordaeronBrazier01 more often.
             { weight = 0.25, length = 6, items = { { model = 200673, x = 7, scale = 0.65 } } },
             { weight = 1, length = 5, items = { { model = 200655, x = 6.5, scale = 0.65 } } },
             {

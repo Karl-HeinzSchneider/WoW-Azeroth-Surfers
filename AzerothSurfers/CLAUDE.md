@@ -9,7 +9,8 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 1. `embeds.xml`: the vendored libraries in dependency order.
 2. `src\core\`: `logger.lua` (everything logs), `db.lua` (the defaults), `ace.lua` (creates
    `app.addon`), then the modules that hang off it (`options.lua`, `minimapbutton.lua`).
-3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it), the
+3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it; one that
+   derives from or borrows another's, as Teldrassil and Tirisfal do Elwynn's, after that one), the
    transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
    `simulation` → `track` → `patterns\patterns.xml` → `autopilot`, then `light` and `shapes`,
    then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin comes before

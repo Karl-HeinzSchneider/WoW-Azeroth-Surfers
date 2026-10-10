@@ -16,7 +16,9 @@ goes back; the mouse works too, and every other key goes on to WoW (Enter still 
 The seed starts random: **R** rolls a new one, or type one into its box (**E** or a click, then
 Enter). On Play
 your character stands up, walks over to the track and runs through the portal into the first
-zone. Paused or after a run, the same kind of menu shows the run's numbers: **Go on** (or
+zone. Portals along the track lead from zone to zone: Elwynn Forest, Durotar, Teldrassil and
+Tirisfal Glades, each with its own road, obstacles, enemies and wildlife (**/surfers options**
+can fix one instead). Paused or after a run, the same kind of menu shows the run's numbers: **Go on** (or
 Q), **Start over** / **Run again** (or R), **Difficulty** for the next run, **Auto mode** and
 **Main menu**, which goes back to the fire.
 

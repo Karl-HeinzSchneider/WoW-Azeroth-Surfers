@@ -3,8 +3,9 @@ local _, app = ...
 -- Teldrassil: a violet woodland road between kaldorei lamps and ancient trees.
 -- Classic assets verified in the listfile: tileset/Kalidar, world/Kalimdor/Kalidar/
 -- PassiveDoodads and world/Generic/NightElf/Passive Doodads. Keep Elwynn's proven
--- lumber platforms and ramps; replace the settlement supplies, barriers and scenery.
--- sound/creature/furbolg/mFurbolgAttack1 to 3.
+-- lumber platforms and ramps (inherited through Derive); everything else is replaced.
+
+-- The enemies' attack sounds: sound/creature/furbolg/mFurbolgAttack1 to 3.
 local FURBOLG = { 549397, 549401, 549404 }
 -- sound/creature/tiger/mTigerAttackA to D, shared by the classic saber cats.
 local NIGHTSABER = { 562394, 562385, 562393, 562386 }
@@ -16,7 +17,7 @@ app.biomes.Derive("teldrassil", "elwynn", {
     tier = 1,
 
     ground = {
-        -- Gentle slope: half a yard down at 50 yards ahead (the default is 1.25).
+        -- Gentle slope: half a yard down at 50 yards ahead (the default: 1.25).
         curve = 0.0002,
         surfaces = {
             road = { texture = 188597, color = { 0.38, 0.32, 0.43 } }, -- KalidarRoad
@@ -72,6 +73,7 @@ app.biomes.Derive("teldrassil", "elwynn", {
     ambient = {
         every = { 70, 160 },
         creatures = {
+            -- Deer (NPC 883, display 347) bounding across, as in Elwynn.
             {
                 creature = 347,
                 move = "cross",
@@ -87,6 +89,7 @@ app.biomes.Derive("teldrassil", "elwynn", {
         ambient = { 0.65, 0.66, 0.82 },
         diffuse = { 0.5, 0.55, 0.7 },
         groups = {
+            -- Nothing for a while.
             { weight = 1, length = { 4, 8 }, items = {} },
             -- KalidarBush01 to 04: purple undergrowth beside the fern-covered verge.
             {
@@ -119,7 +122,7 @@ app.biomes.Derive("teldrassil", "elwynn", {
                     { model = 202038, x = { 9, 12 }, d = 3, yaw = { 0, 360 }, scale = 0.35, chance = 0.4 },
                 },
             },
-            -- KalidarStreetLamp01/02 and owl banners along the kaldorei path.
+            -- KalidarStreetLamp01/02 with a KalidarBush03 beside it.
             {
                 weight = 2,
                 length = 7,
@@ -128,6 +131,7 @@ app.biomes.Derive("teldrassil", "elwynn", {
                     { model = 202023, x = 7.5, d = 3, scale = 0.4 },
                 },
             },
+            -- NightElfOwlBanner01/02.
             {
                 weight = 1,
                 length = 6,

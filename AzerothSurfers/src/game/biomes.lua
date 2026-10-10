@@ -47,8 +47,8 @@ function biomes.Get(id)
     return merged
 end
 
--- Biome `id` as biome `from` with `over` laid over it (a scene's own look of a region). Register
--- it after `from`.
+-- Biome `id` as biome `from` with `over` laid over it (a scene's own look of a region, or a zone
+-- built on another's track). Register it after `from`.
 function biomes.Derive(id, from, over)
     biomes.Register(id, merge(biomes.list[from], over))
 end
