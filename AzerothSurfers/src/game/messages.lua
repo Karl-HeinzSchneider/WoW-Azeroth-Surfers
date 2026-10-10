@@ -102,14 +102,28 @@ local DIFFICULTY = {
     },
 }
 
--- Keeps the run's seed for every run from now on (the options' fixed seed), or not.
+-- The seed: the kept one, else this run's. One typed in is kept for every run from now on.
+local SEED = {
+    text = "Seed",
+    input = {
+        get = function(o)
+            return tostring(app.db.profile.seed or o.state.seed)
+        end,
+        set = function(o, typed)
+            local seed = tonumber(typed)
+            if seed then
+                o:SetSeed(seed)
+            end
+        end,
+    },
+}
+-- Keeps the seed above for every run from now on (the options' fixed seed), or a random one
+-- each run.
 local KEEP_SEED = {
-    text = function(o)
-        return "Seed " .. o.state.seed
-    end,
+    text = "Seed mode",
     choice = {
         get = function()
-            return app.db.profile.seed and "Keep" or "New each run"
+            return app.db.profile.seed and "Keep" or "Random each run"
         end,
         can = function(_, dir)
             return (dir > 0) ~= (app.db.profile.seed ~= false)
@@ -194,7 +208,7 @@ local function statusPage(o, s)
         local p = page(
             "Paused",
             NUMBERS,
-            { GO_ON, { text = "Start over", run = restart }, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { GO_ON, { text = "Start over", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
         )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
@@ -209,7 +223,7 @@ local function statusPage(o, s)
             "Run complete",
             best,
             NUMBERS,
-            { { text = "Run again", run = restart }, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { { text = "Run again", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
         )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }
