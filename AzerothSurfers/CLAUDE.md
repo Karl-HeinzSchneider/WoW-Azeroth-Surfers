@@ -50,6 +50,9 @@ default in `db.lua` and an entry in `options.lua`.
   Nothing scores before a run's `start` (a run from the lobby: where the player takes over past
   the portal); `Run(s)` is the yards counted. Each gate past `start` adds `GATE_MULTIPLIER` to
   the multiplier.
+  `Skip(s, yards)` starts a run that far into its seed (the options' "Start at", with a fixed
+  seed; never a run from the lobby): the track is laid out step by step as running lays it out,
+  so from the first pattern past the empty road on it is the seed's own.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in

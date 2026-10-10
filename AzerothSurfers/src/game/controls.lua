@@ -27,7 +27,7 @@ local RESTART_HOLD = 0.75
 local AUTO_RESTART = 3
 
 function overlay:SaveBest()
-    if self.state.piloted then
+    if self.state.piloted or self.state.practice then
         return
     end
     local score = sim.Score(self.state)
@@ -37,10 +37,26 @@ function overlay:SaveBest()
     end
 end
 
--- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's.
+-- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's. With a
+-- fixed seed, a run not from the lobby starts `startAt` yards into it.
 function overlay:NewState(lobby, seed)
-    local zones = app.db.profile.biome == app.biomes.AUTO
-    return sim.New(seed or app.db.profile.seed or nil, app.db.profile.difficulty, zones, lobby)
+    local profile = app.db.profile
+    local s = sim.New(seed or profile.seed or nil, profile.difficulty, profile.biome == app.biomes.AUTO, lobby)
+    if profile.seed and (profile.startAt or 0) > 0 then
+        sim.Skip(s, profile.startAt)
+    end
+    return s
+end
+
+-- Yards into a fixed seed a restart begins; a run not started yet takes it at once.
+function overlay:SetStartAt(yards)
+    app.db.profile.startAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
+    if app.options then
+        app.options:Refresh()
+    end
+    if self.frame and self.state.status == "ready" and not self.state.lobby then
+        self.state = self:NewState(nil, self.state.seed)
+    end
 end
 
 function overlay:Restart()

@@ -264,7 +264,9 @@ function game.Pause(s)
     s.accumulator = 0
 end
 
-local function tick(s)
+-- One step's speed and distance. The track ahead is laid out at the speed of the moment, so
+-- game.Skip takes the very same steps.
+local function move(s)
     local difficulty = s.difficulty
     s.speed = math.min(difficulty.topSpeed, difficulty.startSpeed + s.distance / difficulty.speedUp)
     -- A run from the lobby speeds up from its launch speed first.
@@ -286,6 +288,10 @@ local function tick(s)
             passGates(s)
         end
     end
+end
+
+local function tick(s)
+    move(s)
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
     -- The floor is the highest top under the runner it can step onto; a higher one is a wall.
@@ -356,6 +362,48 @@ local function tick(s)
             table.remove(s.objects, i)
         end
     end
+end
+
+-- A run of the same seed from `to` yards on, to play a stretch of it again: the track up to
+-- there is laid out as running it lays it out, then dropped up to the first pattern
+-- game.CLEAR seconds past the runner, which starts there on empty road. From that pattern on
+-- the track is the seed's own. A gate in the dropped stretch is still a zone's end, without its
+-- step. It scores from there on, at the multiplier its gates gave, and saves no best score
+-- (`practice`).
+-- Only a run not started yet, and not from the lobby, whose launch would differ.
+-- The furthest a run starts (yards): every yard up to it is stepped through at once.
+game.MAX_START = 100000
+function game.Skip(s, to)
+    if s.status ~= "ready" or s.lobby or not to or to <= s.distance then
+        return
+    end
+    local forward, starts = s.forward, {}
+    s.forward = true
+    while s.distance < to do
+        move(s)
+        while s.nextRow < s.distance + game.AHEAD do
+            starts[#starts + 1] = s.nextRow
+            game.Spawn(s)
+        end
+    end
+    s.forward = forward
+    -- The first pattern far enough ahead (the next one to be laid out, if none is yet).
+    local clear, first = s.distance + s.speed * game.CLEAR, s.nextRow
+    for i = #starts, 1, -1 do
+        if starts[i] < clear then
+            break
+        end
+        first = starts[i]
+    end
+    -- Patterns are MIN_GAP apart, more than coins lead in (track.lua): this cuts between two.
+    local kept = {}
+    for _, o in ipairs(s.objects) do
+        if o.at >= first - app.track.LEAD_IN then
+            kept[#kept + 1] = o
+        end
+    end
+    s.objects = kept
+    s.start, s.points, s.practice = s.distance, 0, to
 end
 
 function game.Update(s, elapsed)
