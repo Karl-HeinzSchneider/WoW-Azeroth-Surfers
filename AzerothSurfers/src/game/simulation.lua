@@ -105,9 +105,16 @@ function game.ZoneLength(s)
     return from + s.gateRandom() * (to - from)
 end
 
+-- A run with a `finish` (a challenge's) ends FINISH_PAST yards past the last portal's rim: the
+-- runner goes through it, and a camera close behind too. Its yards and points count up to the
+-- rim.
+game.FINISH_PAST = 18
+
 -- `seed`: any whole number, a new one when nil; `difficulty`: an id, normal when nil or unknown.
 -- `lobby` (src/scenes/lobby.lua): the run starts in its lane, with a gate at its `rim`.
-function game.New(seed, difficulty, zones, lobby)
+-- `goal`: yards from where the run starts counting to its last portal (`finish`, a track
+-- distance; track.lua lays nothing out past it), none when nil.
+function game.New(seed, difficulty, zones, lobby, goal)
     seed = random.Normalize(seed or random.Seed())
     difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
     local s = {
@@ -162,6 +169,9 @@ function game.New(seed, difficulty, zones, lobby)
         end
         app.track.Lobby(s, lobby)
     end
+    if goal then
+        s.finish = s.start + goal
+    end
     return s
 end
 
@@ -187,9 +197,9 @@ function game.Score(s)
     return math.floor(s.points) + s.bonus
 end
 
--- Yards run since the run started counting (`start`).
+-- Yards run since the run started counting (`start`), up to its `finish` at most.
 function game.Run(s)
-    return math.max(0, s.distance - s.start)
+    return math.max(0, math.min(s.distance, s.finish or math.huge) - s.start)
 end
 
 -- Scales only what is earned from now on.
@@ -198,13 +208,14 @@ function game.SetMultiplier(s, multiplier)
 end
 
 -- How much each gate into the next zone adds to the multiplier. A gate before `start` (the
--- lobby's) adds nothing: a run from the lobby counts as a restart does.
+-- lobby's) adds nothing: a run from the lobby counts as a restart does; nor does the last
+-- portal, `finish`.
 game.GATE_MULTIPLIER = 1
 
 local function passGates(s)
     local gates, k = s.gates, s.gatesPassed + 1
     while gates[k] and gates[k] <= s.distance do
-        if gates[k] > s.start then
+        if gates[k] > s.start and gates[k] ~= s.finish then
             game.SetMultiplier(s, s.multiplier + game.GATE_MULTIPLIER)
         end
         s.gatesPassed, k = k, k + 1
@@ -281,6 +292,9 @@ local function move(s)
         local step = s.speed * STEP
         s.distance = s.distance + step
         local counted = math.min(step, s.distance - s.start)
+        if s.finish then
+            counted = math.min(counted, s.finish - s.distance + step)
+        end
         if counted > 0 then
             s.points = s.points + counted * s.multiplier
         end
@@ -292,6 +306,10 @@ end
 
 local function tick(s)
     move(s)
+    if s.finish and s.distance >= s.finish + game.FINISH_PAST then
+        s.status, s.finished = "over", true
+        return
+    end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
     -- The floor is the highest top under the runner it can step onto; a higher one is a wall.
@@ -411,6 +429,10 @@ function game.Skip(s, to)
     s.lobby, s.fromLobby, s.launch = nil, lobby, nil
     s.lane, s.lateral = 0, 0
     s.start, s.points, s.practice = s.distance, 0, practice
+    -- With a `finish`, the yards to it stay its goal: counted from `to`, as from the menu.
+    if s.finish then
+        s.start, s.points = to, s.distance - to
+    end
 end
 
 function game.Update(s, elapsed)

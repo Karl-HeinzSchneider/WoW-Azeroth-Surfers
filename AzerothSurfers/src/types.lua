@@ -11,6 +11,7 @@
 ---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
 ---@field simulation table
 ---@field track table  # the track generator and the registry of patterns (src/patterns/*.lua)
+---@field challenges table  # daily, weekly and monthly challenges: their seeds by UTC date and saved bests
 ---@field autopilot table  # auto mode's player: plays a run by searching the simulation
 ---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfers subcommands of AzerothSurfers_Dev
 ---@field biomes table  # the registered biomes (src/biomes/*.lua) and the current one

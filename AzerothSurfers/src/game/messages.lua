@@ -74,12 +74,22 @@ local NUMBERS = {
     {
         text = "Distance",
         info = function(o)
-            return string.format("%d yd", math.floor(sim.Run(o.state)))
+            local s = o.state
+            if s.finish then
+                return string.format("%d / %d yd", math.floor(sim.Run(s)), s.finish - s.start)
+            end
+            return string.format("%d yd", math.floor(sim.Run(s)))
         end,
     },
+    -- A challenge's: its best at the run's difficulty.
     {
         text = "Best",
-        info = function()
+        info = function(o)
+            local s = o.state
+            if s.challenge then
+                local best = app.challenges.Best(s.challenge, s.difficulty.id)
+                return best and tostring(best.score) or "-"
+            end
             return tostring(app.db.global.bestScore)
         end,
     },
@@ -199,10 +209,35 @@ local function page(title, ...)
     return { title = title, items = items }
 end
 
+-- A challenge's run (screens.lua's PlayChallenge): its seed and where it begins are the
+-- challenge's own; it ends at its last portal (or before).
+local function challengePage(s)
+    local name = s.challenge.kind.name .. " challenge"
+    if s.status == "paused" then
+        local p = page(name, NUMBERS, { GO_ON, { text = "Start over", run = restart }, DIFFICULTY, MENU })
+        p.back = GO_ON.run
+        p.extra = { text = "Start over", run = restart }
+        return p
+    end
+    local note = s.newBest and { text = "New best!", note = GREEN }
+        or not s.finished and { text = "The last portal not reached", note = GRAY }
+    local p = page(
+        s.finished and "Challenge complete" or name,
+        note and { note } or {},
+        NUMBERS,
+        { { text = "Try again", run = restart }, DIFFICULTY, MENU }
+    )
+    p.back = MENU.run
+    p.extra = { text = "Try again", run = restart }
+    return p
+end
+
 -- The page for run `s`, or nil while it runs or is ready. In auto mode no key does anything:
 -- only clicks.
 local function statusPage(o, s)
-    if s.status == "paused" then
+    if s.challenge and not o.auto and (s.status == "paused" or s.status == "over") then
+        return challengePage(s)
+    elseif s.status == "paused" then
         if o.auto then
             return page("Paused", NUMBERS, { GO_ON, STOP })
         end

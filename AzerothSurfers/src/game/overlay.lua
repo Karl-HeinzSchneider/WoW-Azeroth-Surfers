@@ -674,7 +674,8 @@ function overlay:UpdateZone()
         -- Through a gate, not a new run's first zone: a restart begins past its lobby's portal.
         local s = self.state
         local from = s.gates and app.biomes.Zone(self:Route(), s.distance).from
-        local through = from and from > -math.huge and (s.lobby ~= nil or from > s.start)
+        -- Not through a challenge's last portal: its run ends there.
+        local through = from and from > -math.huge and (s.lobby ~= nil or from > s.start) and from ~= s.finish
         if s.status == "running" and through then
             self:WelcomeBiome()
             local flash = app.biomes.Transition(self.biome.entrance).flash

@@ -41,6 +41,20 @@ local FIELDS = { "at", "side", "height", "pitch", "fov" }
 local function difficulty()
     return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
 end
+local DIFFICULTY = {
+    text = "Difficulty",
+    choice = {
+        get = function()
+            return difficulty().name
+        end,
+        can = function(_, dir)
+            return sim.DIFFICULTIES[difficulty().level + dir] ~= nil
+        end,
+        step = function(o, dir)
+            o:StepDifficulty(dir)
+        end,
+    },
+}
 local PAGES = {}
 PAGES.play = {
     title = "Play",
@@ -51,20 +65,7 @@ PAGES.play = {
                 o:Play(false)
             end,
         },
-        {
-            text = "Difficulty",
-            choice = {
-                get = function()
-                    return difficulty().name
-                end,
-                can = function(_, dir)
-                    return sim.DIFFICULTIES[difficulty().level + dir] ~= nil
-                end,
-                step = function(o, dir)
-                    o:StepDifficulty(dir)
-                end,
-            },
-        },
+        DIFFICULTY,
         -- The run's seed: a new random one with each new run from the lobby, R for another, or
         -- typed in.
         {
@@ -98,6 +99,87 @@ PAGES.play = {
         end,
     },
 }
+-- A challenge's page (challenges.lua): its period as it is when opened, its best at the chosen
+-- difficulty, and a run to beat it.
+local GRAY = { 0.7, 0.7, 0.7 }
+local function challengePage(id)
+    local challenges = app.challenges
+    local period = challenges.Period(id)
+    local function best()
+        return challenges.Best(period, difficulty().id)
+    end
+    return {
+        title = period.kind.name .. " challenge",
+        items = {
+            { text = period.label, note = GRAY },
+            {
+                text = "Distance",
+                info = function()
+                    return string.format("%d yd", period.goal)
+                end,
+            },
+            {
+                text = "Seed",
+                info = function()
+                    return tostring(period.seed)
+                end,
+            },
+            {
+                text = "New one in",
+                info = function()
+                    return challenges.Left(period)
+                end,
+            },
+            {
+                text = "Best",
+                info = function()
+                    local record = best()
+                    if not record then
+                        return "none yet"
+                    end
+                    -- One that did not reach the portal: how far it got.
+                    return record.finished and tostring(record.score)
+                        or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
+                end,
+            },
+            {
+                text = "Coins",
+                info = function()
+                    local record = best()
+                    return record and string.format("%d / %d", record.coins, record.coinTotal) or "-"
+                end,
+            },
+            DIFFICULTY,
+            {
+                text = function()
+                    return best() and "Beat it" or "Play"
+                end,
+                run = function(o)
+                    o:PlayChallenge(period)
+                end,
+            },
+            { text = "Back", back = true },
+        },
+    }
+end
+local function challengeItem(id)
+    return {
+        text = app.challenges.KINDS[id].name,
+        run = function(_, menu)
+            menu:Push(challengePage(id))
+        end,
+    }
+end
+PAGES.challenges = {
+    title = "Challenges",
+    items = {
+        { text = "The same seed for everyone", note = GRAY },
+        challengeItem("daily"),
+        challengeItem("weekly"),
+        challengeItem("monthly"),
+        { text = "Back", back = true },
+    },
+}
 PAGES.stats = {
     title = "Stats",
     items = {
@@ -116,6 +198,12 @@ PAGES.main = {
             text = "Play",
             run = function(_, menu)
                 menu:Push(PAGES.play)
+            end,
+        },
+        {
+            text = "Challenges",
+            run = function(_, menu)
+                menu:Push(PAGES.challenges)
             end,
         },
         {
@@ -283,10 +371,11 @@ function overlay:StartGlide(seconds)
     self.glide = { from = from, start = GetTime(), seconds = seconds }
 end
 
--- The lobby's run, not started yet; a new one unless it is shown already.
+-- The lobby's run, not started yet; a new one unless it is shown already. It ends a challenge.
 function overlay:EnterLobby()
     local s = self.state
-    if s.status ~= "ready" or not s.lobby then
+    self.challenge = nil
+    if s.status ~= "ready" or not s.lobby or s.challenge then
         self:SaveBest()
         self.state = self:NewState(app.lobby)
     end
@@ -321,6 +410,17 @@ function overlay:SetRunSeed(seed)
     else
         self.state = self:NewState(app.lobby, seed)
     end
+end
+
+-- A challenge (challenges.lua's Period) from the menu: its run from the lobby, and every
+-- restart, until the menu or the title shows again.
+function overlay:PlayChallenge(period)
+    if self.screen ~= "menu" then
+        return
+    end
+    self.challenge = period
+    self.state = self:NewState(app.lobby)
+    self:Play(false)
 end
 
 -- Back from the main menu's first page: the camera glides to the title's shot.
@@ -499,7 +599,7 @@ function overlay:StepApproach(elapsed)
     self.legendState = nil
     -- Begun further into the seed ("Start at"): there at once, as a restart is.
     local at = app.db.profile.startAt or 0
-    if at > 0 then
+    if at > 0 and not s.challenge then
         s = self:NewState(nil, s.seed, at)
         self.state = s
     end

@@ -11,6 +11,7 @@ dofile("tests/load.lua")(app, {
     "biomes/transitions/dream",
     "game/random",
     "game/simulation",
+    "game/challenges",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -30,7 +31,7 @@ dofile("tests/load.lua")(app, {
     "game/controls",
 })
 app.db = {
-    global = { bestScore = 0 },
+    global = { bestScore = 0, challenges = {} },
     profile = {
         biome = "elwynn",
         mode = "full",
@@ -825,8 +826,23 @@ end
 local main = o.mainMenu
 assert(press("ENTER") and press("SPACE", "JUMP"), "Enter and jump go on to WoW")
 assert(main:Page().title == nil and main.stack[1].selected == 1, "on the main page, at Play")
-assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Stats")
-assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Stats", "E accepts, whatever E is bound to")
+assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Challenges")
+assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Challenges", "E accepts, whatever E is bound to")
+-- A challenge's page: its period at the realm's time, no best yet, a run to play.
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+assert(main.stack[2].selected == 2, "the note above Daily cannot be chosen")
+press("E")
+local daily = main:Page()
+assert(daily.title == "Daily challenge" and daily.items[1].text == "10 October 2026", daily.items[1].text)
+for _, item in ipairs(daily.items) do
+    if item.info then
+        assert(type(item.info(o)) == "string")
+    end
+end
+assert(daily.items[#daily.items - 1].text(o) == "Play", "no best yet")
+press("Q", "STRAFELEFT")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
 assert(press("R") == true, "R goes on to WoW on a page without an extra action")

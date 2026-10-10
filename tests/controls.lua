@@ -2,6 +2,7 @@ local app = {}
 dofile("tests/load.lua")(app, {
     "game/random",
     "game/simulation",
+    "game/challenges",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -401,3 +402,30 @@ assert(menuRun.seed == 777 and menuRun.practice == 2000 and menuRun.distance >= 
 r:SetFixedSeed(true)
 assert(r:StartsAt())
 print("PASS the start point from the main menu, and for restarts only with a kept seed")
+
+-- A challenge: its seed through zones to its goal, whatever the profile's seed and start; every
+-- restart the same; the best saved once over, by difficulty; the menu ends it.
+app.db.global.challenges = {}
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+app.db.profile.biome, app.db.profile.difficulty = "elwynn", "normal"
+local period = app.challenges.Period("daily", 20736 * 86400 + 12 * 3600)
+r.challenge = period
+r.state = r:NewState(app.lobby)
+local challenge = r.state
+assert(challenge.seed == period.seed and challenge.zones and challenge.finish == challenge.start + 5000)
+r:Restart()
+assert(r.state.challenge == period and not r.state.practice, "a restart ignores Start at")
+assert(r.state.finish - r.state.start == 5000 and r.state.seed == period.seed)
+same(ahead(r:NewState(app.lobby), 1500), ahead(r.state, 1500))
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points, r.state.coins = 6000, 42
+r:SaveBest()
+local best = app.challenges.Best(period, "normal")
+assert(best and best.score == 6000 and best.coins == 42 and best.finished and best.distance == 5000)
+assert(r.state.newBest and app.db.global.bestScore ~= 6000, "not the endless best")
+r:Restart()
+r:SaveBest()
+assert(app.challenges.Best(period, "normal").score == 6000, "a run left before its end saves nothing")
+print("PASS a challenge's runs: its seed to its goal, restarts, its best")
