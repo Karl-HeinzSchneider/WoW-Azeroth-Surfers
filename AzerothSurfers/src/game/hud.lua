@@ -55,10 +55,15 @@ local function text(parent, size)
     return t
 end
 
--- Its camera looks along +x at the model in the middle. Lit evenly, day or night.
+-- Its camera looks along +x at the model in the middle. Lit evenly, day or night. Set up as the
+-- twin's own scene was before it joined the world scene: its model on the scene's top layer, the
+-- road's clip planes.
 local function gem(parent)
     local scene = CreateFrame("ModelScene", nil, parent)
     scene:EnableMouse(false)
+    scene:SetDrawLayer("OVERLAY")
+    scene:SetCameraNearClip(overlay.CLIP_NEAR)
+    scene:SetCameraFarClip(overlay.CLIP_FAR)
     scene:SetSize(GEM, GEM)
     scene:SetPoint("CENTER", parent, "LEFT", PAD + ICON / 2, 0)
     scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
@@ -268,8 +273,7 @@ function overlay:ShowHud()
 end
 
 -- The run's coin model (overlay.lua's LoadCoinModel), measured in its own actor once loaded:
--- scaled to a side of 1, the camera as far as that fills the scene. The near clip just short of
--- the coin keeps its depth apart from the world scene's (the 3D scenes share the depth buffer).
+-- scaled to a side of 1, the camera as far as that fills the scene.
 function overlay:ShowHudCoin(shown, now)
     local coin = self.hud.gem
     local entry = self.coinReady and self.biome.coin.models[self.coinModel]
@@ -288,8 +292,6 @@ function overlay:ShowHudCoin(shown, now)
         actor:SetModelByFileID(model)
         local distance = 0.5 / math.tan(GEM_FOV / 2) * GEM_MARGIN
         coin.scene:SetCameraPosition(-distance, 0, 0)
-        coin.scene:SetCameraNearClip(math.max(0.01, distance - 1))
-        coin.scene:SetCameraFarClip(overlay.CLIP_FAR)
         app.logger:debug("Scorecard coin: model %d", model)
     end
     if not model then
