@@ -264,3 +264,68 @@ y = 1.4
 r:IsMovingForward(0.1)
 assert(math.abs(r.motion.forward - 7) < 1e-9 and math.abs(r.motion.left) < 1e-9, "facing west, west is ahead")
 print("PASS motion relative to facing")
+
+-- Exercise surface contacts through the real physics, including a dive onto wood.
+dofile("tests/load.lua")(app, { "game/biomes", "biomes/default", "biomes/elwynn", "biomes/teldrassil" })
+app.db.profile.footstepSound, app.db.profile.biome = true, "default"
+app.db.profile.coinSound = false
+r.capture, r.screen = true, nil
+local function freshFeet()
+    r.state = g.New(42)
+    r.state.nextRow = math.huge
+    g.Start(r.state)
+    r:Footsteps()
+    played = {}
+end
+freshFeet()
+for _ = 1, 10 do
+    r:Step(0.05)
+end
+assert(#played > 0 and played[1] == "540227 SFX", "running uses dirt contacts")
+g.Jump(r.state)
+r:Step(0.01)
+local takeoff = #played
+assert(takeoff > 1, "jump takeoff sounds")
+for _ = 1, 4 do
+    r:Step(0.05)
+end
+assert(#played == takeoff, "airborne feet are silent")
+-- Put a wooden platform beneath the descending runner.
+r.state.objects = { g.Box("platform", 0, r.state.distance - 1, 20, 0, 1) }
+g.Duck(r.state)
+for _ = 1, 5 do
+    r:Step(0.05)
+end
+assert(#played == takeoff + 1 and played[#played] == "540105 SFX", "dive lands once on wood")
+assert(r.state.duck > 0, "the landing starts a roll")
+r:Step(0.05)
+assert(#played == takeoff + 1, "no running steps during the roll")
+g.Pause(r.state)
+r:Step(0.1)
+assert(#played == takeoff + 1, "paused feet are silent")
+freshFeet()
+g.Duck(r.state)
+r:Step(0.01)
+assert(#played == 1, "grounded roll makes one contact")
+g.Duck(r.state)
+r:Step(0.01)
+assert(#played == 1, "repeating duck does not spam contacts")
+freshFeet()
+app.db.profile.biome = "teldrassil"
+g.Jump(r.state)
+r:Footsteps()
+assert(played[1] == "540160 SFX", "biome changes select leafy contacts immediately")
+local n = #played
+for _ = 1, 20 do
+    g.Update(r.state, 0.05)
+    r:Footsteps()
+end
+assert(#played == n + 1, "stationary jump still lands audibly")
+app.db.profile.footstepSound = false
+g.Jump(r.state)
+r:Footsteps()
+assert(#played == n + 1, "footstep option silences contacts")
+app.db.profile.footstepSound = true
+r:Footsteps()
+assert(#played == n + 1, "reenabling does not replay muted contacts")
+print("PASS footsteps, biome materials, wooden dive landing, rolling, pause and sound option")

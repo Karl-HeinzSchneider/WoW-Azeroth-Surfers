@@ -10,6 +10,7 @@ local profile = {
         minimapPos = 200,
     },
     coinSound = true,
+    footstepSound = false,
     enemySound = true, -- enemies passed and wildlife
     portalSound = true,
     music = true, -- the title music on the title screen and in the menu

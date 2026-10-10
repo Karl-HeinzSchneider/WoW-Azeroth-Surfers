@@ -36,6 +36,10 @@ keys and two gamepad buttons each, on the **Keys** tab of **/surfers options**. 
 thing in a run and another in the menus. Use the buttons at the top to restart, pause/resume, or
 close.
 
+Footsteps follow the biome's ground, with wooden contacts on platforms and ramps. Jumping
+sounds on takeoff and landing; rolling makes a contact sound when it begins, with no running
+steps in the air or during the roll. Toggle **Footsteps** on the options' **Sound** tab.
+
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
 control the runner. Forward movement no longer triggers a jump. The track advances only while your character actually moves forward relative to its facing. Stopping, moving backward, pure strafing, and pushing against a wall do not advance it. Autorun and mouse movement work too. Jumping and lane transitions still update while stopped.

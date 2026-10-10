@@ -133,6 +133,42 @@ end
 -- file, not its kit, so each coin of a trail clinks.
 local COIN_SOUND_FILE = 567428
 
+-- Distance drives cadence, so standing still is silent and faster runs step faster.
+-- Simulation contacts also catch jumps made by the autopilot and landing after a dive.
+function overlay:Footsteps()
+    local s = self.state
+    if self.footState ~= s then
+        self.footState, self.footContacts = s, 0
+        self.footDistance, self.footTravel, self.footIndex = s.distance, 0, 0
+    end
+    local contact = s.contacts ~= self.footContacts
+    local distance = math.max(0, s.distance - self.footDistance)
+    self.footContacts, self.footDistance = s.contacts, s.distance
+    if not app.db.profile.footstepSound or s.status ~= "running" or self.screen then
+        self.footTravel = 0
+        return
+    end
+    local look = self:BiomeAt(contact and s.contactAt or s.distance).footsteps
+    local floor = contact and s.contactFloor or s.floor
+    if contact then
+        self.footTravel = 0
+    elseif s.velocity ~= 0 or s.height > s.floor or s.duck > 0 then
+        self.footTravel = 0
+        return
+    else
+        self.footTravel = self.footTravel + distance
+        if self.footTravel < look.stride then
+            return
+        end
+        self.footTravel = self.footTravel % look.stride
+    end
+    local sounds = floor > 0 and look.wood or look.ground
+    if #sounds > 0 and PlaySoundFile then
+        self.footIndex = self.footIndex + 1
+        PlaySoundFile(sounds[(self.footIndex - 1) % #sounds + 1], "SFX")
+    end
+end
+
 function overlay:Step(elapsed)
     local s = self.state
     -- A run from the lobby runs by itself up to the portal, as when captured.
@@ -161,6 +197,7 @@ function overlay:Step(elapsed)
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end
+    self:Footsteps()
     -- Every coin picked up clinks, also those before the run counts (a run from the lobby).
     if s.collected > collected and app.db.profile.coinSound then
         local entry = self.coinReady and self.biome.coin.models[self.coinModel]

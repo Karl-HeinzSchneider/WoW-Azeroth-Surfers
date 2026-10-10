@@ -14,6 +14,8 @@ local GRELL = { 551169, 551174, 551167 }
 
 app.biomes.Derive("teldrassil", "elwynn", {
     name = "Teldrassil",
+    -- Leafy ground: sound/character/footsteps/mFootSmallGrassA-E.
+    footsteps = { ground = { 540160, 540225, 540171, 540097, 540126 } },
     tier = 1,
 
     ground = {

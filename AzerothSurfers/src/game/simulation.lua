@@ -117,6 +117,7 @@ function game.New(seed, difficulty, zones, lobby)
         height = 0,
         floor = 0,
         velocity = 0,
+        contacts = 0, -- takeoffs, landings and grounded rolls; consumed by the view
         -- Seconds of ducking left; `diving`: ducked in the air, ducks on landing.
         duck = 0,
         diving = false,
@@ -220,9 +221,16 @@ function game.Move(s, delta)
     end
 end
 
+-- Remember the surface at contact, even if this frame then moves beyond it.
+local function contact(s)
+    s.contacts = s.contacts + 1
+    s.contactFloor, s.contactAt = s.floor, s.distance
+end
+
 -- Only from a floor: the ground or a platform's top. It ends a duck.
 function game.Jump(s)
     if s.status == "running" and s.velocity == 0 and s.height <= s.floor then
+        contact(s)
         s.velocity = JUMP_VELOCITY
         s.duck, s.diving = 0, false
     end
@@ -235,6 +243,9 @@ function game.Duck(s)
         return
     end
     if s.velocity == 0 and s.height <= s.floor then
+        if s.duck == 0 then
+            contact(s)
+        end
         s.duck = game.DUCK_TIME
     else
         s.velocity = math.min(s.velocity, -DIVE_VELOCITY)
@@ -296,6 +307,7 @@ local function tick(s)
         s.velocity = s.velocity - GRAVITY * STEP
         if s.height <= floor then
             s.height, s.velocity = floor, 0
+            contact(s)
             if s.diving then
                 s.duck, s.diving = game.DUCK_TIME, false
             end

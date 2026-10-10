@@ -8,6 +8,16 @@ local SOUNDS = "Interface\\AddOns\\" .. appName .. "\\assets\\sounds\\"
 app.biomes.Register("default", {
     name = "Plain",
 
+    -- Runner contact sounds: classic sound/character/footsteps/mFootSmallDirtA-E
+    -- and mFootSmallWoodA-E. Cycled without touching the track's random streams.
+    -- Takeoff, landing and the start of a roll use the same surface contact sound.
+    -- Platforms and ramps are wooden in every current biome.
+    footsteps = {
+        ground = { 540227, 540136, 540099, 540201, 540128 },
+        wood = { 540189, 540144, 540105, 540100, 540111 },
+        stride = 2.5, -- yards between running contacts
+    },
+
     -- The ground: surfaces (what a stretch of ground is made of) laid out in bands.
     ground = {
         -- A surface's `texture` repeats every `tile` yards (the game terrain's: 8 per chunk);

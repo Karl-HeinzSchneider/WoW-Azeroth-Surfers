@@ -488,6 +488,12 @@ local sound = {
     name = "Sound",
     args = {
         coinSound = toggle(1, "coinSound", "Coin sound", "Play the money loot sound when you collect a coin."),
+        footstepSound = toggle(
+            4,
+            "footstepSound",
+            "Footsteps",
+            "Play surface sounds while running, jumping, landing and rolling."
+        ),
         enemySound = toggle(
             2,
             "enemySound",
