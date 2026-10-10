@@ -62,10 +62,24 @@ test("missed coins survive behind the runner without counting twice", function()
     s.distance = 24
     g.Update(s, 0.05)
     assert(s.objects[1] == missed and s.coinTotal == 1 and s.coins == 0)
-    s.distance = g.COIN_BEHIND + 1
+    s.distance = g.VIEW_BEHIND + 1
     g.Update(s, 0.05)
     assert(#s.objects == 0 and s.coinTotal == 1, "old coins are eventually removed")
 end)
+test("passed enemies remain available until beyond the widest camera", function()
+    local enemy = g.Box("enemy", 1, 0, 1.2, 0, 2)
+    local s = fresh(enemy)
+    s.distance = 8
+    g.Update(s, 0.05)
+    assert(s.objects[1] == enemy, "passing the runner does not delete the mob")
+    s.distance = 24
+    g.Update(s, 0.05)
+    assert(s.objects[1] == enemy and s.status == "running")
+    s.distance = g.VIEW_BEHIND + enemy.length + 1
+    g.Update(s, 0.05)
+    assert(#s.objects == 0, "enemies beyond the camera are eventually removed")
+end)
+
 test("a jump peaks past layer 2, lands and cannot double jump", function()
     local s = fresh()
     g.Jump(s)
