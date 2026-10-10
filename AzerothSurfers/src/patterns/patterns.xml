@@ -20,6 +20,9 @@
     <Script file="terrace.lua"/>
     <Script file="bridge.lua"/>
     <Script file="fork.lua"/>
+    <Script file="lowbeams.lua"/>
+    <Script file="choice.lua"/>
+    <Script file="crawlway.lua"/>
     <!-- Never picked by weight: the track lays it out where a zone ends. -->
     <Script file="gate.lua"/>
 </Ui>

@@ -5,7 +5,7 @@ local L = sim.LAYER
 -- Auto mode's player: a depth-first search on copies of the run, an input every DT seconds,
 -- STEPS ahead. It plays the run in `simulation.Update`'s stead, splitting each frame at its
 -- input times, so the run follows the plan to the tick. A plan heads for one lane and drops the
--- lane changes and jumps it can do without while keeping as many coins.
+-- lane changes, jumps and ducks it can do without while keeping as many coins.
 --
 -- Copies leave out the run's coins (they would collect them) and never lay out track (it would
 -- draw from the run's generator). Every table is reused, so a search allocates nothing.
@@ -20,8 +20,17 @@ local BUDGET = 20000
 -- How many yards ahead a coin draws the runner to its lane.
 local REACH = 25
 
--- { lane change, jump }; `ORDERS[i]` tries input i first, then the rest as listed.
-local INPUTS = { { 0, false }, { 0, true }, { -1, false }, { 1, false }, { -1, true }, { 1, true } }
+-- { lane change, action ("jump", "duck" or false) }; `ORDERS[i]` tries input i first, then the
+-- rest as listed.
+local INPUTS = {
+    { 0, false },
+    { 0, "jump" },
+    { -1, false },
+    { 1, false },
+    { -1, "jump" },
+    { 1, "jump" },
+    { 0, "duck" },
+}
 local ORDERS = {}
 for first = 1, #INPUTS do
     local order = { first }
@@ -32,19 +41,22 @@ for first = 1, #INPUTS do
     end
     ORDERS[first] = order
 end
-local function inputOf(move, jump)
-    if move == 0 then
-        return jump and 2 or 1
+local function inputOf(move, action)
+    for i, input in ipairs(INPUTS) do
+        if input[1] == move and input[2] == action then
+            return i
+        end
     end
-    return (jump and 5 or 3) + (move > 0 and 1 or 0)
 end
 local function apply(s, i)
     local input = INPUTS[i]
     if input[1] ~= 0 then
         sim.Move(s, input[1])
     end
-    if input[2] then
+    if input[2] == "jump" then
         sim.Jump(s)
+    elseif input[2] == "duck" then
+        sim.Duck(s)
     end
 end
 
@@ -173,15 +185,17 @@ local function preferred(c, step)
             break
         end
     end
-    return inputOf(aim.lane > c.lane and 1 or aim.lane < c.lane and -1 or 0, jump)
+    return inputOf(aim.lane > c.lane and 1 or aim.lane < c.lane and -1 or 0, jump and "jump" or false)
 end
 
--- A state as a number: the step, lane, lateral place, height and vertical speed, rounded.
+-- A state as a number: the step, lane, lateral place, height, vertical speed and ducking time
+-- left, rounded.
 local floor = math.floor
 local function key(c, step)
     local lateral = floor(c.lateral * 20 + 0.5) + 32
     local height = floor(c.height * 20 + 0.5)
-    return (((step * 3 + c.lane + 1) * 64 + lateral) * 1024 + height) * 256 + floor(c.velocity * 4 + 0.5) + 128
+    local velocity = floor(c.velocity * 4 + 0.5) + 128
+    return ((((step * 3 + c.lane + 1) * 64 + lateral) * 1024 + height) * 256 + velocity) * 16 + floor(c.duck * 20 + 0.5)
 end
 
 -- Depth first from branch `c` at `step`: whether it gets through all STEPS.
@@ -207,11 +221,12 @@ local function go(c, step)
         return false
     end
     seen[k] = true
-    -- Inputs that change nothing are left out: a jump in the air, a lane past the edge.
+    -- Inputs that change nothing are left out: a jump in the air, a lane past the edge. It only
+    -- ducks on the ground (never drops from a jump).
     local grounded = c.velocity == 0 and c.height <= c.floor
     for _, i in ipairs(ORDERS[preferred(c, step)]) do
-        local move, jump = INPUTS[i][1], INPUTS[i][2]
-        if (grounded or not jump) and (move == 0 or math.abs(c.lane + move) <= 1) then
+        local move, action = INPUTS[i][1], INPUTS[i][2]
+        if (grounded or not action) and (move == 0 or math.abs(c.lane + move) <= 1) then
             local child = copy(branches[step + 1], c)
             apply(child, i)
             sim.Update(child, DT)
@@ -248,11 +263,12 @@ local function replay(s, line, length)
     return length, c.coins
 end
 
--- Takes the lane change (`move`) or the jump (`jump`) out of input `k`; returns what it was.
-local function strip(line, k, move, jump)
+-- Takes the lane change (`move`) or the jump or duck (`action`) out of input `k`; returns what
+-- it was.
+local function strip(line, k, move, action)
     local old = line[k]
     local input = INPUTS[old]
-    line[k] = inputOf(move and 0 or input[1], input[2] and not jump)
+    line[k] = inputOf(move and 0 or input[1], not action and input[2] or false)
     return old
 end
 
@@ -263,7 +279,7 @@ local function keeps(s, line, length, most)
 end
 
 -- A found way without what it does not need: each lane change that the next one undoes, then
--- each lane change and each jump on its own, left out where the way still gets through and
+-- each lane change and each jump or duck on its own, left out where the way still gets through and
 -- collects as many coins.
 local function smooth(s, line, length)
     local _, most = replay(s, line, length)

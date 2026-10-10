@@ -41,7 +41,9 @@ The track is a grid: three lanes side by side and layers stacked 0.6 yards high.
 layer 0; a jump (WoW's own arc) reaches a little past layer 2, and your body is three layers tall.
 
 - **Red obstacles**: one or two layers high can be jumped; four-layer walls must be dodged.
-- **Amber barriers** float on layer 3: run under them, a jump hits them.
+- **Amber barriers** float on layer 3: run under them, a jump hits them. **Low barriers** on layer
+  2 are too low to run under and too high to jump: duck under them. Some guard a crawlway of
+  coins beside the open road.
 - **Blue platforms** are higher ground on layers 1 to 3: jump onto them or take their ramp (always
   there for layer 3), run along the top with its coins and obstacles, jump across to a higher
   platform beside it, and fall back down at its end. Running or changing lanes into a platform's

@@ -352,11 +352,19 @@ test("every pattern keeps the track's rules", function()
 end)
 
 -- Whether a runner can get through a run's track up to `goal`: a depth-first search over the
--- inputs (nothing, jump, a lane either way, both) every DT seconds, through the simulation
+-- inputs (nothing, jump, a lane either way, both, duck) every DT seconds, through the simulation
 -- itself. Each branch is a copy of the run (its own list of boxes: the simulation drops the
 -- passed ones).
 local DT = 0.05
-local INPUTS = { { 0, false }, { 0, true }, { -1, false }, { 1, false }, { -1, true }, { 1, true } }
+local INPUTS = {
+    { 0, false },
+    { 0, "jump" },
+    { -1, false },
+    { 1, false },
+    { -1, "jump" },
+    { 1, "jump" },
+    { 0, "duck" },
+}
 local function branch(s)
     local c = {}
     for k, v in pairs(s) do
@@ -378,12 +386,13 @@ local function runnable(start, goal)
             return true
         end
         local key = string.format(
-            "%d %d %d %d %d",
+            "%d %d %d %d %d %d",
             step,
             s.lane,
             math.floor(s.lateral * 20 + 0.5),
             math.floor(s.height * 20 + 0.5),
-            math.floor(s.velocity * 4 + 0.5)
+            math.floor(s.velocity * 4 + 0.5),
+            math.floor(s.duck * 20 + 0.5)
         )
         if seen[key] then
             return false
@@ -394,8 +403,10 @@ local function runnable(start, goal)
             if input[1] ~= 0 then
                 g.Move(c, input[1])
             end
-            if input[2] then
+            if input[2] == "jump" then
                 g.Jump(c)
+            elseif input[2] == "duck" then
+                g.Duck(c)
             end
             g.Update(c, DT)
             if go(c, step + 1) then
