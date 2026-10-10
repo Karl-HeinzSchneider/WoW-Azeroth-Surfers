@@ -6,8 +6,6 @@ local sim = app.simulation
 -- counters steady and updates avoid allocating strings during a run.
 local overlay = app.overlay
 
-local STAR = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"
-local COIN = "Interface\\MoneyFrame\\UI-GoldIcon"
 -- At scale 1 (full screen); the side window scales by SIDE_SCALE.
 local HEIGHT, PAD, ICON = 32, 10, 18
 local CARD_WIDTH, CARD_HEIGHT, INSET = 280, 116, 18
@@ -18,8 +16,10 @@ local MULTIPLIER_WIDTH = 70
 local SIDE_SCALE = 0.75
 -- Seconds between redraws of the running score.
 local SCORE_EVERY = 0.05
--- The star's pop when the multiplier goes up: seconds, and growth.
-local POP, POP_GROW = 0.3, 0.4
+-- The coin beside the coins: the run's coin model in a scene of its own, GEM pixels square,
+-- spinning as the coins on the road do. Its camera's field of view (radians) and the room around
+-- the model.
+local GEM, GEM_FOV, GEM_MARGIN = 30, 0.5, 1.15
 -- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
@@ -55,12 +55,21 @@ local function text(parent, size)
     return t
 end
 
-local function icon(parent, texture)
-    local t = parent:CreateTexture(nil, "ARTWORK")
-    t:SetTexture(texture)
-    t:SetSize(ICON, ICON)
-    t:SetPoint("CENTER", parent, "LEFT", PAD + ICON / 2, 0)
-    return t
+-- Its camera looks along +x at the model in the middle. Lit evenly, day or night.
+local function gem(parent)
+    local scene = CreateFrame("ModelScene", nil, parent)
+    scene:EnableMouse(false)
+    scene:SetSize(GEM, GEM)
+    scene:SetPoint("CENTER", parent, "LEFT", PAD + ICON / 2, 0)
+    scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
+    scene:SetCameraFieldOfView(GEM_FOV)
+    scene:SetLightAmbientColor(0.8, 0.8, 0.8)
+    scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+    local actor = scene:CreateActor()
+    actor:SetUseCenterForOrigin(true, true, true)
+    actor:SetPosition(0, 0, 0)
+    actor:Hide()
+    return { scene = scene, actor = actor }
 end
 
 -- Right-aligned, one cell as wide as the widest digit per digit. `extra`: room left of the
@@ -124,9 +133,8 @@ function overlay:CreateHud(f)
     local multiplierPanel = panel(card)
     multiplierPanel:SetPoint("TOPRIGHT", -INSET, -31)
     multiplierPanel:SetWidth(MULTIPLIER_WIDTH)
-    local star = icon(multiplierPanel, STAR)
     local multiplier = text(multiplierPanel, MULTIPLIER_SIZE)
-    multiplier:SetPoint("LEFT", PAD + ICON + 4, 0)
+    multiplier:SetPoint("RIGHT", 0, 0)
 
     local divider = card:CreateTexture(nil, "ARTWORK")
     divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
@@ -137,7 +145,7 @@ function overlay:CreateHud(f)
     local coinPanel = panel(card)
     coinPanel:SetHeight(24)
     coinPanel:SetPoint("BOTTOMLEFT", INSET - PAD, 13)
-    icon(coinPanel, COIN)
+    local coin = gem(coinPanel)
     local distance = text(card, 15)
     distance:SetPoint("BOTTOMRIGHT", -INSET, 18)
     distance:SetTextColor(0.78, 0.78, 0.78)
@@ -159,7 +167,7 @@ function overlay:CreateHud(f)
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
         coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 8),
         multiplier = multiplier,
-        star = star,
+        gem = coin,
         streakPanel = streakPanel,
         streak = streak,
     }
@@ -204,7 +212,7 @@ function overlay:PlaceHud(side, top)
     hud:SetPoint(point, self.frame, point, edge / scale + x, below / scale + y)
 end
 
--- Once a frame: numbers redrawn only when they change (no strings built), and the star's pop.
+-- Once a frame: numbers redrawn only when they change (no strings built), and the coin's spin.
 function overlay:ShowHud()
     local s, hud = self.state, self.hud
     local shown = self.hudShown or {}
@@ -228,10 +236,6 @@ function overlay:ShowHud()
         show(hud.coins, s.coins)
     end
     if shown.multiplier ~= s.multiplier then
-        -- A new run starts at x1 without a pop.
-        if shown.multiplier and s.multiplier > shown.multiplier then
-            shown.starPop = now
-        end
         shown.multiplier = s.multiplier
         hud.multiplier:SetFormattedText("x%d", s.multiplier)
         local color = s.multiplier > 1 and BOOST or GOLD
@@ -244,7 +248,7 @@ function overlay:ShowHud()
     end
     if shown.layoutScore ~= hud.score.shown or shown.layoutMultiplier ~= s.multiplier then
         shown.layoutScore, shown.layoutMultiplier = hud.score.shown, s.multiplier
-        local multiplierWidth = math.max(MULTIPLIER_WIDTH, (hud.multiplier:GetStringWidth() or 0) + PAD + ICON + 4)
+        local multiplierWidth = math.max(MULTIPLIER_WIDTH, (hud.multiplier:GetStringWidth() or 0) + PAD)
         hud.multiplierPanel:SetWidth(multiplierWidth)
         hud.card:SetWidth(math.max(CARD_WIDTH, hud.score.panel:GetWidth() + multiplierWidth + 2 * INSET + 12))
     end
@@ -260,14 +264,31 @@ function overlay:ShowHud()
             hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
         end
     end
-    local since = shown.starPop and now - shown.starPop
-    if since then
-        local size = ICON
-        if since < POP then
-            size = ICON * (1 + POP_GROW * math.sin(math.pi * since / POP))
-        else
-            shown.starPop = nil
+    self:ShowHudCoin(shown, now)
+end
+
+-- The run's coin model once overlay.lua has fitted it (LoadCoinModel), the camera as far as the
+-- coin's size fills the scene. The near clip just short of the coin keeps its depth below the
+-- world scene's (the 3D scenes share the depth buffer): nothing of the road hides it.
+function overlay:ShowHudCoin(shown, now)
+    local coin = self.hud.gem
+    local entry = self.coinReady and self.biome.coin.models[self.coinModel]
+    local model = entry and entry.model or false
+    if shown.coinModel ~= model or shown.coinScale ~= self.coinScale then
+        shown.coinModel, shown.coinScale = model, self.coinScale
+        coin.actor:SetShown(model ~= false)
+        if model then
+            coin.actor:SetModelByFileID(model)
+            coin.actor:SetScale(self.coinScale)
+            coin.actor:SetPitch(self.coinPitch)
+            local size = self.coinSize
+            local distance = size / 2 / math.tan(GEM_FOV / 2) * GEM_MARGIN
+            coin.scene:SetCameraPosition(-distance, 0, 0)
+            coin.scene:SetCameraNearClip(math.max(0.01, distance - size))
+            coin.scene:SetCameraFarClip(overlay.CLIP_FAR)
         end
-        hud.star:SetSize(size, size)
+    end
+    if model then
+        coin.actor:SetYaw(now * 3)
     end
 end
