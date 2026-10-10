@@ -203,6 +203,26 @@ function GetBindingText(key)
 end
 app.db.profile.legend = true
 o:CreateLegend(widget())
+-- Legend and menu hints reuse caps when the input device changes.
+do
+    local cap = o.KeyCap(widget())
+    local iconShown, label
+    cap.icon.SetShown = function(_, shown)
+        iconShown = shown
+    end
+    cap.text.SetText = function(_, text)
+        label = text
+    end
+    for _ = 1, 2 do
+        o.SetKeyCap(cap, nil, "A")
+        assert(iconShown == false and label == "A", "keyboard hint hides the controller icon")
+        o.SetKeyCap(cap, nil, "|A:Gamepad_Face_Down:22:22|a")
+        assert(iconShown == true and label == "", "controller hint clears the keyboard label")
+        o.SetKeyCap(cap, nil, "D")
+        assert(iconShown == false and label == "D", "switching back hides the old controller icon")
+    end
+end
+print("PASS reused key caps switch between keyboard and controller without overlap")
 o:CreateMessages(widget())
 o:CreateScreens(widget())
 -- The portal's wind measures the view.

@@ -67,7 +67,7 @@ local function setKey(cap, key, text)
     local atlas = overlay.IsIcon(text) and text:match("^|A:([^:|]+)")
     cap:SetBackdropColor(0.1, 0.1, 0.1, atlas and 0 or 0.9)
     cap:SetBackdropBorderColor(0.7, 0.7, 0.7, atlas and 0 or 1)
-    cap.icon:SetShown(atlas ~= nil)
+    cap.icon:SetShown(not not atlas)
     if atlas then
         cap.icon:SetAtlas(atlas)
         cap.text:SetText("")
