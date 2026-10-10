@@ -329,3 +329,62 @@ app.db.profile.footstepSound = true
 r:Footsteps()
 assert(#played == n + 1, "reenabling does not replay muted contacts")
 print("PASS footsteps, biome materials, wooden dive landing, rolling, pause and sound option")
+
+-- Restarts as a player makes them: a seed lays out one track, from the menu, a restart, or a
+-- restart once it is kept from the pause menu; with "Start at", the same track from there.
+dofile("tests/load.lua")(app, { "scenes/lobby" })
+local function layout(s)
+    local lines = {}
+    for _, o in ipairs(s.objects) do
+        lines[#lines + 1] = string.format("%s %d %.6f %d %d", o.kind, o.lane, o.at, o.layer, o.seed)
+    end
+    return table.concat(lines, "\n")
+end
+-- The track of `s` from `at` on, run high above it so nothing stops it.
+local function ahead(s, at)
+    s.status, s.forward = "running", true
+    local lines = {}
+    while s.distance < at + 400 do
+        s.height = 1e6
+        g.Update(s, 1 / 120)
+        for _, o in ipairs(s.objects) do
+            if o.at >= at then
+                lines[string.format("%s %d %.6f %d %d", o.kind, o.lane, o.at, o.layer, o.seed)] = true
+            end
+        end
+    end
+    return lines
+end
+local function same(a, b)
+    for k in pairs(a) do
+        assert(b[k], "the same box: " .. k)
+    end
+    for k in pairs(b) do
+        assert(a[k], "the same box: " .. k)
+    end
+end
+app.db = { global = { bestScore = 0 }, profile = { seed = false, startAt = 0, biome = "auto" } }
+r.frame = r.frame or {}
+r.state = r:NewState(app.lobby, 777)
+local menu = ahead(r.state, 1000)
+-- A restart with a new seed each run: kept from the pause menu, then restarted twice.
+r.state.seed = 777
+r:SetFixedSeed(true)
+assert(app.db.profile.seed == 777)
+r:Restart()
+local first = r.state
+r:Restart()
+assert(layout(first) == layout(r.state) and r.state.seed == 777, "every restart the same")
+same(menu, ahead(r.state, 1000))
+-- Started 3000 yards in: the menu's track from its first pattern on.
+app.db.profile.startAt = 3000
+r:Restart()
+local skipped = r.state
+assert(skipped.practice == 3000 and skipped.distance >= 3000)
+local cut = math.huge
+for _, o in ipairs(skipped.objects) do
+    cut = math.min(cut, o.at)
+end
+local fromMenu = r:NewState(app.lobby, 777)
+same(ahead(fromMenu, cut), ahead(skipped, cut))
+print("PASS a seed's track is the same from the menu, a restart and a later start")

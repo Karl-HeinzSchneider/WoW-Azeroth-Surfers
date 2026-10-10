@@ -52,8 +52,8 @@ default in `db.lua` and an entry in `options.lua`.
   the multiplier.
   `Skip(s, yards)` begins a run from the lobby that far into its seed, past its portal at the
   least: the track is laid out step by step as running it from the menu lays it out, so from the
-  first pattern past the empty road on it is the seed's own. With a fixed seed every restart is
-  one (the options' "Start at"), so it plays the menu's track.
+  first pattern past the empty road on it is the seed's own. Every restart is one (with a fixed
+  seed from the options' "Start at"), so a seed lays out one track, from the menu or a restart.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
@@ -70,7 +70,7 @@ default in `db.lua` and an entry in `options.lua`.
   itself, `autopilot.Intro`, starting slow from `launch`), its biome (`lobby`, Elwynn with more
   grass, hidden), the camp's models, the title's and the menu's camera shots, the seated
   character and the title music. Up to its portal the title and the menu look the same whatever
-  the run's seed. A restart during play has no lobby (with a fixed seed: one skipped past).
+  the run's seed. A restart during play is that run skipped past its portal.
 - `autopilot.lua` — `app.autopilot`: auto mode's player (a search on copies of the run), and
   `Intro`, which plays a run from the lobby up to its portal.
 - `light.lua` — `app.light`: day and night by the game's clock, for the ground and every scene.
@@ -97,7 +97,7 @@ default in `db.lua` and an entry in `options.lua`.
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score), `legend.lua` (the running keys).
-  - `messages.lua` — the pause and end menus, announcements, the gate's flash and vortex.
+  - `messages.lua` — the pause and end menus (keep the seed, difficulty), announcements, the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key
     (keyboard or gamepad) to them through keys.lua's menu actions.
