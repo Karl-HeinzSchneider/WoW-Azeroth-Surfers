@@ -12,11 +12,14 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
 `lobby.items` with `overlay.decorState`, `overlay.OCCLUDER_SINK`, `overlay.occluderOff` and
 `overlay.occluder` with `overlay:PlaceOccluder`.
 
-- `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`.
+- `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`, `dev.CROUCH`
+  (duck/slide candidates).
 - `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).
-- `preview.lua` — `/surfers preview creature|model|turn|off`.
-- `animations.lua` — `/surfers animations [display id]`.
+- `preview.lua` — `/surfers preview creature|model|player|turn|off` (`player`: your own character,
+  cycling through `dev.CROUCH`).
+- `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
+  your own character has).
 - `playtest.lua` — `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
   `reference`, `shot` (tunes the lobby's camera shots, prints them as Lua), `camp` (moves, turns
   and sizes the lobby's models live, prints them as Lua).

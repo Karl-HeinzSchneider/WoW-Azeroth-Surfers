@@ -45,3 +45,22 @@ dev.ANIMATIONS = {
     { 5, "run" },
     { 1, "death" },
 }
+
+-- Candidates for ducking or sliding under low obstacles, on your own character (names from
+-- wow.tools' AnimationData list).
+dev.CROUCH = {
+    { 119, "stealth walk" },
+    { 120, "stealth stand" },
+    { 223, "stealth run" },
+    { 121, "knockdown" },
+    { 96, "sit ground down" },
+    { 97, "sit ground" },
+    { 114, "kneel start" },
+    { 115, "kneel loop" },
+    { 30, "dodge" },
+    { 14, "stun" },
+    { 143, "sprint" },
+    { 664, "roll start" },
+    { 666, "roll" },
+    { 668, "roll end" },
+}
