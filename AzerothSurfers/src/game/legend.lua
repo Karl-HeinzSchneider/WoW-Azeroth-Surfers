@@ -222,6 +222,10 @@ function overlay:PlaceLegend(side, top)
     elseif side then
         y = top - 40
     end
+    if side then
+        -- Below the scorecard, so both panels fit even in the narrowest side window.
+        y = y - 100
+    end
     legend:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x / scale, y / scale)
 end
 

@@ -1,27 +1,17 @@
 ---@type string, AzerothSurfers
 local _, app = ...
 local sim = app.simulation
--- The score display: the score with the multiplier (a star and "x1") in front of it, the coins
--- under it, and the coin streak beside the character. Not on the start dialog. Read at a glance while running, so it holds still: a
--- fixed-width cell per digit, panels widen only for a digit more, the score redrawn a few
--- times a second.
+-- One compact scorecard matching the keybind legend's dialog border. Score and multiplier
+-- lead, coins and distance sit below; the streak remains beside the runner. Digit cells keep
+-- counters steady and updates avoid allocating strings during a run.
 local overlay = app.overlay
 
--- The tooltip's background and border, tinted dark.
-local PANEL = {
-    bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-    edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-    tile = true,
-    tileSize = 16,
-    edgeSize = 12,
-    insets = { left = 3, right = 3, top = 3, bottom = 3 },
-}
-local PANEL_ALPHA = 0.55
 local STAR = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"
 local COIN = "Interface\\MoneyFrame\\UI-GoldIcon"
 -- At scale 1 (full screen); the side window scales by SIDE_SCALE.
-local HEIGHT, GAP, PAD, ICON = 40, 5, 10, 24
-local SCORE_SIZE, MULTIPLIER_SIZE, COINS_SIZE = 26, 22, 22
+local HEIGHT, PAD, ICON = 32, 10, 18
+local CARD_WIDTH, CARD_HEIGHT, INSET = 280, 116, 18
+local SCORE_SIZE, MULTIPLIER_SIZE, COINS_SIZE = 28, 22, 18
 -- Digits a panel always has room for: it widens only past them.
 local SCORE_DIGITS, COINS_DIGITS = 6, 3
 local MULTIPLIER_WIDTH = 70
@@ -46,10 +36,7 @@ for d = 0, 9 do
 end
 
 local function panel(parent)
-    local p = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    p:SetBackdrop(PANEL)
-    p:SetBackdropColor(0, 0, 0, PANEL_ALPHA)
-    p:SetBackdropBorderColor(0, 0, 0, PANEL_ALPHA)
+    local p = CreateFrame("Frame", nil, parent)
     p:SetHeight(HEIGHT)
     return p
 end
@@ -123,22 +110,42 @@ function overlay:CreateHud(f)
     hud:SetSize(1, 1)
     hud:Hide()
 
-    local scorePanel = panel(hud)
-    scorePanel:SetPoint("TOPRIGHT")
+    local card = CreateFrame("Frame", nil, hud, "DialogBorderTemplate")
+    card:ClearAllPoints()
+    card:SetPoint("TOPRIGHT")
+    card:SetSize(CARD_WIDTH, CARD_HEIGHT)
+    local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", INSET, -14)
+    label:SetText("SCORE")
+    label:SetTextColor(0.72, 0.68, 0.58)
 
-    local multiplierPanel = panel(hud)
-    multiplierPanel:SetPoint("RIGHT", scorePanel, "LEFT", -GAP, 0)
+    local scorePanel = panel(card)
+    scorePanel:SetPoint("TOPLEFT", INSET - PAD, -31)
+
+    local multiplierPanel = panel(card)
+    multiplierPanel:SetPoint("TOPRIGHT", -INSET, -31)
     multiplierPanel:SetWidth(MULTIPLIER_WIDTH)
     local star = icon(multiplierPanel, STAR)
     local multiplier = text(multiplierPanel, MULTIPLIER_SIZE)
     multiplier:SetPoint("LEFT", PAD + ICON + 4, 0)
 
-    local coinPanel = panel(hud)
-    coinPanel:SetPoint("TOPRIGHT", scorePanel, "BOTTOMRIGHT", 0, -GAP)
+    local divider = card:CreateTexture(nil, "ARTWORK")
+    divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
+    divider:SetPoint("TOPLEFT", INSET - 4, -70)
+    divider:SetPoint("TOPRIGHT", -INSET + 4, -70)
+    divider:SetHeight(8)
+
+    local coinPanel = panel(card)
+    coinPanel:SetHeight(24)
+    coinPanel:SetPoint("BOTTOMLEFT", INSET - PAD, 13)
     icon(coinPanel, COIN)
+    local distance = text(card, 15)
+    distance:SetPoint("BOTTOMRIGHT", -INSET, 18)
+    distance:SetTextColor(0.78, 0.78, 0.78)
 
     -- Follows the twin's square, which follows the character on screen.
-    local streakPanel = panel(hud)
+    local streakPanel = CreateFrame("Frame", nil, hud, "DialogBorderTemplate")
+    streakPanel:ClearAllPoints()
     streakPanel:SetHeight(STREAK_HEIGHT)
     streakPanel:SetPoint("BOTTOMLEFT", self.twinAnchor, "RIGHT", STREAK_OFFSET[1], STREAK_OFFSET[2])
     streakPanel:Hide()
@@ -147,6 +154,9 @@ function overlay:CreateHud(f)
 
     self.hud = {
         frame = hud,
+        card = card,
+        distance = distance,
+        multiplierPanel = multiplierPanel,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
         coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 8),
         multiplier = multiplier,
@@ -167,7 +177,7 @@ function overlay:PlaceHud(side, w, h, top)
         hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, y / SIDE_SCALE)
     else
         hud:SetScale(1)
-        -- Right of the road's far end, above the horizon.
+        -- Keep the score in the player's field of view, right of the road above the horizon.
         local x = math.min(0.62 * h, w / 2 - 16)
         local y = math.min(0.36 * h, h / 2 + top - 48)
         hud:SetPoint("TOPRIGHT", self.frame, "CENTER", x, y)
@@ -206,6 +216,17 @@ function overlay:ShowHud()
         hud.multiplier:SetFormattedText("x%d", s.multiplier)
         local color = s.multiplier > 1 and BOOST or GOLD
         hud.multiplier:SetTextColor(color[1], color[2], color[3])
+    end
+    local distance = math.floor(sim.Run(s))
+    if shown.distance ~= distance then
+        shown.distance = distance
+        hud.distance:SetFormattedText("%d yd", distance)
+    end
+    if shown.layoutScore ~= hud.score.shown or shown.layoutMultiplier ~= s.multiplier then
+        shown.layoutScore, shown.layoutMultiplier = hud.score.shown, s.multiplier
+        local multiplierWidth = math.max(MULTIPLIER_WIDTH, (hud.multiplier:GetStringWidth() or 0) + PAD + ICON + 4)
+        hud.multiplierPanel:SetWidth(multiplierWidth)
+        hud.card:SetWidth(math.max(CARD_WIDTH, hud.score.panel:GetWidth() + multiplierWidth + 2 * INSET + 12))
     end
     local shownFrom = math.max(1, sim.STREAK.from - STREAK_EARLY)
     local streak = s.status == "running" and s.streak >= shownFrom and s.streak or 0

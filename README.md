@@ -84,6 +84,10 @@ adjusts the game's pitch, focus height, field of view and twin size; it never ch
 
 ### Modes
 
+The compact HUD uses the same bordered panel style as the keybind hints: score and multiplier
+on top, coins and distance below. Coin streaks appear beside the runner. In the side window,
+the keybind hints sit below the scorecard to keep both readable.
+
 In **/surfers options**, on the **Display** tab (**Capture movement keys** is on the **Game** tab):
 
 - **Full screen** (the default) is the game as described above, part of the world. **Window frame
