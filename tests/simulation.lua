@@ -636,7 +636,10 @@ test("a run from the lobby plays itself through every coin", function()
                 frame = frame + 1
             end
             assert(s.status == "running", label .. ": through the portal")
-            assert(total == 13 and s.coins == total, label .. ": every coin, " .. s.coins .. " of " .. total)
+            assert(total == 13 and s.collected == total, label .. ": every coin, " .. s.collected .. " of " .. total)
+            -- None of it counts: from here on, as a new run from its start.
+            assert(s.coins == 0 and s.coinTotal == 0 and s.streak == 0, label .. ": no coins counted")
+            assert(g.Score(s) == 0 and g.Run(s) < 1, label .. ": no score, no yards")
             assert(s.height == 0 and s.distance >= lobby.rim + gate.after, label .. ": landed past the gate")
             assert(not app.autopilot.InIntro(s), label .. ": the player's from here")
             assert(not s.launch and s.speed >= difficulty.startSpeed, label .. ": at the difficulty's speed")

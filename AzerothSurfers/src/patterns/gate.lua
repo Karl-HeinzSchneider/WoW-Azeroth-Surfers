@@ -67,7 +67,9 @@ function track.Lobby(s, lobby)
     for i, o in ipairs(s.objects) do
         o.seed = i
     end
-    s.nextRow = lobby.rim + track.GATE.after + s.difficulty.startSpeed * game.CLEAR
+    -- Where the player takes over: it counts from there, as a new run does from its start.
+    s.start = lobby.rim + track.GATE.after
+    s.nextRow = s.start + s.difficulty.startSpeed * game.CLEAR
     if s.nextGate then
         s.nextGate = s.nextGate + lobby.rim
     end

@@ -50,7 +50,9 @@ layer 0; a jump (WoW's own arc) reaches a little past layer 2, and your body is 
   side ends the run.
 - **Gold coins** sit on a layer and award 25 points; high arcs over hurdles need a jump.
 
-Distance adds points, speed increases gradually, and your best score is saved account-wide.
+Distance adds points, speed increases gradually, and your best score is saved account-wide. A
+run from the lobby counts from where you take over past the portal, as a restart counts from its
+start: the coins and yards on the way there do not count.
 Every pattern leaves a lane that can be run, jumped or climbed through; `tests/simulation.lua`
 checks that on generated tracks.
 

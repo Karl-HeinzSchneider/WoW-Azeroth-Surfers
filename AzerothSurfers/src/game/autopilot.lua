@@ -404,10 +404,10 @@ function autopilot.Play(s, elapsed)
     end
 end
 
--- Whether a run from the lobby still plays itself: up to past its gate's strip.
+-- Whether a run from the lobby still plays itself: up to past its gate's strip, where it starts
+-- counting (`start`).
 function autopilot.InIntro(s)
-    local lobby = s.lobby
-    return lobby ~= nil and s.status == "running" and s.distance < lobby.rim + app.track.GATE.after
+    return s.lobby ~= nil and s.status == "running" and s.distance < s.start
 end
 
 -- A run from the lobby plays itself up to past its gate (`lobby.intro`, src/scenes/lobby.lua):

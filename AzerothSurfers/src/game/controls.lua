@@ -147,7 +147,7 @@ function overlay:Step(elapsed)
     if s.forward and s.status == "ready" and not self.screen then
         sim.Start(s)
     end
-    local status, coins, streak = s.status, s.coins, s.streak
+    local status, collected, streak = s.status, s.collected, s.streak
     if autopilot.Intro(s, elapsed) then
         -- Up to the portal it plays itself; in auto mode the run is the autopilot's (no best
         -- score).
@@ -162,7 +162,8 @@ function overlay:Step(elapsed)
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end
-    if s.coins > coins and app.db.profile.coinSound then
+    -- Every coin picked up clinks, also those before the run counts (a run from the lobby).
+    if s.collected > collected and app.db.profile.coinSound then
         local entry = self.coinReady and self.biome.coin.models[self.coinModel]
         local sound = entry and entry.sound or COIN_SOUND_FILE
         -- A ladder: the streak's step, the last one from there on; its finale once, on the
@@ -192,7 +193,7 @@ function overlay:StepAuto(s, elapsed)
         self.autoEnded, self.autoWait = s, 0
         app.logger:debug(
             "Auto mode: over at %d yards, score %d (%s, seed %d)%s",
-            math.floor(s.distance),
+            math.floor(sim.Run(s)),
             sim.Score(s),
             s.difficulty.name,
             s.seed,

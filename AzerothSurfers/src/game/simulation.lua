@@ -122,8 +122,12 @@ function game.New(seed, difficulty, zones, lobby)
         diving = false,
         distance = 0,
         forward = false,
+        -- Where the run starts counting: nothing before it scores (a run from the lobby: where
+        -- the player takes over, track.Lobby). `Run` is how far from there.
+        start = 0,
         coins = 0,
         coinTotal = 0, -- coins come past, collected or missed
+        collected = 0, -- coins picked up, before `start` too (their sound)
         -- Coins collected one right after another (game.STREAK), and where the last one was.
         streak = 0,
         streakAt = 0,
@@ -176,6 +180,11 @@ end
 
 function game.Score(s)
     return math.floor(s.points) + s.bonus
+end
+
+-- Yards run since the run started counting (`start`).
+function game.Run(s)
+    return math.max(0, s.distance - s.start)
 end
 
 -- Scales only what is earned from now on.
@@ -240,7 +249,10 @@ local function tick(s)
     if s.forward then
         local step = s.speed * STEP
         s.distance = s.distance + step
-        s.points = s.points + step * s.multiplier
+        local counted = math.min(step, s.distance - s.start)
+        if counted > 0 then
+            s.points = s.points + counted * s.multiplier
+        end
     end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
@@ -283,23 +295,28 @@ local function tick(s)
         if not o.hit and o.kind ~= "platform" and game.Overlaps(s, o) then
             if o.kind == "coin" then
                 o.hit = true
-                s.coins = s.coins + 1
-                s.streak, s.streakAt = s.streak + 1, s.distance
-                s.bestStreak = math.max(s.bestStreak, s.streak)
-                local points = COIN_POINTS
-                if s.streak >= game.STREAK.from then
-                    points = points + game.STREAK.points
+                s.collected = s.collected + 1
+                if s.distance >= s.start then
+                    s.coins = s.coins + 1
+                    s.streak, s.streakAt = s.streak + 1, s.distance
+                    s.bestStreak = math.max(s.bestStreak, s.streak)
+                    local points = COIN_POINTS
+                    if s.streak >= game.STREAK.from then
+                        points = points + game.STREAK.points
+                    end
+                    s.bonus = s.bonus + points * s.multiplier
                 end
-                s.bonus = s.bonus + points * s.multiplier
             elseif not game.invincible then -- AzerothSurfers_Dev's /surfers god
                 s.status = "over"
                 return
             end
         end
-        -- A coin counts once collected, or once the runner is past it.
+        -- A coin counts once collected, or once the runner is past it; none before `start`.
         if o.kind == "coin" and not o.passed and (o.hit or o.at + o.length < s.distance - bounds.playerHalfDepth) then
             o.passed = true
-            s.coinTotal = s.coinTotal + 1
+            if s.distance >= s.start then
+                s.coinTotal = s.coinTotal + 1
+            end
         end
         if o.at + o.length < s.distance - 4 then
             table.remove(s.objects, i)

@@ -72,7 +72,7 @@ local NUMBERS = {
     {
         text = "Distance",
         info = function(o)
-            return string.format("%d yd", math.floor(o.state.distance))
+            return string.format("%d yd", math.floor(sim.Run(o.state)))
         end,
     },
     {
