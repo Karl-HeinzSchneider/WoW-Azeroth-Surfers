@@ -188,6 +188,18 @@ app.biomes.Register("tirisfal", {
     ambient = {
         every = { 90, 180 },
         creatures = {
+            -- Neutral patrols: Deathguards Lawrence (NPC 1743, display 2857), Bartholomew
+            -- (1742, 2853), Mort (1744, 2860), Morris (1745, 2859) and Cyrus (1746, 2854).
+            -- Cross only where the whole patrol can clear the road before the runner
+            -- arrives; never collision obstacles.
+            {
+                creature = { 2857, 2853, 2860, 2859, 2854 },
+                move = "cross",
+                from = 7,
+                speed = { 8, 10 },
+                pace = 7,
+                group = { count = { 1, 3 }, gap = { 1.5, 2.5 }, offset = { 0, 1.5 } },
+            },
             -- Duskbat (NPC 1512): small flocks following each other in the background.
             {
                 creature = 4732,
