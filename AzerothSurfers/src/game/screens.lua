@@ -102,7 +102,8 @@ PAGES.play = {
 -- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
 -- distance all its own), its best, and a run to beat it.
 local GRAY = { 0.7, 0.7, 0.7 }
-local function challengePage(id)
+local challengePage
+function challengePage(id)
     local challenges = app.challenges
     local period = challenges.Period(id)
     local function best()
@@ -159,8 +160,14 @@ local function challengePage(id)
                 text = function()
                     return best() and "Beat it" or "Play"
                 end,
-                run = function(o)
-                    o:PlayChallenge(period)
+                -- Left open past its end: the new one's page instead.
+                run = function(o, menu)
+                    if challenges.Now() >= period.ends then
+                        menu:Back()
+                        menu:Push(challengePage(id))
+                    else
+                        o:PlayChallenge(period)
+                    end
                 end,
             },
             { text = "Back", back = true },

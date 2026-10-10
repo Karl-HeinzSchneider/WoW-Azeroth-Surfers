@@ -138,9 +138,12 @@ function challenges.Period(id, now)
     }
 end
 
--- "3d 4h", "4h 12m", "12m": time left until `ends`.
+-- "3d 4h", "4h 12m", "12m": time left until `ends`; "now" once it has come.
 function challenges.Left(period, now)
-    local left = math.max(0, period.ends - (now or challenges.Now()))
+    local left = period.ends - (now or challenges.Now())
+    if left <= 0 then
+        return "now"
+    end
     local days, hours, minutes = math.floor(left / DAY), math.floor(left % DAY / 3600), math.floor(left % 3600 / 60)
     if days > 0 then
         return string.format("%dd %dh", days, hours)

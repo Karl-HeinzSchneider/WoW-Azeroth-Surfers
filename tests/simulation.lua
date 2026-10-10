@@ -925,6 +925,7 @@ test("challenges change at the reset, the same for everyone", function()
     assert(after.starts == at(2026, 10, 10, 11) and after.ends == at(2026, 10, 11, 11))
     assert(c.Period("daily", at(2026, 10, 11, 10, 59)).key == after.key)
     assert(c.Left(after, at(2026, 10, 10, 13, 30)) == "21h 30m")
+    assert(c.Left(after, at(2026, 10, 11, 11)) == "now" and c.Left(after, at(2026, 10, 11, 10, 59, 30)) == "1m")
     -- 2026-10-05 is a Monday.
     local week = c.Period("weekly", at(2026, 10, 10, 12))
     assert(week.starts == at(2026, 10, 5, 11) and week.ends == at(2026, 10, 12, 11), week.label)
