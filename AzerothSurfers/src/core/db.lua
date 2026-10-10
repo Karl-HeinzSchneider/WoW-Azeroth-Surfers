@@ -28,12 +28,12 @@ local profile = {
     seed = false, -- a fixed seed for every run, or false: a new one each run
     frame = { full = false, side = true }, -- the window frame in each mode
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
-    -- Calibration: the follow camera that the road's projection imitates, and the twin.
+    -- The game's independent follow camera and the twin.
     overlay = {
         twinScale = 1,
         pitch = 20, -- degrees the camera looks down
         focus = 0.9, -- camera focus height, as a share of the character's height
-        distance = 12, -- camera distance in yards, when the client cannot report its zoom
+        distance = 12, -- game's camera distance; mouse wheel adjusts it independently of WoW
         fov = 55, -- vertical field of view in degrees
         opacity = 1,
         brightness = 0.75, -- the ground's light by day

@@ -89,6 +89,9 @@ local TWIN_FRAME = 1.6
 -- of its own, where a field of view spans the frame's diagonal, not its side as that code assumed
 -- (`/surfers twinsize` measured it). Kept as the twin's look.
 local TWIN_SIZE = math.sqrt(2)
+-- The runner's own camera: a close shoulder view through a wide overview.
+local ZOOM_MIN, ZOOM_MAX = 2, 24
+local GROUND_OVERLAP = 32 -- UI pixels below the viewport, including while jumping
 
 -- The view: the road, boxes and coins, and a twin (a copy of the character) running on it that
 -- covers the real one. This file draws; controls.lua adds input, the per-frame step and scoring.
@@ -118,7 +121,13 @@ local function unchanged(last, name, value)
 end
 overlay.Unchanged = unchanged
 
--- The shot that imitates WoW's follow camera, at the real zoom.
+function overlay:Zoom(delta)
+    local settings = app.db.profile.overlay
+    local distance = math.max(ZOOM_MIN, math.min(ZOOM_MAX, settings.distance))
+    settings.distance = math.max(ZOOM_MIN, math.min(ZOOM_MAX, distance - delta))
+end
+
+-- The game's follow camera, independent of WoW's camera.
 function overlay:RunShot(zoom)
     local settings = app.db.profile.overlay
     local pitch = math.rad(settings.pitch)
@@ -136,11 +145,7 @@ end
 function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
-    -- Read the real zoom without changing it. The distance setting stands in when the
-    -- client cannot report it, and in the side window, which has a camera of its own.
-    local zoom = not self.side and GetCameraZoom and GetCameraZoom()
-    cam.zoomRead = zoom and true or false
-    zoom = zoom or settings.distance
+    local zoom = math.max(ZOOM_MIN, math.min(ZOOM_MAX, settings.distance))
     cam.distance = zoom
     -- A screen's shot, or the way to or from one.
     local shot = self:ViewShot(self:RunShot(zoom))
@@ -150,6 +155,15 @@ function overlay:UpdateCamera()
     cam.cx, cam.cy = w / 2, h / 2
     cam.x, cam.z, cam.offset = shot.at, shot.height, -shot.side
     cam.feet = self.state.height
+    -- Intersect a ray just below the viewport with the flat ground behind the runner.
+    -- Extend the first strip instead of moving the camera to hide the foreground edge.
+    -- Recomputed for jumps, platforms, window sizes and camera settings alike.
+    local slope = -(cam.cy + GROUND_OVERLAP) / cam.f
+    local denominator = cam.sin - slope * cam.cos
+    cam.groundNear = EDGES[1]
+    if denominator > 0 then
+        cam.groundNear = math.min(EDGES[1], cam.x + cam.z * (cam.cos + slope * cam.sin) / denominator)
+    end
     -- Compared value by value, without building a key, so an unchanged frame allocates nothing.
     local last = self.lastRoad
     local same = unchanged(last, "x", cam.x)
@@ -236,6 +250,7 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
             -- A column's share of the band, and of its opacity gradient.
             local a, b = (c - 1) / columns, c / columns
             t.kind, t.near, t.far = band.surface, near, segments[i + 1]
+            t.foreground = i == 1
             t.fullFar, t.cut = false, false
             if t.seam then
                 shapes.Hide(t.seam)
@@ -416,14 +431,14 @@ function overlay:ScrollGround()
     -- The zones by where each ends: once a frame, not once a piece.
     onGround.firstId, onGround.firstEnd, onGround.nextId, onGround.nextEnd = self.biomeId, math.huge, nil, math.huge
     local lobby = self.state.lobby
-    if lobby and distance + EDGES[1] < lobby.rim then
+    if lobby and distance + cam.groundNear < lobby.rim then
         -- The lobby's biome up to its gate, the first zone's past it (BiomeIdAt).
         onGround.firstId, onGround.firstEnd = lobby.biome, lobby.rim - distance
         onGround.nextId = self:BiomeIdAt(lobby.rim + 1)
         addCut(onGround.firstEnd)
     elseif app.db.profile.biome == app.biomes.AUTO then
         local biomes, route = app.biomes, self:Route()
-        local zone = biomes.Zone(route, distance + EDGES[1])
+        local zone = biomes.Zone(route, distance + cam.groundNear)
         onGround.firstId, onGround.firstEnd = zone.id, zone.to - distance
         if onGround.firstEnd < sim.AHEAD then
             local following = biomes.Zone(route, zone.to)
@@ -1126,6 +1141,9 @@ function overlay:Render(lap)
     self:UpdateView()
     if self:UpdateCamera() then
         for _, t in ipairs(self.ground) do
+            if t.foreground then
+                t.near = cam.groundNear
+            end
             local near, far = t.near, t.fullFar or t.far
             face(t, t.left, t.right, near, ground(near), far, ground(far))
         end

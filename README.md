@@ -70,15 +70,15 @@ checks that on generated tracks.
 
 The game is drawn full screen around your character: the road, obstacles and coins sit under the
 rest of the UI, and changing lanes slides the road under your character, which the camera keeps
-centered. A twin (a copy of your character with your gear) runs exactly where your real character
-stands and covers it, in front of the road. It mirrors how you move (running, walking, strafing,
+centered. A twin (a copy of your character with your gear) runs on the track, framed by the
+game's own camera. It mirrors how you move (running, walking, strafing,
 backpedalling, jumping), and jumping or running on a platform lifts it with the road dropping
 away beneath it. Coins near you are spinning 3D models from the game files.
 
-The road imitates WoW's follow camera and has to be calibrated once: on the **Calibration** tab
-of **/surfers options**, adjust camera pitch, focus height, field of view and twin size until the
-see-through twin (shown before a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
-the client reports the zoom. Calibration adjusts the addon's view only; it never changes WoW's camera.
+The game has its own camera, independent of WoW's zoom. Scroll the mouse wheel over the game
+to move from the normal overview to a close shoulder view. The ground extends below the
+bottom of the screen, including during jumps. The **Calibration** tab of **/surfers options**
+adjusts the game's pitch, focus height, field of view and twin size; it never changes WoW's camera.
 
 ### Modes
 

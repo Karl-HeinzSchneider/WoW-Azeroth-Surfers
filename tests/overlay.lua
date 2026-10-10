@@ -629,9 +629,9 @@ falling = false
 hold(0, 0, 0, 0.5)
 print("PASS race-specific jump variants persist until landing or a long fall")
 
--- Camera calibration only reads WoW's zoom; changing it is never allowed.
+-- The runner's camera neither reads nor changes WoW's zoom.
 function GetCameraZoom()
-    return 9
+    error("the game camera must be independent of WoW's zoom")
 end
 function CameraZoomIn()
     error("the addon must not change WoW's camera")
@@ -642,8 +642,60 @@ o.frame.IsShown = function()
     return shown
 end
 o:UpdateCamera()
-assert(o.camera.distance == 9, "full screen reads the real camera zoom")
-print("PASS camera calibration reads the real zoom")
+assert(o.camera.distance == settings.distance, "the game uses its own zoom")
+do
+    local width, height = W, H
+    local distance, playerHeight, bodyScale = settings.distance, o.state.height, o.bodyScale
+    local pitch, fov = settings.pitch, settings.fov
+    settings.pitch, settings.fov = 20, 55
+    for _, aspect in ipairs({ 16 / 9, 21 / 9, 32 / 9 }) do
+        W, H = 1080 * aspect, 1080
+        for _, scale in ipairs({ 0.7, 1, 1.5 }) do
+            o.bodyScale = scale
+            for _, zoom in ipairs({ 2, 6, 12, 18, 24 }) do
+                settings.distance = zoom
+                for _, rise in ipairs({ 0, 1.64, 3.44 }) do
+                    o.state.height = rise
+                    o:Render()
+                    local covered = false
+                    for _, t in ipairs(o.ground) do
+                        if t.kind == "road" and t.left <= 0 and t.right > 0 and t.shown then
+                            if t.y <= -32 + 1e-6 and t.y + t.h >= -32 - 1e-6 then
+                                covered = true
+                            end
+                        end
+                    end
+                    assert(
+                        covered,
+                        string.format(
+                            "foreground coverage: aspect %.2f, scale %.2f, zoom %.2f, rise %.2f",
+                            aspect,
+                            scale,
+                            zoom,
+                            rise
+                        )
+                    )
+                end
+            end
+        end
+    end
+    o.state.height, o.bodyScale = 0, 1
+    settings.distance = 12
+    o:Render()
+    local size = scene.h
+    o:Zoom(1)
+    o:Render()
+    assert(settings.distance == 11 and scene.h > size, "wheel up enlarges the character by one yard")
+    o:Zoom(100)
+    assert(settings.distance == 2, "zoom stops at shoulder view")
+    o:Zoom(-100)
+    assert(settings.distance == 24, "zoom out stops at the wide overview")
+    W, H = width, height
+    settings.distance, o.state.height, o.bodyScale = distance, playerHeight, bodyScale
+    settings.pitch, settings.fov = pitch, fov
+    o:Render()
+end
+print("PASS independent zoom and foreground coverage at 16:9, 21:9 and 32:9 during jumps")
 
 -- An announcement lives through its first frame (made and shown at the same time), its fades
 -- and its hold, and no longer.

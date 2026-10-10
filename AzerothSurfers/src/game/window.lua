@@ -1,7 +1,7 @@
 ---@type string, AzerothSurfers
 local _, app = ...
 local light = app.light
--- The modes (`profile.mode`): "full" covers the screen and imitates the real camera; "side" is
+-- The modes (`profile.mode`): "full" covers the screen; "side" is
 -- a window of its own with the calibration's camera and a sky and land backdrop. Either can
 -- have the window frame (`profile.frame`).
 local overlay = app.overlay
@@ -20,6 +20,9 @@ local BUTTON_GAP = 4
 
 -- The frame is a sibling of the view, so the side window's clipping does not cut it.
 function overlay:CreateWindow(f)
+    f:SetScript("OnMouseWheel", function(_, delta)
+        self:Zoom(delta)
+    end)
     self.sky = f:CreateTexture(nil, "BACKGROUND", nil, -8)
     self.sky:SetColorTexture(1, 1, 1, 1)
     self.sky:SetPoint("TOPLEFT")
@@ -152,6 +155,8 @@ function overlay:ApplyMode()
     f:SetClampedToScreen(side)
     -- The side window takes clicks inside it; full screen, they go through to the world.
     f:EnableMouse(side)
+    -- Wheel input belongs to the game's camera in both modes; world clicks still pass through.
+    f:EnableMouseWheel(true)
     f:SetClipsChildren(side)
     self.sky:SetShown(side)
     self.land:SetShown(side)

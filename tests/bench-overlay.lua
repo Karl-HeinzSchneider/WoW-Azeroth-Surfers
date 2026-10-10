@@ -143,7 +143,13 @@ function GetUnitSpeed()
     return 7
 end
 function GetCameraZoom()
-    return 12
+    error("the game camera must not read WoW's zoom")
+end
+function UnitRace()
+    return "Human", "Human"
+end
+function UnitSex()
+    return 2
 end
 function GetCVar()
     return "90"

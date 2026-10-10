@@ -527,7 +527,7 @@ local calibration = {
     args = {
         help = text(
             1,
-            "Full screen: open the game and stand still, then adjust until the see-through copy covers your character and the road lies flat on the ground. Zooming or tilting the camera changes the fit. In the side window, pitch, focus, distance and field of view set the window's own camera."
+            "The game has its own camera in both display modes. Scroll the mouse wheel over the game to zoom from the normal view to a close shoulder view. These settings adjust only the game; WoW's camera does not affect it."
         ),
         cameraHeader = header(10, "Camera"),
         pitch = overlaySetting(
@@ -552,9 +552,9 @@ local calibration = {
             13,
             "distance",
             "Camera distance",
-            "Your camera zoom in yards. Only used when the client cannot report the zoom itself.",
-            1,
-            40,
+            "The game's zoom in yards, also adjusted with the mouse wheel. 2 is a close shoulder view; 12 is the default; 24 is a wide overview.",
+            2,
+            24,
             0.5
         ),
         fov = overlaySetting(

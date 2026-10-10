@@ -73,11 +73,13 @@ default in `db.lua` and an entry in `options.lua`.
 - `shapes.lua` — `app.shapes`: the boxes' and flat coins' faces, their texture pool, the
   ground's curve (`Ground`).
 - `overlay.lua` — `app.overlay`, the view: road, boxes and coins projected through a camera
-  shot (`RunShot` imitates the follow camera; screens.lua's `ViewShot` swaps in a screen's or
+  shot (`RunShot` uses the game's own zoom, never WoW's; screens.lua's `ViewShot` swaps in a screen's or
   glides between them), and the twin over the real character: an actor of the world scene, so it
   shares its camera and depth with every model, drawn `TWIN_SIZE` (√2) times as big as the real
   character (the size it had in a scene of its own). **A running frame allocates nothing**
   (`tests/overlay.lua` checks it).
+  Mouse wheel changes the game's camera distance (2 to 24 yards, default 12). The foreground ground strip
+  extends at least 32 UI pixels below the viewport as needed, including while jumping.
 - Files that extend `app.overlay`, in TOC order:
   - `decorations.lua` — the world ModelScene (one render pass for every model, the twin's too,
     with the road's camera; its lens measured against the road) and the roadside's and the
