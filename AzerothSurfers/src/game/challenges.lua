@@ -14,12 +14,16 @@ app.challenges = challenges
 challenges.RESET_HOUR = 11
 local DAY = 86400
 
--- `goal`: yards to the last portal. `stream`: where its seeds start on the generator's cycle.
+-- `goal`: yards to the last portal before its VARIATION. `stream`: where its draws start on the
+-- generator's cycle.
 challenges.KINDS = {
     { id = "daily", name = "Daily", goal = 5000, stream = 1922838371 },
-    { id = "weekly", name = "Weekly", goal = 10000, stream = 552808412 },
-    { id = "monthly", name = "Monthly", goal = 15000, stream = 1375892117 },
+    { id = "weekly", name = "Weekly", goal = 6250, stream = 552808412 },
+    { id = "monthly", name = "Monthly", goal = 7500, stream = 1375892117 },
 }
+-- Each period's goal is its kind's, up to this share more or less, in whole ROUND yards.
+challenges.VARIATION = 0.15
+local ROUND = 50
 for _, kind in ipairs(challenges.KINDS) do
     challenges.KINDS[kind.id] = kind
 end
@@ -72,10 +76,18 @@ function challenges.Now()
     return GetServerTime and GetServerTime() or time()
 end
 
--- The seed of period `index` of `kind`.
-function challenges.Seed(kind, index)
+-- What period `index` of `kind` is played with, drawn in this order: its seed, its difficulty
+-- (an id of simulation.DIFFICULTIES) and its goal in yards.
+function challenges.Draw(kind, index)
     local r = random.New(SALT + index, kind.stream)
-    return r(random.MAX)
+    local seed = r(random.MAX)
+    local difficulties = app.simulation.DIFFICULTIES
+    local difficulty = difficulties[r(#difficulties)].id
+    local goal = kind.goal * (1 + challenges.VARIATION * (2 * r() - 1))
+    -- Rounded toward the kind's own, so it stays within the variation.
+    local steps = (goal - kind.goal) / ROUND
+    steps = steps < 0 and math.ceil(steps) or math.floor(steps)
+    return seed, difficulty, kind.goal + steps * ROUND
 end
 
 local function dateText(days)
@@ -86,7 +98,7 @@ end
 -- The period of `kind` (an id) at `now` (seconds since 1970, UTC; challenges.Now() when nil):
 --   index   its number: days, weeks or months since 1970
 --   key     its id in the saved records ("daily-20371")
---   seed, goal
+--   seed, difficulty (an id), goal (challenges.Draw)
 --   starts, ends   seconds since 1970 of its first moment and of the next period's
 --   label   its date, as players see it
 function challenges.Period(id, now)
@@ -112,12 +124,14 @@ function challenges.Period(id, now)
         label = MONTHS[m] .. " " .. y
     end
     local reset = challenges.RESET_HOUR * 3600
+    local seed, difficulty, goal = challenges.Draw(kind, index)
     return {
         kind = kind,
         index = index,
         key = id .. "-" .. index,
-        seed = challenges.Seed(kind, index),
-        goal = kind.goal,
+        seed = seed,
+        difficulty = difficulty,
+        goal = goal,
         starts = first * DAY + reset,
         ends = after * DAY + reset,
         label = label,
@@ -136,13 +150,11 @@ function challenges.Left(period, now)
     return string.format("%dm", math.max(1, minutes))
 end
 
--- The saved best of `period` at a difficulty (an id), or nil. In `global.challenges`, by the
--- period's key, then by difficulty:
+-- The saved best of `period`, or nil. In `global.challenges`, by the period's key:
 --   score, coins, coinTotal, distance (yards), finished (reached the last portal),
---   difficulty (its id), at (seconds since 1970, UTC)
-function challenges.Best(period, difficulty)
-    local saved = app.db.global.challenges[period.key]
-    return saved and saved[difficulty]
+--   difficulty (its id), goal (yards), at (seconds since 1970, UTC)
+function challenges.Best(period)
+    return app.db.global.challenges[period.key]
 end
 
 -- Whether `record` beats `best`: reaching the portal first, then the score.
@@ -158,11 +170,9 @@ end
 -- Keeps `record` (fields as in Best) if it beats the saved one; true then.
 function challenges.Save(period, record)
     local all = app.db.global.challenges
-    local saved = all[period.key] or {}
-    if not beats(record, saved[record.difficulty]) then
+    if not beats(record, all[period.key]) then
         return false
     end
-    saved[record.difficulty] = record
-    all[period.key] = saved
+    all[period.key] = record
     return true
 end

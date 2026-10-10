@@ -907,7 +907,7 @@ test("a run with a goal ends through its last portal", function()
 end)
 
 -- Challenges: periods by UTC from the reset hour, weeks from Monday, months from the 1st; one
--- seed for each, the same everywhere; the best saved by period and difficulty.
+-- seed, difficulty and goal for each, the same everywhere; the best saved by period.
 test("challenges change at the reset, the same for everyone", function()
     local c = app.challenges
     for _, days in ipairs({ 0, 59, 365, 10957, 20371, 20372, -1, 24000 }) do
@@ -940,27 +940,43 @@ test("challenges change at the reset, the same for everyone", function()
     local seen = {}
     for _, kind in ipairs(c.KINDS) do
         for index = 0, 300 do
-            local seed = c.Seed(kind, index)
-            assert(seed >= 1 and seed <= random.MAX and seed == c.Seed(kind, index))
+            local seed = c.Draw(kind, index)
+            assert(seed >= 1 and seed <= random.MAX and seed == c.Draw(kind, index))
             assert(not seen[seed], "a seed twice")
             seen[seed] = true
         end
     end
+    -- Difficulties and goals: every difficulty comes up, goals within the variation in whole 50s.
+    local difficulties, short, long = {}, false, false
+    for _, kind in ipairs(c.KINDS) do
+        for index = 0, 300 do
+            local _, difficulty, goal = c.Draw(kind, index)
+            assert(g.DIFFICULTIES[difficulty], "a difficulty")
+            difficulties[difficulty] = true
+            assert(goal % 50 == 0, "whole 50s: " .. goal)
+            assert(math.abs(goal - kind.goal) <= kind.goal * c.VARIATION, "within the variation: " .. goal)
+            short, long = short or goal < kind.goal, long or goal > kind.goal
+        end
+    end
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        assert(difficulties[difficulty.id], "never " .. difficulty.id)
+    end
+    assert(short and long, "goals both ways")
     -- Pinned: a change here changes every player's challenges.
     assert(c.Period("daily", at(2026, 10, 10, 12)).seed == 905960284, c.Period("daily", at(2026, 10, 10, 12)).seed)
-    assert(after.goal == 5000 and week.goal == 10000 and month.goal == 15000)
+    assert(after.goal == 5600 and after.difficulty == "normal", after.goal .. " " .. after.difficulty)
 
     app.db = { global = { challenges = {} } }
     local function record(score, finished, difficulty)
         return { score = score, coins = 1, coinTotal = 2, distance = 1, finished = finished, difficulty = difficulty }
     end
-    assert(c.Best(after, "normal") == nil)
+    assert(c.Best(after) == nil)
     assert(c.Save(after, record(500, false, "normal")))
     assert(c.Save(after, record(400, true, "normal")), "reaching the portal beats any score short of it")
     assert(not c.Save(after, record(900, false, "normal")))
     assert(not c.Save(after, record(400, true, "normal")))
-    assert(c.Save(after, record(450, true, "normal")) and c.Best(after, "normal").score == 450)
-    assert(c.Best(after, "hard") == nil and c.Best(before, "normal") == nil, "by difficulty and period")
+    assert(c.Save(after, record(450, true, "normal")) and c.Best(after).score == 450)
+    assert(c.Best(before) == nil, "by period")
     app.db = nil
 end)
 print(string.format("%d simulation tests passed", count))

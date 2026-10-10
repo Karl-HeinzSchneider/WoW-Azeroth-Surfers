@@ -99,14 +99,14 @@ PAGES.play = {
         end,
     },
 }
--- A challenge's page (challenges.lua): its period as it is when opened, its best at the chosen
--- difficulty, and a run to beat it.
+-- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
+-- distance all its own), its best, and a run to beat it.
 local GRAY = { 0.7, 0.7, 0.7 }
 local function challengePage(id)
     local challenges = app.challenges
     local period = challenges.Period(id)
     local function best()
-        return challenges.Best(period, difficulty().id)
+        return challenges.Best(period)
     end
     return {
         title = period.kind.name .. " challenge",
@@ -116,6 +116,12 @@ local function challengePage(id)
                 text = "Distance",
                 info = function()
                     return string.format("%d yd", period.goal)
+                end,
+            },
+            {
+                text = "Difficulty",
+                info = function()
+                    return sim.DIFFICULTIES[period.difficulty].name
                 end,
             },
             {
@@ -149,7 +155,6 @@ local function challengePage(id)
                     return record and string.format("%d / %d", record.coins, record.coinTotal) or "-"
                 end,
             },
-            DIFFICULTY,
             {
                 text = function()
                     return best() and "Beat it" or "Play"

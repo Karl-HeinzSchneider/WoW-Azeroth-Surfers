@@ -58,13 +58,14 @@ default in `db.lua` and an entry in `options.lua`.
   with a fixed seed every restart.
 - `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges. A period begins at
   `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted from the realm's clock;
-  `Period(kind)` gives its seed (from its number alone, by `random`: the same for everyone) and
-  its goal in yards (`KINDS`). A challenge's run (`overlay.challenge`, set by the main menu's
-  Challenges, cleared by the menu or the title) always runs through zones from the lobby, never
+  `Period(kind)` gives its seed, difficulty and goal in yards (`Draw`: from its number alone, by
+  `random`, the same for everyone; the goal its kind's in `KINDS`, up to `VARIATION` more or
+  less). A challenge's run (`overlay.challenge`, set by the main menu's Challenges, cleared by
+  the menu or the title) always runs through zones from the lobby at its own difficulty, never
   "Start at"; `simulation.New(..., goal)` gives it a `finish`, where track.lua lays out a last
   portal and nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`).
-  Its best per period and difficulty is in `global.challenges` (`Best`, `Save`: reaching the
-  portal first, then the score); it never counts as the endless best score.
+  Its best per period is in `global.challenges` (`Best`, `Save`: reaching the portal first,
+  then the score); it never counts as the endless best score.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in

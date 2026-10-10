@@ -42,7 +42,7 @@ function overlay:SaveBest()
 end
 
 -- A challenge's run (`s.challenge`, its period) once it is over, at the end or before: its
--- best at its difficulty, if it beats it (challenges.lua). A run left before its end saves
+-- best, if it beats it (challenges.lua). A run left before its end saves
 -- nothing.
 function overlay:SaveChallenge(s)
     if s.status ~= "over" then
@@ -55,6 +55,7 @@ function overlay:SaveChallenge(s)
         distance = math.floor(sim.Run(s)),
         finished = s.finished or false,
         difficulty = s.difficulty.id,
+        goal = s.finish - s.start,
         at = app.challenges.Now(),
     }
     if app.challenges.Save(s.challenge, record) then
@@ -66,12 +67,13 @@ end
 -- run (a restart) is the lobby's run of its seed begun past the portal (simulation.Skip), or
 -- `at` yards in: a seed lays out one track, from the menu or a restart. `at` when left out:
 -- with a fixed seed the profile's `startAt`, else 0. While a challenge is on (`challenge`, its
--- period: screens.lua's PlayChallenge), its seed through zones to its goal, never further in.
+-- period: screens.lua's PlayChallenge), its seed and difficulty through zones to its goal, never
+-- further in.
 function overlay:NewState(lobby, seed, at)
     local profile = app.db.profile
     local challenge = self.challenge
     if challenge then
-        local s = sim.New(challenge.seed, profile.difficulty, true, lobby or app.lobby, challenge.goal)
+        local s = sim.New(challenge.seed, challenge.difficulty, true, lobby or app.lobby, challenge.goal)
         s.challenge = challenge
         if not lobby then
             sim.Skip(s, 0)

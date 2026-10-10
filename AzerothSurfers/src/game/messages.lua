@@ -81,13 +81,13 @@ local NUMBERS = {
             return string.format("%d yd", math.floor(sim.Run(s)))
         end,
     },
-    -- A challenge's: its best at the run's difficulty.
+    -- A challenge's: its own best.
     {
         text = "Best",
         info = function(o)
             local s = o.state
             if s.challenge then
-                local best = app.challenges.Best(s.challenge, s.difficulty.id)
+                local best = app.challenges.Best(s.challenge)
                 return best and tostring(best.score) or "-"
             end
             return tostring(app.db.global.bestScore)
@@ -209,12 +209,12 @@ local function page(title, ...)
     return { title = title, items = items }
 end
 
--- A challenge's run (screens.lua's PlayChallenge): its seed and where it begins are the
--- challenge's own; it ends at its last portal (or before).
+-- A challenge's run (screens.lua's PlayChallenge): its seed, difficulty and where it begins are
+-- the challenge's own; it ends at its last portal (or before).
 local function challengePage(s)
     local name = s.challenge.kind.name .. " challenge"
     if s.status == "paused" then
-        local p = page(name, NUMBERS, { GO_ON, { text = "Start over", run = restart }, DIFFICULTY, MENU })
+        local p = page(name, NUMBERS, { GO_ON, { text = "Start over", run = restart }, MENU })
         p.back = GO_ON.run
         p.extra = { text = "Start over", run = restart }
         return p
@@ -225,7 +225,7 @@ local function challengePage(s)
         s.finished and "Challenge complete" or name,
         note and { note } or {},
         NUMBERS,
-        { { text = "Try again", run = restart }, DIFFICULTY, MENU }
+        { { text = "Try again", run = restart }, MENU }
     )
     p.back = MENU.run
     p.extra = { text = "Try again", run = restart }
