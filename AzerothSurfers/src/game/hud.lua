@@ -276,8 +276,11 @@ function overlay:ShowHudCoin(shown, now)
     local model = entry and entry.model or false
     if shown.coinModel ~= model or shown.coinScale ~= self.coinScale then
         shown.coinModel, shown.coinScale = model, self.coinScale
-        coin.actor:SetShown(model ~= false)
-        if model then
+        -- Actors have Show and Hide, no SetShown.
+        if not model then
+            coin.actor:Hide()
+        else
+            coin.actor:Show()
             coin.actor:SetModelByFileID(model)
             coin.actor:SetScale(self.coinScale)
             coin.actor:SetPitch(self.coinPitch)
