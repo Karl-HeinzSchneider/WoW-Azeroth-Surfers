@@ -66,15 +66,15 @@ stands and covers it, in front of the road. It mirrors how you move (running, wa
 backpedalling, jumping), and jumping or running on a platform lifts it with the road dropping
 away beneath it. Coins near you are spinning 3D models from the game files.
 
-The road imitates WoW's follow camera and has to be calibrated once: in **/surfers options**, adjust
-camera pitch, focus height, field of view and twin size until the see-through twin (shown before
-a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
+The road imitates WoW's follow camera and has to be calibrated once: on the **Calibration** tab
+of **/surfers options**, adjust camera pitch, focus height, field of view and twin size until the
+see-through twin (shown before a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
 the client reports the zoom. **Hide your real character** zooms into first person while the game is
 open, where WoW does not draw your character, and back out after.
 
 ### Modes
 
-In **/surfers options**, under Mode:
+In **/surfers options**, on the **Display** tab (**Capture movement keys** is on the **Game** tab):
 
 - **Full screen** (the default) is the game as described above, part of the world. **Window frame
   in full screen** adds a border, title bar and close button around the screen.

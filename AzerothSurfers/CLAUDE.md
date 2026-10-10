@@ -30,8 +30,9 @@ and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, nev
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
   (`logger.lua`) is the name players see.
-- `options.lua` — `app.options`: **one** AceConfig table for the Settings panel and a standalone
-  window. `Refresh()` after a setting changed elsewhere.
+- `options.lua` — `app.options`: **one** AceConfig table, in tabs (Game, Display, Sound,
+  Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
+  setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
