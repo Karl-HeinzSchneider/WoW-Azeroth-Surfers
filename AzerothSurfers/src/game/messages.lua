@@ -120,6 +120,30 @@ local KEEP_SEED = {
     },
 }
 
+-- Yards into the seed a run begins: one from the main menu (screens.lua) with its seed, and
+-- with a fixed seed every restart.
+local function startAt()
+    return tostring(app.db.profile.startAt or 0)
+end
+local function setStartAt(o, typed)
+    local yards = tonumber(typed)
+    if yards then
+        o:SetStartAt(yards)
+    end
+end
+overlay.START_AT = { text = "Start at", input = { get = startAt, set = setStartAt } }
+-- Here grayed out while every run draws a new seed: a restart begins there only with a kept one.
+local START_AT = {
+    text = "Start at",
+    input = {
+        get = startAt,
+        set = setStartAt,
+        can = function(o)
+            return o:StartsAt()
+        end,
+    },
+}
+
 local function restart(o)
     if not InCombatLockdown() then
         o:Restart()
@@ -170,7 +194,7 @@ local function statusPage(o, s)
         local p = page(
             "Paused",
             NUMBERS,
-            { GO_ON, { text = "Start over", run = restart }, KEEP_SEED, DIFFICULTY, AUTO, MENU }
+            { GO_ON, { text = "Start over", run = restart }, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
         )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
@@ -185,7 +209,7 @@ local function statusPage(o, s)
             "Run complete",
             best,
             NUMBERS,
-            { { text = "Run again", run = restart }, KEEP_SEED, DIFFICULTY, AUTO, MENU }
+            { { text = "Run again", run = restart }, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
         )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }

@@ -18,8 +18,10 @@ local _, app = ...
 --           accept leaves it alone
 --   info    function(o): a value shown on the right; the line cannot be chosen
 --   note    a color { r, g, b }: the label alone, centered in it; cannot be chosen
---   input   { get = function(o): the box's text, set = function(o, text) }: a number box; accept
---           (or a click) types in it, Enter keeps the number, Escape the one before
+--   input   { get = function(o): the box's text, set = function(o, text), can = function(o):
+--           whether it can be typed in now, always when left out }: a number box; accept (or a
+--           click) types in it, Enter keeps the number, Escape the one before. Grayed out while
+--           it cannot.
 local overlay = app.overlay
 
 local FONT = "Fonts\\MORPHEUS.ttf"
@@ -31,6 +33,8 @@ local HINT_HEIGHT, HINT_GAP, CAP_GAP, LABEL_GAP = 20, 18, 4, 6
 local GOLD = { 1, 0.82, 0 }
 local WHITE = { 1, 1, 1 }
 local GRAY = { 0.8, 0.8, 0.8 }
+-- An input that cannot be typed in now.
+local LOCKED_ALPHA = 0.4
 -- The login screen's arrow in front of the chosen item; the spell book's page arrows around a
 -- choice.
 local MARKER_ART = "Interface\\Glues\\Common\\Glue-RightArrow-Button-Up"
@@ -112,6 +116,10 @@ function Menu:Row(i)
     box:SetPoint("RIGHT", 0, 0)
     box:SetScript("OnEnterPressed", box.ClearFocus)
     box:SetScript("OnEditFocusGained", function()
+        if row.locked then
+            box:ClearFocus()
+            return
+        end
         self:SelectRow(i)
         box:HighlightText()
     end)
@@ -286,7 +294,9 @@ function Menu:Input(action)
             return
         elseif item.input then
             -- Typed in from here; the keys go to the box until Enter or Escape.
-            self.rows[entry.selected].box:SetFocus()
+            if not self.rows[entry.selected].locked then
+                self.rows[entry.selected].box:SetFocus()
+            end
             return
         elseif item.run then
             item.run(o, self)
@@ -331,7 +341,10 @@ function Menu:Layout()
         row.value:SetShown(item.choice ~= nil)
         row.info:SetShown(item.info ~= nil)
         row.box:SetShown(item.input ~= nil)
-        row.shownValue = nil
+        row.shownValue, row.locked = nil, nil
+        row.box:EnableMouse(true)
+        row.label:SetAlpha(1)
+        row.box:SetAlpha(1)
         row:Show()
         hasChoice = hasChoice or item.choice ~= nil
         y = y - ROW
@@ -443,6 +456,18 @@ function Menu:Show()
             if row.shownLabel ~= text then
                 row.shownLabel = text
                 row.label:SetText(text)
+            end
+        end
+        -- An input that cannot be typed in now: grayed out, its box left alone.
+        local locked = item.input ~= nil and item.input.can ~= nil and not item.input.can(o)
+        if locked ~= (row.locked or false) then
+            row.locked = locked
+            row.box:EnableMouse(not locked)
+            row.label:SetAlpha(locked and LOCKED_ALPHA or 1)
+            row.box:SetAlpha(locked and LOCKED_ALPHA or 1)
+            if locked and row.box:HasFocus() then
+                row.escaped = true
+                row.box:ClearFocus()
             end
         end
         local value = item.choice and item.choice.get(o)

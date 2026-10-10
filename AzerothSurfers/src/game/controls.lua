@@ -39,18 +39,20 @@ end
 
 -- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's. Any other
 -- run (a restart) is the lobby's run of its seed begun past the portal (simulation.Skip), or
--- with a fixed seed `startAt` yards in: a seed lays out one track, from the menu or a restart.
-function overlay:NewState(lobby, seed)
+-- `at` yards in: a seed lays out one track, from the menu or a restart. `at` when left out:
+-- with a fixed seed the profile's `startAt`, else 0.
+function overlay:NewState(lobby, seed, at)
     local profile = app.db.profile
     local zones = profile.biome == app.biomes.AUTO
     local s = sim.New(seed or profile.seed or nil, profile.difficulty, zones, lobby or app.lobby)
     if not lobby then
-        sim.Skip(s, profile.seed and profile.startAt or 0)
+        sim.Skip(s, at or (profile.seed and profile.startAt) or 0)
     end
     return s
 end
 
--- Yards into a fixed seed a restart begins; a run not started yet takes it at once.
+-- The yards into a seed a run begins: one from the menu with its seed, and with a fixed seed
+-- every restart. A run not started yet takes it at once.
 function overlay:SetStartAt(yards)
     app.db.profile.startAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
     if app.options then
@@ -59,6 +61,11 @@ function overlay:SetStartAt(yards)
     if self.frame and self.state.status == "ready" and not self.state.lobby then
         self.state = self:NewState(nil, self.state.seed)
     end
+end
+
+-- Whether a restart begins `startAt` yards in: only with a fixed seed.
+function overlay:StartsAt()
+    return app.db.profile.seed ~= false
 end
 
 function overlay:Restart()

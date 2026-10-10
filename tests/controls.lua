@@ -388,3 +388,16 @@ end
 local fromMenu = r:NewState(app.lobby, 777)
 same(ahead(fromMenu, cut), ahead(skipped, cut))
 print("PASS a seed's track is the same from the menu, a restart and a later start")
+
+-- "Start at" from the main menu: the run shown there (any seed) begins that far in; a restart
+-- only with a kept seed.
+app.db.profile.seed, app.db.profile.startAt = false, 2000
+assert(not r:StartsAt())
+r:Restart()
+assert(r.state.distance < 2000, "a new seed restarts past the portal")
+assert(not r.state.practice)
+local menuRun = r:NewState(nil, 777, 2000)
+assert(menuRun.seed == 777 and menuRun.practice == 2000 and menuRun.distance >= 2000)
+r:SetFixedSeed(true)
+assert(r:StartsAt())
+print("PASS the start point from the main menu, and for restarts only with a kept seed")

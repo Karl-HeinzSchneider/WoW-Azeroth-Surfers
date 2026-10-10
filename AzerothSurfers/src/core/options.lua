@@ -327,10 +327,7 @@ local game = {
             type = "input",
             order = 13,
             name = "Start at (yards)",
-            desc = "Practice a stretch of the seed: a restart begins this many yards into the same track a run from the menu lays out, on empty road up to its next obstacles, and saves no best score. 0: just past the portal. A run from the menu still starts at the camp.",
-            hidden = function()
-                return app.db.profile.seed == false
-            end,
+            desc = "Yards into the seed a run from the menu begins, and with a fixed seed every restart: on empty road up to its next obstacles, the same track the seed lays out from the camp. Such a run saves no best score. 0: from the camp, a restart just past the portal.",
             get = function()
                 return tostring(app.db.profile.startAt or 0)
             end,

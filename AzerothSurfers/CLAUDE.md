@@ -52,8 +52,10 @@ default in `db.lua` and an entry in `options.lua`.
   the multiplier.
   `Skip(s, yards)` begins a run from the lobby that far into its seed, past its portal at the
   least: the track is laid out step by step as running it from the menu lays it out, so from the
-  first pattern past the empty road on it is the seed's own. Every restart is one (with a fixed
-  seed from the options' "Start at"), so a seed lays out one track, from the menu or a restart.
+  first pattern past the empty road on it is the seed's own. Every restart is one, so a seed
+  lays out one track, from the menu or a restart. "Start at" (`profile.startAt`, in the main
+  menu, the pause and end menus and the options) begins a run from the menu that far in, and
+  with a fixed seed every restart.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
@@ -97,9 +99,9 @@ default in `db.lua` and an entry in `options.lua`.
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score), `legend.lua` (the running keys).
-  - `messages.lua` — the pause and end menus (keep the seed, difficulty), announcements, the gate's flash and vortex.
+  - `messages.lua` — the pause and end menus (keep the seed, start at, difficulty), announcements, the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
-    boxes) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key
+    boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key
     (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the keys of every screen and menu

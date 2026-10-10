@@ -81,6 +81,8 @@ PAGES.play = {
                 end,
             },
         },
+        -- Yards into the seed the run begins, 0 at the camp (messages.lua).
+        overlay.START_AT,
         {
             text = "Auto mode",
             run = function(o)
@@ -495,6 +497,12 @@ function overlay:StepApproach(elapsed)
     end
     self.screen, self.startPhase = nil, nil
     self.legendState = nil
+    -- Begun further into the seed ("Start at"): there at once, as a restart is.
+    local at = app.db.profile.startAt or 0
+    if at > 0 then
+        s = self:NewState(nil, s.seed, at)
+        self.state = s
+    end
     sim.Start(s)
     if self.watching then
         self.watching = nil
