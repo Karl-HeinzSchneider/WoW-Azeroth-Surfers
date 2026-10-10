@@ -323,6 +323,23 @@ local game = {
                 app.overlay:SetSeed(tonumber(value))
             end,
         },
+        startAt = {
+            type = "input",
+            order = 13,
+            name = "Start at (yards)",
+            desc = "Yards into the seed a run from the menu begins, and with a fixed seed every restart: on empty road up to its next obstacles, the same track the seed lays out from the camp. Such a run saves no best score. 0: from the camp, a restart just past the portal.",
+            get = function()
+                return tostring(app.db.profile.startAt or 0)
+            end,
+            validate = function(_, value)
+                local yards = tonumber(value)
+                return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
+                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+            end,
+            set = function(_, value)
+                app.overlay:SetStartAt(tonumber(value))
+            end,
+        },
         controlsHeader = header(20, "Controls"),
         capture = toggle(
             21,

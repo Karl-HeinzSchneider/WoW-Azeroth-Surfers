@@ -761,6 +761,62 @@ test("a seed always lays out the same track", function()
     assert(layout(1234) ~= layout(1235))
     assert(g.New(99).seed == 99 and g.New().seed >= 1)
 end)
+-- A run begun 5000 yards (or just past the portal) into a seed lays out what running there from
+-- the menu lays out, from its first pattern on, after empty road.
+test("a run skipped ahead keeps its seed's track from the menu", function()
+    local function key(o)
+        return string.format("%s %d %.6f %.6f %d %d", o.kind, o.lane, o.at, o.length, o.layer, o.seed)
+    end
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, to in ipairs({ 0, 5000 }) do
+            local name = difficulty.id .. " " .. to
+            local skipped = g.New(4242, difficulty.id, true, app.lobby)
+            local portal = skipped.start
+            g.Skip(skipped, to)
+            assert(not skipped.lobby and skipped.status == "ready" and skipped.lane == 0, name)
+            assert(skipped.distance >= math.max(to, portal) and skipped.start == skipped.distance, name)
+            assert(g.Score(skipped) == 0 and (skipped.practice == (to > 0 and to or nil)), name)
+            local clear = math.max(to, portal) + difficulty.startSpeed * g.CLEAR - track.LEAD_IN
+            for _, o in ipairs(skipped.objects) do
+                assert(o.at >= clear, name .. ": empty road ahead of the runner")
+            end
+            -- The same seed run from the menu step by step, then both on: high above the track,
+            -- so nothing stops them.
+            local ran = g.New(4242, difficulty.id, true, app.lobby)
+            g.Start(ran)
+            g.Start(skipped)
+            ran.forward, skipped.forward = true, true
+            while ran.distance < skipped.distance do
+                ran.height = 1e6
+                g.Update(ran, 1 / 120)
+            end
+            assert(ran.distance == skipped.distance and ran.nextRow == skipped.nextRow, name)
+            assert(#ran.gates == #skipped.gates and ran.multiplier == skipped.multiplier, name)
+            for _ = 1, 600 do
+                ran.height, skipped.height = 1e6, 1e6
+                g.Update(ran, 1 / 120)
+                g.Update(skipped, 1 / 120)
+            end
+            local cut, mine = math.huge, {}
+            for _, o in ipairs(skipped.objects) do
+                cut = math.min(cut, o.at)
+                mine[key(o)] = true
+            end
+            local shared = 0
+            for _, o in ipairs(ran.objects) do
+                if o.at >= cut then
+                    assert(mine[key(o)], name .. ": the same box past the cut")
+                    shared = shared + 1
+                end
+            end
+            assert(shared == #skipped.objects and shared > 0, name)
+        end
+    end
+    -- Only a run from the lobby, not started yet.
+    local restart = g.New(1)
+    g.Skip(restart, 5000)
+    assert(not restart.practice and restart.distance == 0)
+end)
 -- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
 -- rate, collecting coins on the way; its runs save no best score.
 test("the autopilot plays generated tracks", function()

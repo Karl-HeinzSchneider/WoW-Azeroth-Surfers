@@ -563,7 +563,7 @@ function overlay:Route()
     if self.routeState ~= s then
         -- A run without zones (begun before auto was picked) stays in its first one, or the
         -- first past the lobby's gate.
-        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby)
+        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby or s.fromLobby)
     end
     return self.route
 end
@@ -671,9 +671,10 @@ end
 function overlay:UpdateZone()
     if self:BiomeId() ~= self.biomeId then
         self:ApplyBiome(true)
-        -- Through a gate, not a new run's first zone.
+        -- Through a gate, not a new run's first zone: a restart begins past its lobby's portal.
         local s = self.state
-        local through = s.gates and app.biomes.Zone(self:Route(), s.distance).from > -math.huge
+        local from = s.gates and app.biomes.Zone(self:Route(), s.distance).from
+        local through = from and from > -math.huge and (s.lobby ~= nil or from > s.start)
         if s.status == "running" and through then
             self:WelcomeBiome()
             local flash = app.biomes.Transition(self.biome.entrance).flash

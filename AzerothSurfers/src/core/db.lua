@@ -28,6 +28,7 @@ local profile = {
     keys = {},
     difficulty = "normal", -- an id of simulation.DIFFICULTIES
     seed = false, -- a fixed seed for every run, or false: a new one each run
+    startAt = 0, -- with a fixed seed, yards into it a restart begins (simulation.Skip); 0: past the portal
     frame = { full = false, side = true }, -- the window frame in each mode
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- The game's independent follow camera and the twin.

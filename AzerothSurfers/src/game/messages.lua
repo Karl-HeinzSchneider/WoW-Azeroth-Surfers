@@ -2,8 +2,9 @@
 local _, app = ...
 local sim = app.simulation
 -- What the game shows in the middle of the view, over everything else:
--- * the status menu while a run is paused or over (menus.lua): the run's numbers, the next run's
---   difficulty and what to do next (before a run: screens.lua's main menu);
+-- * the status menu while a run is paused or over (menus.lua): the run's numbers, whether its
+--   seed is kept, the next run's difficulty and what to do next (before a run: screens.lua's
+--   main menu);
 -- * announcements in zone-text style (`Announce`);
 -- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
 local overlay = app.overlay
@@ -37,6 +38,7 @@ local GOLD = { 1, 0.82, 0 }
 -- The status menu's pages (menus.lua describes pages and items), built anew for each pause and
 -- each end of a run.
 local GREEN = { 0.1, 1, 0.1 }
+local GRAY = { 0.7, 0.7, 0.7 }
 
 local function chosen()
     return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
@@ -101,6 +103,62 @@ local DIFFICULTY = {
     },
 }
 
+-- The seed: the kept one, else this run's. One typed in is kept for every run from now on.
+local SEED = {
+    text = "Seed",
+    input = {
+        get = function(o)
+            return tostring(app.db.profile.seed or o.state.seed)
+        end,
+        set = function(o, typed)
+            local seed = tonumber(typed)
+            if seed then
+                o:SetSeed(seed)
+            end
+        end,
+    },
+}
+-- Keeps the seed above for every run from now on (the options' fixed seed), or a random one
+-- each run.
+local KEEP_SEED = {
+    text = "Seed mode",
+    choice = {
+        get = function()
+            return app.db.profile.seed and "Keep" or "Random each run"
+        end,
+        can = function(_, dir)
+            return (dir > 0) ~= (app.db.profile.seed ~= false)
+        end,
+        step = function(o, dir)
+            o:SetFixedSeed(dir > 0)
+        end,
+    },
+}
+
+-- Yards into the seed a run begins: one from the main menu (screens.lua) with its seed, and
+-- with a fixed seed every restart.
+local function startAt()
+    return tostring(app.db.profile.startAt or 0)
+end
+local function setStartAt(o, typed)
+    local yards = tonumber(typed)
+    if yards then
+        o:SetStartAt(yards)
+    end
+end
+overlay.START_AT = { text = "Start at", input = { get = startAt, set = setStartAt } }
+-- Here grayed out while every run draws a new seed: a restart begins there only with a kept one.
+local START_AT = {
+    text = "Start at",
+    input = {
+        get = startAt,
+        set = setStartAt,
+        can = function(o)
+            return o:StartsAt()
+        end,
+    },
+}
+
 local function restart(o)
     if not InCombatLockdown() then
         o:Restart()
@@ -148,17 +206,29 @@ local function statusPage(o, s)
         if o.auto then
             return page("Paused", NUMBERS, { GO_ON, STOP })
         end
-        local p = page("Paused", NUMBERS, { GO_ON, { text = "Start over", run = restart }, DIFFICULTY, AUTO, MENU })
+        local p = page(
+            "Paused",
+            NUMBERS,
+            { GO_ON, { text = "Start over", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+        )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
         p.extra = { text = "Start over", run = restart }
         return p
     elseif s.status == "over" then
-        local best = s.newBest and { { text = "New best!", note = GREEN } } or {}
+        -- A run begun further into its seed ("Start at") saves no best score: says so.
+        local best = s.newBest and { { text = "New best!", note = GREEN } }
+            or s.practice and { { text = string.format("From %d yd: no best score", s.practice), note = GRAY } }
+            or {}
         if o.auto then
             return page("Run complete", best, NUMBERS, { STOP })
         end
-        local p = page("Run complete", best, NUMBERS, { { text = "Run again", run = restart }, DIFFICULTY, AUTO, MENU })
+        local p = page(
+            "Run complete",
+            best,
+            NUMBERS,
+            { { text = "Run again", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+        )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }
         return p
