@@ -225,6 +225,9 @@ function overlay:PlaceLegend(side, top)
     if side then
         -- Below the scorecard, so both panels fit even in the narrowest side window.
         y = y - 100
+    elseif self.hudPosition == "topleft" then
+        -- Below the scorecard in the same corner.
+        y = y - 130
     end
     legend:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x / scale, y / scale)
 end

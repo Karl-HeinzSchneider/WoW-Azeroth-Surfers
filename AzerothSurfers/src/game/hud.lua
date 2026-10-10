@@ -111,8 +111,7 @@ function overlay:CreateHud(f)
     hud:Hide()
 
     local card = CreateFrame("Frame", nil, hud, "DialogBorderTemplate")
-    card:ClearAllPoints()
-    card:SetPoint("TOPRIGHT")
+    -- Anchored by its position's corner (PlaceHud).
     card:SetSize(CARD_WIDTH, CARD_HEIGHT)
     local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("TOPLEFT", INSET, -14)
@@ -166,22 +165,43 @@ function overlay:CreateHud(f)
     }
 end
 
--- `top`: where the view's free area starts, under a full-screen frame's title bar.
-function overlay:PlaceHud(side, w, h, top)
-    local hud = self.hud.frame
-    hud:ClearAllPoints()
-    if side then
-        hud:SetScale(SIDE_SCALE)
-        -- Under the buttons' row, if any; offsets count in the display's own scale.
-        local y = top - (self.framed and 8 or 40)
-        hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, y / SIDE_SCALE)
-    else
-        hud:SetScale(1)
-        -- Keep the score in the player's field of view, right of the road above the horizon.
-        local x = math.min(0.62 * h, w / 2 - 16)
-        local y = math.min(0.36 * h, h / 2 + top - 48)
-        hud:SetPoint("TOPRIGHT", self.frame, "CENTER", x, y)
+-- Where the scorecard may sit (profile.hud.position), each by its corner that stays put as the
+-- card widens. "menu" is full screen only: the card's top left beside the pause and end menus'
+-- top right, MENU_GAP pixels apart; in the side window it is "topright".
+local POSITIONS = { menu = "TOPLEFT", topright = "TOPRIGHT", top = "TOP", topleft = "TOPLEFT" }
+local MENU_GAP = 12
+-- From the view's edges; "top" under the buttons' row (window.lua's controls) at the centre.
+local EDGE, UNDER_BUTTONS = 16, 48
+
+-- `top`: where the view's free area starts, under a full-screen frame's title bar. Sets
+-- `hudPosition`, the position used (PlaceLegend keeps clear of it).
+function overlay:PlaceHud(side, top)
+    local hud, saved = self.hud.frame, app.db.profile.hud
+    local position = POSITIONS[saved.position] and saved.position or "menu"
+    if side and position == "menu" then
+        position = "topright"
     end
+    self.hudPosition = position
+    local point, scale = POSITIONS[position], side and SIDE_SCALE or 1
+    hud:SetScale(scale)
+    hud:ClearAllPoints()
+    self.hud.card:ClearAllPoints()
+    self.hud.card:SetPoint(point)
+    -- Offsets count in the display's own scale.
+    local x, y = saved.x / scale, saved.y / scale
+    if position == "menu" then
+        hud:SetPoint(point, self.statusMenu.panel, "TOPRIGHT", MENU_GAP + x, y)
+        return
+    end
+    -- Under the buttons' row, if any.
+    local edge = side and 8 or EDGE
+    local below = top - (side and (self.framed and 8 or 40) or (position == "top" and UNDER_BUTTONS or EDGE))
+    if position == "top" then
+        edge = 0
+    elseif position == "topright" then
+        edge = -edge
+    end
+    hud:SetPoint(point, self.frame, point, edge / scale + x, below / scale + y)
 end
 
 -- Once a frame: numbers redrawn only when they change (no strings built), and the star's pop.

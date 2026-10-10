@@ -89,6 +89,35 @@ local function applyMode()
     end
 end
 
+-- An open game places the scorecard anew at once.
+local function placeHud()
+    if app.overlay.frame then
+        app.overlay:Layout()
+    end
+end
+
+-- A pixel offset of `profile.hud`.
+local function hudOffset(order, key, name, desc)
+    return {
+        type = "range",
+        order = order,
+        name = name,
+        desc = desc,
+        min = -1000,
+        max = 1000,
+        softMin = -400,
+        softMax = 400,
+        step = 1,
+        get = function()
+            return app.db.profile.hud[key]
+        end,
+        set = function(_, value)
+            app.db.profile.hud[key] = value
+            placeHud()
+        end,
+    }
+end
+
 local function header(order, name)
     return { type = "header", order = order, name = name }
 end
@@ -525,6 +554,37 @@ local display = {
             end,
             set = function(_, value)
                 app.db.profile.overlay.curve = value / 2500
+            end,
+        },
+        hudHeader = header(20, "Scorecard"),
+        hudPosition = {
+            type = "select",
+            order = 21,
+            name = "Position",
+            desc = "Where the score sits. Beside the menu: right of the pause menu, on its top line, in full screen; top right in the side window.",
+            values = { menu = "Beside the menu", topright = "Top right", top = "Top centre", topleft = "Top left" },
+            sorting = { "menu", "topright", "top", "topleft" },
+            get = function()
+                return app.db.profile.hud.position
+            end,
+            set = function(_, value)
+                app.db.profile.hud.position = value
+                placeHud()
+            end,
+        },
+        hudX = hudOffset(22, "x", "Move right", "Pixels to move the score right of its position (left when negative)."),
+        hudY = hudOffset(23, "y", "Move up", "Pixels to move the score up from its position (down when negative)."),
+        hudReset = {
+            type = "execute",
+            order = 24,
+            name = "Reset position",
+            desc = "Put the score back beside the menu, unmoved.",
+            func = function()
+                local saved, default = app.db.profile.hud, app.dbDefaults.profile.hud
+                for key, value in pairs(default) do
+                    saved[key] = value
+                end
+                placeHud()
             end,
         },
     },

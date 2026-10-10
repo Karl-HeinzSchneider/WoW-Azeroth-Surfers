@@ -30,6 +30,10 @@ local profile = {
     seed = false, -- a fixed seed for every run, or false: a new one each run
     startAt = 0, -- with a fixed seed, yards into it a restart begins (simulation.Skip); 0: past the portal
     frame = { full = false, side = true }, -- the window frame in each mode
+    -- The scorecard: "menu" (full screen: right of the pause and end menus, its top on theirs;
+    -- the side window: top right), "topright", "top" or "topleft"; x and y move it that many
+    -- pixels (right and up).
+    hud = { position = "menu", x = 0, y = 0 },
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- The game's independent follow camera and the twin.
     overlay = {
