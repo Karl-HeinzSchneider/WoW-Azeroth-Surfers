@@ -63,6 +63,43 @@ test("a jump peaks past layer 2, lands and cannot double jump", function()
     advance(s, 0.6, 60)
     assert(s.height == 0 and s.velocity == 0)
 end)
+test("ducking passes under a box on layer 2 for its time, a jump ends it", function()
+    local low = function()
+        return g.Box("barrier", 0, 4, 0.5, 2, 1)
+    end
+    local s = fresh(low())
+    advance(s, 0.3, 60)
+    assert(s.status == "over")
+    s = fresh(low())
+    g.Duck(s)
+    advance(s, 0.3, 60)
+    assert(s.status == "running" and s.distance > 5)
+    advance(s, g.DUCK_TIME, 60)
+    assert(s.duck == 0 and g.BodyHeight(s) == g.geometry.playerHeight)
+    s = fresh()
+    g.Duck(s)
+    g.Jump(s)
+    assert(s.duck == 0 and s.velocity > 0)
+end)
+test("ducking in the air drops faster and ducks on landing", function()
+    local s, plain = fresh(), fresh()
+    g.Jump(s)
+    g.Jump(plain)
+    advance(s, 0.2, 60)
+    advance(plain, 0.2, 60)
+    g.Duck(s)
+    assert(s.duck == 0)
+    local landed
+    for frame = 1, 60 do
+        advance(s, 1 / 60, 60)
+        if s.height == 0 then
+            landed = frame
+            break
+        end
+    end
+    advance(plain, landed / 60, 60)
+    assert(plain.height > 0 and s.duck > 0)
+end)
 test("pause freezes simulation", function()
     local s = fresh()
     g.Jump(s)

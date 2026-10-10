@@ -25,6 +25,9 @@ Q), **Start over** / **Run again** (or R), **Difficulty** for the next run, **Au
 - Your WoW turn-left / strafe-left binding: left lane.
 - Your WoW turn-right / strafe-right binding: right lane.
 - Your WoW jump binding: jump.
+- Your WoW move-backward binding: duck (a short roll, two layers tall); in the air, drop down fast
+  and roll on landing. Works best with **Capture movement keys** on: without it your character
+  also steps back.
 - Use the buttons at the top to restart, pause/resume, or close.
 
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.

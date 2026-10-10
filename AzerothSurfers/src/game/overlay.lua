@@ -59,6 +59,8 @@ local COIN_SIZE = 0.5 -- a coin model's largest side
 -- The twin's animations, and the speeds walking, running and backpedalling are animated for. A
 -- normal jump (about 0.83 seconds) plays JUMP_START throughout; JUMP loops after AIR_LOOP.
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
+-- Ducking (simulation.Duck): the roll's loop.
+local ROLL = 666
 local WALK_SPEED, RUN_SPEED, BACKWARDS_SPEED = 2.5, 7, 4.5
 local AIR_LOOP = 1.1
 -- Jump-start choices by UnitRace's file token, then UnitSex (2 male, 3 female).
@@ -1043,6 +1045,8 @@ function overlay:AnimateTwin(elapsed)
         if speed > 0 and self.towardForward >= 0 then
             yaw = direction
         end
+    elseif s.duck > 0 and s.status == "running" then
+        animation, yaw = ROLL, 0
     elseif speed > 0 then
         if self.towardForward < -0.1 and math.abs(direction) > math.pi * 0.6 then
             animation, rate = BACKWARDS, speed / BACKWARDS_SPEED

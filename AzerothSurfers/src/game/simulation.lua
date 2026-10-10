@@ -14,6 +14,7 @@ game.geometry = {
     playerHalfWidth = 0.22,
     playerHalfDepth = 0.15,
     playerHeight = 1.8, -- three layers: a barrier on layer 3 can be run under
+    duckHeight = 1.2, -- two layers, while ducking (game.Duck)
     halfWidth = { obstacle = 0.65, enemy = 0.6, barrier = 1.1, platform = 1.05, coin = 0.16 },
     coinSize = 0.5, -- drawn; it collects anywhere in its layer
 }
@@ -44,13 +45,18 @@ local function alongside(s, o)
     return s.distance + bounds.playerHalfDepth > o.at and s.distance - bounds.playerHalfDepth < o.at + o.length
 end
 
+-- The runner's height in yards: shorter while ducking.
+function game.BodyHeight(s)
+    return s.duck > 0 and bounds.duckHeight or bounds.playerHeight
+end
+
 -- Boxes that only touch (a body three layers tall under a barrier on layer 3) do not overlap.
 local EPSILON = 1e-6
 function game.Overlaps(s, o)
     return sideBySide(s, o)
         and alongside(s, o)
         and s.height < game.Top(o) - EPSILON
-        and s.height + bounds.playerHeight > o.layer * L + EPSILON
+        and s.height + game.BodyHeight(s) > o.layer * L + EPSILON
 end
 
 local STEP = 1 / 120
@@ -64,6 +70,9 @@ local JUMP_VELOCITY, GRAVITY = 7.955716, 19.291105
 game.JUMP_TIME = 2 * JUMP_VELOCITY / GRAVITY
 -- How high the runner steps up without jumping: ramps, and landings just short of a top.
 local STEP_UP = 0.25
+-- Seconds a duck lasts, and how fast (yards per second) ducking in the air pulls the runner down.
+game.DUCK_TIME = 0.6
+local DIVE_VELOCITY = 2 * JUMP_VELOCITY
 -- Seconds of empty road, at the difficulty's start speed, from where the player takes over to
 -- the first pattern: a new run's start, and past the lobby's gate.
 game.CLEAR = 2
@@ -108,6 +117,9 @@ function game.New(seed, difficulty, zones, lobby)
         height = 0,
         floor = 0,
         velocity = 0,
+        -- Seconds of ducking left; `diving`: ducked in the air, ducks on landing.
+        duck = 0,
+        diving = false,
         distance = 0,
         forward = false,
         coins = 0,
@@ -183,10 +195,25 @@ function game.Move(s, delta)
     end
 end
 
--- Only from a floor: the ground or a platform's top.
+-- Only from a floor: the ground or a platform's top. It ends a duck.
 function game.Jump(s)
     if s.status == "running" and s.velocity == 0 and s.height <= s.floor then
         s.velocity = JUMP_VELOCITY
+        s.duck, s.diving = 0, false
+    end
+end
+
+-- On a floor, the runner ducks for DUCK_TIME (again from the start while ducking); in the air
+-- it drops fast and ducks on landing.
+function game.Duck(s)
+    if s.status ~= "running" then
+        return
+    end
+    if s.velocity == 0 and s.height <= s.floor then
+        s.duck = game.DUCK_TIME
+    else
+        s.velocity = math.min(s.velocity, -DIVE_VELOCITY)
+        s.diving = true
     end
 end
 
@@ -230,11 +257,17 @@ local function tick(s)
         end
     end
     s.floor = floor
+    if s.duck > 0 then
+        s.duck = math.max(0, s.duck - STEP)
+    end
     if s.velocity > 0 or s.height > floor then
         s.height = s.height + s.velocity * STEP - GRAVITY / 2 * STEP * STEP
         s.velocity = s.velocity - GRAVITY * STEP
         if s.height <= floor then
             s.height, s.velocity = floor, 0
+            if s.diving then
+                s.duck, s.diving = game.DUCK_TIME, false
+            end
         end
     else
         s.height, s.velocity = floor, 0
