@@ -609,33 +609,21 @@ falling = false
 hold(0, 0, 0, 0.5)
 print("PASS race-specific jump variants persist until landing or a long fall")
 
--- Hiding the real character zooms into first person while the view is open, and back out.
-local zoom, calls = 9, {}
+-- Camera calibration only reads WoW's zoom; changing it is never allowed.
 function GetCameraZoom()
-    return zoom
+    return 9
 end
-function CameraZoomIn(n)
-    calls[#calls + 1] = "in " .. n
-    zoom = 0
+function CameraZoomIn()
+    error("the addon must not change WoW's camera")
 end
-function CameraZoomOut(n)
-    calls[#calls + 1] = "out " .. n
-    zoom = n
-end
-local shown = true
+CameraZoomOut = CameraZoomIn
+local shown = false
 o.frame.IsShown = function()
     return shown
 end
-settings.hideReal = true
-o:ApplyHideReal()
-assert(calls[1] == "in 50" and o.zoomedIn, "zoomed into first person")
 o:UpdateCamera()
-assert(o.camera.distance == 12, "in first person the twin's camera uses the distance setting")
-shown = false
-o:ApplyHideReal()
-assert(calls[2] == "out 9" and zoom == 9 and not o.zoomedIn, "zoomed back out to the previous zoom")
-settings.hideReal = false
-print("PASS hiding the real character zooms into first person and back")
+assert(o.camera.distance == 9, "full screen reads the real camera zoom")
+print("PASS camera calibration reads the real zoom")
 
 -- An announcement lives through its first frame (made and shown at the same time), its fades
 -- and its hold, and no longer.

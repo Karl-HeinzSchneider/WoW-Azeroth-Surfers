@@ -30,7 +30,6 @@ local profile = {
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- Calibration: the follow camera that the road's projection imitates, and the twin.
     overlay = {
-        hideReal = false, -- first-person camera while the view is open, so only the twin shows
         twinScale = 1,
         pitch = 20, -- degrees the camera looks down
         focus = 0.9, -- camera focus height, as a share of the character's height

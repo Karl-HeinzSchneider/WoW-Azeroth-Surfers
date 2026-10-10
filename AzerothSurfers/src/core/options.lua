@@ -529,20 +529,6 @@ local calibration = {
             1,
             "Full screen: open the game and stand still, then adjust until the see-through copy covers your character and the road lies flat on the ground. Zooming or tilting the camera changes the fit. In the side window, pitch, focus, distance and field of view set the window's own camera."
         ),
-        hideReal = {
-            type = "toggle",
-            order = 2,
-            width = "full",
-            name = "Hide your real character (first-person camera)",
-            desc = "Full screen only. The game does not draw your character in first person, so only the twin shows. Zooms all the way in while the game is open and back out after; the world is then seen from eye height.",
-            get = function()
-                return app.db.profile.overlay.hideReal
-            end,
-            set = function(_, value)
-                app.db.profile.overlay.hideReal = value
-                app.overlay:ApplyHideReal()
-            end,
-        },
         cameraHeader = header(10, "Camera"),
         pitch = overlaySetting(
             11,

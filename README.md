@@ -44,8 +44,7 @@ All keyboard inputs pass through to WoW, so your real character moves and jumps 
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
 control the runner. Forward movement no longer triggers a jump. The track advances only while your character actually moves forward relative to its facing. Stopping, moving backward, pure strafing, and pushing against a wall do not advance it. Autorun and mouse movement work too. Jumping and lane transitions still update while stopped.
 **/surfers options** opens addon settings. The game closes and pauses on combat entry
-and pauses when hidden. The addon never moves your character; it only changes the camera when
-**Hide your real character** is on.
+and pauses when hidden. The addon never moves your character or changes WoW's camera.
 
 The track is a grid: three lanes side by side and layers stacked 0.6 yards high. You run on
 layer 0; a jump (WoW's own arc) reaches a little past layer 2, and your body is three layers tall.
@@ -79,8 +78,7 @@ away beneath it. Coins near you are spinning 3D models from the game files.
 The road imitates WoW's follow camera and has to be calibrated once: on the **Calibration** tab
 of **/surfers options**, adjust camera pitch, focus height, field of view and twin size until the
 see-through twin (shown before a run starts) covers your character. Zooming or tilting the camera mid-run changes the fit, unless
-the client reports the zoom. **Hide your real character** zooms into first person while the game is
-open, where WoW does not draw your character, and back out after.
+the client reports the zoom. Calibration adjusts the addon's view only; it never changes WoW's camera.
 
 ### Modes
 

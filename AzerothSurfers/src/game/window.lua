@@ -167,7 +167,6 @@ function overlay:ApplyMode()
     self.lastRoad, self.groundLight, self.shown, self.hudShown = {}, nil, nil, nil
     self.legendState = nil
     self:Layout()
-    self:ApplyHideReal()
 end
 
 function overlay:Layout()

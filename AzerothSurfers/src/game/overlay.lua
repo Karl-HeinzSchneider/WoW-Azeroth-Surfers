@@ -136,10 +136,9 @@ end
 function overlay:UpdateCamera()
     local settings = app.db.profile.overlay
     local w, h = self.frame:GetSize()
-    -- Not in this client's API docs; the distance setting stands in when it is missing, in
-    -- first person, where the twin still needs a camera behind it, and in the side window,
-    -- which has a camera of its own.
-    local zoom = not self.zoomedIn and not self.side and GetCameraZoom and GetCameraZoom()
+    -- Read the real zoom without changing it. The distance setting stands in when the
+    -- client cannot report it, and in the side window, which has a camera of its own.
+    local zoom = not self.side and GetCameraZoom and GetCameraZoom()
     cam.zoomRead = zoom and true or false
     zoom = zoom or settings.distance
     cam.distance = zoom
@@ -557,26 +556,6 @@ function overlay:LoadPlayer()
     end
 end
 
--- The game does not draw the character in first person: zoom all the way in while the view is
--- open full screen and back out to the previous zoom after.
-function overlay:HideRealCharacter(hide)
-    if hide == (self.zoomedIn or false) then
-        return
-    end
-    if hide then
-        self.savedZoom = GetCameraZoom and GetCameraZoom() or nil
-        CameraZoomIn(50)
-    else
-        CameraZoomOut(self.savedZoom or app.db.profile.overlay.distance)
-    end
-    self.zoomedIn = hide
-end
-
-function overlay:ApplyHideReal()
-    local shown = self.frame and self.frame:IsShown()
-    self:HideRealCharacter(shown and not self.side and app.db.profile.overlay.hideReal or false)
-end
-
 function overlay:Route()
     local s = self.state
     if self.routeState ~= s then
@@ -934,7 +913,6 @@ function overlay:Create()
             sim.Pause(self.state)
         end
         self:SaveBest()
-        self:ApplyHideReal()
         self:PlayTitleMusic(false)
     end)
     f:SetScript("OnShow", function()
@@ -946,7 +924,6 @@ function overlay:Create()
             self:OpenTitle()
         end
         self:LoadPlayer()
-        self:ApplyHideReal()
         self.lastRoad = {}
     end)
     f:RegisterEvent("PLAYER_REGEN_DISABLED")
