@@ -135,7 +135,9 @@ function game.New(seed, difficulty, zones, lobby)
         -- Distance points (fractional) and coin points, each at the multiplier of its moment.
         points = 0,
         bonus = 0,
+        -- One more for every gate gone through past `start` (game.GATE_MULTIPLIER).
         multiplier = 1,
+        gatesPassed = 0, -- of `gates`, those the runner is past
         speed = difficulty.startSpeed,
         accumulator = 0,
         nextRow = difficulty.startSpeed * game.CLEAR,
@@ -190,6 +192,20 @@ end
 -- Scales only what is earned from now on.
 function game.SetMultiplier(s, multiplier)
     s.multiplier = math.max(1, math.floor(multiplier))
+end
+
+-- How much each gate into the next zone adds to the multiplier. A gate before `start` (the
+-- lobby's) adds nothing: a run from the lobby counts as a restart does.
+game.GATE_MULTIPLIER = 1
+
+local function passGates(s)
+    local gates, k = s.gates, s.gatesPassed + 1
+    while gates[k] and gates[k] <= s.distance do
+        if gates[k] > s.start then
+            game.SetMultiplier(s, s.multiplier + game.GATE_MULTIPLIER)
+        end
+        s.gatesPassed, k = k, k + 1
+    end
 end
 
 function game.Start(s)
@@ -252,6 +268,9 @@ local function tick(s)
         local counted = math.min(step, s.distance - s.start)
         if counted > 0 then
             s.points = s.points + counted * s.multiplier
+        end
+        if s.gates then
+            passGates(s)
         end
     end
     local delta = s.lane - s.lateral

@@ -47,7 +47,8 @@ default in `db.lua` and an entry in `options.lua`.
   `New(seed, difficulty, zones, lobby)`; `DIFFICULTIES`; `VIEW` (how far the views show),
   `AHEAD` (how far the track is laid out), `CLEAR` (seconds of empty road at a run's start).
   Nothing scores before a run's `start` (a run from the lobby: where the player takes over past
-  the portal); `Run(s)` is the yards counted.
+  the portal); `Run(s)` is the yards counted. Each gate past `start` adds `GATE_MULTIPLIER` to
+  the multiplier.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
