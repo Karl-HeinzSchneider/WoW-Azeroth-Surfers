@@ -63,10 +63,6 @@ PAGES.play = {
                 step = function(o, dir)
                     o:StepDifficulty(dir)
                 end,
-                -- From the hardest round to the easiest.
-                wrap = function(o)
-                    o:SetDifficulty(sim.DIFFICULTIES[1].id)
-                end,
             },
         },
         -- The run's seed: a new random one with each new run from the lobby, R for another, or

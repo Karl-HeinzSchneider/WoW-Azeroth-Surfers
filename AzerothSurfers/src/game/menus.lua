@@ -14,8 +14,8 @@ local _, app = ...
 --   run     function(o, menu): run on accept
 --   back    true: accept goes back a page
 --   choice  { get = function(o): the value's text, step = function(o, dir), can = function(o,
---           dir): whether it can step that way }; left and right step it, accept steps it on
---           (round from the last to the first: `wrap`, function(o))
+--           dir): whether it can step that way }; left and right (or its arrows) step it,
+--           accept leaves it alone
 --   info    function(o): a value shown on the right; the line cannot be chosen
 --   note    a color { r, g, b }: the label alone, centered in it; cannot be chosen
 --   input   { get = function(o): the box's text, set = function(o, text) }: a number box; accept
@@ -298,11 +298,8 @@ function Menu:Input(action)
             self:Back()
             return
         elseif item.choice then
-            if item.choice.can(o, 1) then
-                item.choice.step(o, 1)
-            elseif item.choice.wrap then
-                item.choice.wrap(o)
-            end
+            -- Only left and right (or its arrows) change it.
+            return
         elseif item.input then
             -- Typed in from here; the keys go to the box until Enter or Escape.
             self.rows[entry.selected].box:SetFocus()

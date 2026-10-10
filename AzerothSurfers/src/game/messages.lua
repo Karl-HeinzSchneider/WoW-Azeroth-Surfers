@@ -98,9 +98,6 @@ local DIFFICULTY = {
         step = function(o, dir)
             o:StepDifficulty(dir)
         end,
-        wrap = function(o)
-            o:SetDifficulty(sim.DIFFICULTIES[1].id)
-        end,
     },
 }
 
