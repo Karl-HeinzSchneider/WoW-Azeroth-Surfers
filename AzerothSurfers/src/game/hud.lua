@@ -267,31 +267,45 @@ function overlay:ShowHud()
     self:ShowHudCoin(shown, now)
 end
 
--- The run's coin model once overlay.lua has fitted it (LoadCoinModel), the camera as far as the
--- coin's size fills the scene. The near clip just short of the coin keeps its depth below the
--- world scene's (the 3D scenes share the depth buffer): nothing of the road hides it.
+-- The run's coin model (overlay.lua's LoadCoinModel), measured in its own actor once loaded:
+-- scaled to a side of 1, the camera as far as that fills the scene. The near clip just short of
+-- the coin keeps its depth apart from the world scene's (the 3D scenes share the depth buffer).
 function overlay:ShowHudCoin(shown, now)
     local coin = self.hud.gem
     local entry = self.coinReady and self.biome.coin.models[self.coinModel]
     local model = entry and entry.model or false
-    if shown.coinModel ~= model or shown.coinScale ~= self.coinScale then
-        shown.coinModel, shown.coinScale = model, self.coinScale
+    local actor = coin.actor
+    if shown.coinModel ~= model then
+        shown.coinModel, shown.coinFitted, shown.coinSince = model, false, now
         -- Actors have Show and Hide, no SetShown.
         if not model then
-            coin.actor:Hide()
-        else
-            coin.actor:Show()
-            coin.actor:SetModelByFileID(model)
-            coin.actor:SetScale(self.coinScale)
-            coin.actor:SetPitch(self.coinPitch)
-            local size = self.coinSize
-            local distance = size / 2 / math.tan(GEM_FOV / 2) * GEM_MARGIN
-            coin.scene:SetCameraPosition(-distance, 0, 0)
-            coin.scene:SetCameraNearClip(math.max(0.01, distance - size))
-            coin.scene:SetCameraFarClip(overlay.CLIP_FAR)
+            actor:Hide()
+            return
+        end
+        actor:Show()
+        actor:SetScale(1)
+        actor:SetPitch(self.coinPitch or 0)
+        actor:SetModelByFileID(model)
+        local distance = 0.5 / math.tan(GEM_FOV / 2) * GEM_MARGIN
+        coin.scene:SetCameraPosition(-distance, 0, 0)
+        coin.scene:SetCameraNearClip(math.max(0.01, distance - 1))
+        coin.scene:SetCameraFarClip(overlay.CLIP_FAR)
+        app.logger:debug("Scorecard coin: model %d", model)
+    end
+    if not model then
+        return
+    end
+    if not shown.coinFitted then
+        local minX, minY, minZ, maxX, maxY, maxZ = overlay.Extents(actor)
+        local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
+        if size > 0.001 then
+            shown.coinFitted = true
+            actor:SetScale(1 / size)
+            app.logger:debug("Scorecard coin: loaded, size %.3f", size)
+        elseif now - shown.coinSince > 3 then
+            shown.coinFitted = true
+            app.logger:debug("Scorecard coin: model %d did not load", model)
         end
     end
-    if model then
-        coin.actor:SetYaw(now * 3)
-    end
+    actor:SetYaw(now * 3)
 end
