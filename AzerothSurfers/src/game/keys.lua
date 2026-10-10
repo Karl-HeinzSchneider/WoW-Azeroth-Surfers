@@ -112,3 +112,119 @@ function overlay.IsActionKey(id, key)
     end
     return false
 end
+
+-- The keys the game shows (the legend, the menus' hints, the title's prompt): Key 1, or
+-- Gamepad 1 since a gamepad's button or stick was used last.
+local KEYBOARD_SLOT, GAMEPAD_SLOT = 1, 3
+
+function overlay:ShownSlot()
+    return self.usingGamepad and GAMEPAD_SLOT or KEYBOARD_SLOT
+end
+
+local function relayout(menu)
+    if menu and menu.panel:IsShown() and menu.stack[1] then
+        menu:Layout()
+    end
+end
+
+-- Every key or button pressed: on a change of device, what shows the keys shows the other's.
+function overlay:NoteDevice(key)
+    local gamepad = key:sub(1, 3) == "PAD"
+    if gamepad ~= (self.usingGamepad == true) then
+        self.usingGamepad = gamepad
+        self.legendState, self.screenPrompt = nil, nil
+        relayout(self.mainMenu)
+        relayout(self.statusMenu)
+    end
+end
+
+-- Gamepad buttons as the default UI's gamepad mode shows them: the prompt icon of the controller's
+-- style (Blizzard_SharedXML's InputIconTextureSetUtility; Xbox's while the game is not in gamepad
+-- mode). Without one, the binding text's small icon (KEY_ABBR_...). Inline, as a texture markup.
+local ICON, ICON_SIZE = "|A:%s:%d:%d|a", 22
+local function gamepadIcon(key)
+    local utility = InputIconTextureSetUtility
+    -- Its texture states are its own: only the function that picks the normal one sees them. It
+    -- fails for a key without icons, so those are asked for first.
+    if not (utility and utility.GetActiveInputIconButtonTextures(key)) then
+        return nil
+    end
+    local atlas = utility.GetNormalActiveInputIconButtonTexture(key)
+    return type(atlas) == "string" and ICON:format(atlas, ICON_SIZE, ICON_SIZE) or nil
+end
+
+-- Whether `text` (from KeyText or ShownKeys) is an icon, not a name: shown without a key cap.
+function overlay.IsIcon(text)
+    return text:sub(1, 3) == "|A:"
+end
+
+-- Several keys shown as one: all directions of a stick, or of the D-pad (the default UI's whole
+-- stick and D-pad icons; one way only, its left-right or up-down icon). `text` without an icon.
+local GROUPED = {
+    { prefix = "PADLSTICK", icon = "PADLSTICKAXIS", text = "L Stick" },
+    { prefix = "PADRSTICK", icon = "PADRSTICKAXIS", text = "R Stick" },
+    { prefix = "PADD", icon = "DIRPAD", text = "D-Pad" },
+}
+local DPAD_WAYS = { PADDLEFT = "DIRPADHORIZONTAL", PADDRIGHT = "DIRPADHORIZONTAL" }
+
+-- A key's text on a key cap: a gamepad button's icon, else the key's name.
+function overlay.KeyText(key)
+    if key:sub(1, 3) == "PAD" then
+        local icon = gamepadIcon(key)
+        if icon then
+            return icon
+        end
+        local short = _G["KEY_ABBR_" .. key]
+        if type(short) == "string" and short ~= "" then
+            return short
+        end
+    end
+    return GetBindingText and GetBindingText(key) or key
+end
+
+local function within(keys, prefix)
+    for _, key in ipairs(keys) do
+        if key:sub(1, #prefix) ~= prefix then
+            return false
+        end
+    end
+    return true
+end
+
+-- Into `out` (reused): the cap texts of `actions`' keys in `slot` (those without one left out),
+-- in their order; directions of one stick or of the D-pad as one cap.
+function overlay.ShownKeys(out, actions, slot)
+    for i = #out, 1, -1 do
+        out[i] = nil
+    end
+    for _, id in ipairs(actions) do
+        out[#out + 1] = overlay.ActionKey(id, slot)
+    end
+    if #out > 1 then
+        for _, group in ipairs(GROUPED) do
+            if within(out, group.prefix) then
+                local icon = group.icon
+                -- The D-pad's left and right only, or its up and down only.
+                if icon == "DIRPAD" then
+                    local horizontal = DPAD_WAYS[out[1]]
+                    local same = true
+                    for _, key in ipairs(out) do
+                        same = same and DPAD_WAYS[key] == horizontal
+                    end
+                    if same then
+                        icon = horizontal or "DIRPADVERTICAL"
+                    end
+                end
+                for i = #out, 2, -1 do
+                    out[i] = nil
+                end
+                out[1] = gamepadIcon(icon) or group.text
+                return out
+            end
+        end
+    end
+    for i, key in ipairs(out) do
+        out[i] = overlay.KeyText(key)
+    end
+    return out
+end

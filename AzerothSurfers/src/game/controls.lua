@@ -296,6 +296,8 @@ function overlay:OnKey(key)
     if InCombatLockdown() then
         return
     end
+    -- The keys shown follow the device last used (keys.lua).
+    self:NoteDevice(key)
     -- Typing goes to the focused box; in auto mode, or while the options show (a key being bound
     -- there), every key goes on to WoW and the game takes none.
     if GetCurrentKeyBoardFocus() or self.auto or (app.options and app.options:IsOpen()) then

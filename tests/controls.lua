@@ -74,6 +74,36 @@ assert(r.state.lane == 1, "the right stick is not the left")
 r:OnStick("Left", 0.7, 0)
 assert(r.state.lane == 0, "pushed right after it was let back")
 r:OnStick("Left", 0, 0)
+-- The keys shown: Key 1 side by side, or Gamepad 1 once a gamepad was used, a stick's or the
+-- D-pad's directions as one cap.
+local shown = {}
+local function caps(actions, slot)
+    return table.concat(app.overlay.ShownKeys(shown, actions, slot), " ")
+end
+assert(caps({ "up", "menuLeft", "down", "menuRight" }, 1) == "W A S D")
+assert(caps({ "left", "right" }, 1) == "A D" and caps({ "left", "right" }, 3) == "L Stick")
+assert(caps({ "up", "down" }, 4) == "D-Pad" and caps({ "jump" }, 4) == "", "one stick; an empty slot")
+-- With the default UI's gamepad icons: a button's icon, one stick or D-pad icon for a group.
+-- As the client has it: its texture states are local to its file, and the normal texture of a
+-- key without icons is an error.
+local ATLASES = { PAD1 = "button-a", PADLSTICKAXIS = "stick-l", DIRPADHORIZONTAL = "dpad-lr", DIRPAD = "dpad" }
+InputIconTextureSetUtility = {
+    GetActiveInputIconButtonTextures = function(key)
+        return ATLASES[key] and { ATLASES[key] }
+    end,
+    GetNormalActiveInputIconButtonTexture = function(key)
+        return InputIconTextureSetUtility.GetActiveInputIconButtonTextures(key)[1]
+    end,
+}
+assert(caps({ "jump" }, 3) == "|A:button-a:22:22|a" and caps({ "left", "right" }, 3) == "|A:stick-l:22:22|a")
+assert(caps({ "left", "right" }, 4) == "|A:dpad-lr:22:22|a", "the D-pad's left and right")
+assert(caps({ "up", "menuLeft", "down", "menuRight" }, 4) == "|A:dpad:22:22|a", "all of the D-pad")
+assert(app.overlay.IsIcon(caps({ "jump" }, 3)) and not app.overlay.IsIcon("W"))
+InputIconTextureSetUtility = nil
+r:OnKey("PAD2")
+assert(r:ShownSlot() == 3, "a gamepad button shows the gamepad's keys")
+r:OnKey("M")
+assert(r:ShownSlot() == 1, "a key, the keyboard's again")
 -- What a push sets on the Keys tab: the way a stick is pushed furthest, either stick.
 local stickButton = app.overlay.StickButton
 assert(stickButton("Left", -0.9, 0.2) == "PADLSTICKLEFT" and stickButton("Camera", 0.1, 0.8) == "PADRSTICKUP")

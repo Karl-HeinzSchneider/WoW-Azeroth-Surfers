@@ -88,8 +88,9 @@ default in `db.lua` and an entry in `options.lua`.
   - `obstacles.lua` (box models), `ambient.lua` (wildlife), `window.lua` (full screen / side
     window, window frame), `keys.lua` (the game's controls: `ACTIONS` of a run and of the menus,
     two keys and two gamepad buttons each, `profile.keys` over their defaults; `KeyAction`,
-    `ActionKey`, `Chord`), `menu.lua` (restart bar, number box), `hud.lua` (score), `legend.lua`
-    (the running keys).
+    `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
+    `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
+    (score), `legend.lua` (the running keys).
   - `messages.lua` — the pause and end menus, announcements, the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key

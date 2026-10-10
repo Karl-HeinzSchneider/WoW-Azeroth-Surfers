@@ -2,7 +2,8 @@
 local _, app = ...
 -- The hotkey legend, built like the client's input legend: a dialog panel per run state (only
 -- the current one shown), rows of key caps and what they do. The keys are the game's own
--- (keys.lua: the two keyboard keys of each action), and WoW's move-forward binding.
+-- (keys.lua: Key 1, or Gamepad 1 since a gamepad was used, a row's keys side by side), and WoW's
+-- move-forward binding.
 local overlay = app.overlay
 
 local ROW_HEIGHT = 24
@@ -11,8 +12,13 @@ local INDENT = 20
 local HEADER_EXTRA = 10
 -- A key cap's height, its smallest width, and the room around its text.
 local KEY_HEIGHT, KEY_WIDTH, KEY_PAD = 20, 22, 6
--- Between two keys of a row, and between the keys and the text.
-local KEY_GAP, LABEL_GAP = 16, 8
+-- Between two keys of a row (they belong together, as A and D), and between the keys and the text.
+local KEY_GAP, LABEL_GAP = 4, 8
+-- The most keys a row shows.
+local CAPS = 4
+-- A gamepad's icon: drawn this big, centered on its cap; its art has room around the button, so
+-- it takes less room in the row than that.
+local ICON_SIZE, ICON_ROOM = 34, 24
 local SIDE_SCALE = 0.75
 local KEY_CAP = {
     bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -24,18 +30,17 @@ local KEY_CAP = {
 }
 local TRIM = "Interface\\Common\\UI-TooltipDivider"
 
--- `action`: the game's action (keys.lua) whose two keys the row shows; `bindings`: instead the WoW
--- bindings whose keys it shows (at most two; `firsts`: only each binding's first); `header`: a
--- title row with trim; `observed`: only while `profile.capture` is off.
+-- `actions`: the game's actions (keys.lua) whose keys the row shows together, from the slot
+-- shown (overlay:ShownSlot: Key 1, or Gamepad 1); `binding`: instead the WoW binding whose first
+-- key it shows; `header`: a title row with trim; `observed`: only while `profile.capture` is off.
 local GROUPS = {
     running = {
-        { bindings = { "MOVEFORWARD" }, text = "Run (hold)", observed = true },
-        { action = "left", text = "Lane left" },
-        { action = "right", text = "Lane right" },
-        { action = "jump", text = "Jump" },
-        { action = "duck", text = "Duck / drop" },
-        { action = "pause", text = "Pause" },
-        { action = "restart", text = "Start over (hold)" },
+        { binding = "MOVEFORWARD", text = "Run (hold)", observed = true },
+        { actions = { "left", "right" }, text = "Change lane" },
+        { actions = { "jump" }, text = "Jump" },
+        { actions = { "duck" }, text = "Duck / drop" },
+        { actions = { "pause" }, text = "Pause" },
+        { actions = { "restart" }, text = "Start over (hold)" },
     },
 }
 
@@ -47,12 +52,28 @@ local function keyCap(parent)
     cap:SetHeight(KEY_HEIGHT)
     cap.text = cap:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     cap.text:SetPoint("CENTER", 0, 0)
+    cap.icon = cap:CreateTexture(nil, "OVERLAY")
+    cap.icon:SetSize(ICON_SIZE, ICON_SIZE)
+    cap.icon:SetPoint("CENTER", 0, 0)
+    cap.icon:Hide()
     return cap
 end
 
--- Returns the cap's width: the same for every one-character name, wider for longer ones.
+-- Returns the cap's width: the same for every one-character name, wider for longer ones. A
+-- gamepad's icon (keys.lua's texture markup) is a button of its own: drawn as a texture, bigger
+-- than the text and in the middle of its line, with no cap around it.
 local function setKey(cap, key, text)
     text = text or GetBindingText(key) or key
+    local atlas = overlay.IsIcon(text) and text:match("^|A:([^:|]+)")
+    cap:SetBackdropColor(0.1, 0.1, 0.1, atlas and 0 or 0.9)
+    cap:SetBackdropBorderColor(0.7, 0.7, 0.7, atlas and 0 or 1)
+    cap.icon:SetShown(atlas ~= nil)
+    if atlas then
+        cap.icon:SetAtlas(atlas)
+        cap.text:SetText("")
+        cap:SetWidth(ICON_ROOM)
+        return ICON_ROOM
+    end
     cap.text:SetText(text)
     -- Characters, not bytes: UTF-8 continuation bytes are not counted.
     local single = #text:gsub("[\128-\191]", "") == 1
@@ -63,9 +84,10 @@ end
 overlay.KeyCap, overlay.SetKeyCap = keyCap, setKey
 
 local function entry(parent, spec)
-    local e = { spec = spec, caps = { keyCap(parent), keyCap(parent) } }
-    e.slash = parent:CreateFontString(nil, "OVERLAY", "GameFontDisable")
-    e.slash:SetText("/")
+    local e = { spec = spec, caps = {} }
+    for i = 1, CAPS do
+        e.caps[i] = keyCap(parent)
+    end
     e.label = parent:CreateFontString(nil, "OVERLAY", spec.header and "GameFontHighlight" or "GameFontNormal")
     e.label:SetJustifyH("LEFT")
     e.label:SetText(spec.text)
@@ -101,42 +123,27 @@ function overlay:CreateLegend(f)
     end)
 end
 
--- Into `keys` (reused): an action's two keys, or its bindings' without repeats.
-local function rowKeys(keys, spec)
-    for i = #keys, 1, -1 do
-        keys[i] = nil
+-- Into `texts` (reused): the row's key caps.
+function overlay:RowKeys(texts, spec)
+    if spec.actions then
+        return overlay.ShownKeys(texts, spec.actions, self:ShownSlot())
     end
-    if spec.action then
-        for slot = 1, 2 do
-            keys[#keys + 1] = overlay.ActionKey(spec.action, slot)
-        end
-        return keys
+    for i = #texts, 1, -1 do
+        texts[i] = nil
     end
-    for _, binding in ipairs(spec.bindings) do
-        for pass = 1, spec.firsts and 1 or 2 do
-            local key = select(pass, GetBindingKey(binding))
-            if key and #keys < 2 then
-                local seen = false
-                for _, k in ipairs(keys) do
-                    seen = seen or k == key
-                end
-                if not seen then
-                    keys[#keys + 1] = key
-                end
-            end
-        end
-    end
-    return keys
+    local key = GetBindingKey(spec.binding)
+    texts[1] = key and overlay.KeyText(key)
+    return texts
 end
 
 -- Returns their width.
-local function placeKeys(e, keys, x, y)
+local function placeKeys(e, texts, x, y)
     local width = 0
     for i, cap in ipairs(e.caps) do
-        local key = keys[i]
-        cap:SetShown(key ~= nil)
-        if key then
-            local w = setKey(cap, key)
+        local text = texts[i]
+        cap:SetShown(text ~= nil)
+        if text then
+            local w = setKey(cap, nil, text)
             if i > 1 then
                 width = width + KEY_GAP
             end
@@ -145,13 +152,8 @@ local function placeKeys(e, keys, x, y)
             width = width + w
         end
     end
-    e.slash:SetShown(keys[2] ~= nil)
-    if keys[2] then
-        e.slash:ClearAllPoints()
-        e.slash:SetPoint("CENTER", e.caps[2], "LEFT", -KEY_GAP / 2, 0)
-    end
     -- An action without a key shows that it has none.
-    if not keys[1] then
+    if not texts[1] then
         local cap = e.caps[1]
         cap:Show()
         width = setKey(cap, nil, NOT_BOUND or "Not bound")
@@ -174,7 +176,6 @@ function overlay:LayoutLegend(group)
             for _, cap in ipairs(e.caps) do
                 cap:Hide()
             end
-            e.slash:Hide()
         end
         if e.shown then
             local y = -INDENT - ROW_HEIGHT * row - (header and HEADER_EXTRA or 0)
@@ -185,7 +186,7 @@ function overlay:LayoutLegend(group)
                 e.label:SetPoint("TOPLEFT", INDENT, y - 3)
                 headerWidth = math.max(headerWidth, e.label:GetStringWidth())
             else
-                rowKeys(keys, spec)
+                self:RowKeys(keys, spec)
                 keysWidth = math.max(keysWidth, placeKeys(e, keys, INDENT, y))
                 textWidth = math.max(textWidth, e.label:GetStringWidth())
             end

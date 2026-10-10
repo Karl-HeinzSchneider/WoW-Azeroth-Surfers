@@ -43,16 +43,20 @@ function overlay.MenuAction(key)
     return id and overlay.ACTION_BY_ID[id].input
 end
 
--- The footer's hints: the first keys of `actions` (keys.lua; one, or a pair such as up and
--- down), and what they do; `choice`: only on a page with a choice; `extra`: the page's extra
--- action, with its text.
+-- The footer's hints: the keys of `actions` side by side (keys.lua's ShownKeys: Key 1, or
+-- Gamepad 1 since a gamepad was used; W A S D, or one stick), and what they do; `choice`: only
+-- on a page with a choice, `plain`: only on one without; `extra`: the page's extra action, with
+-- its text.
 local HINTS = {
-    { actions = { "up", "down" }, text = "Select" },
-    { actions = { "menuLeft", "menuRight" }, text = "Change", choice = true },
+    { actions = { "up", "down" }, text = "Select", plain = true },
+    { actions = { "up", "menuLeft", "down", "menuRight" }, text = "Select / change", choice = true },
     { actions = { "accept" }, text = "Accept" },
     { actions = { "back" }, text = "Back" },
     { actions = { "restart" }, extra = true },
 }
+-- The most keys a hint shows.
+local HINT_CAPS = 4
+local hintTexts = {}
 
 local function text(parent, size, color)
     local t = parent:CreateFontString(nil, "OVERLAY")
@@ -144,7 +148,10 @@ function Menu:Hint(i)
     if hint then
         return hint
     end
-    hint = { caps = { overlay.KeyCap(self.panel), overlay.KeyCap(self.panel) } }
+    hint = { caps = {} }
+    for k = 1, HINT_CAPS do
+        hint.caps[k] = overlay.KeyCap(self.panel)
+    end
     hint.label = self.panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.hints[i] = hint
     return hint
@@ -354,22 +361,20 @@ function Menu:LayoutHints(y, hasChoice, extra)
     local shown, total = {}, 0
     for i, spec in ipairs(HINTS) do
         local hint = self:Hint(i)
-        local on = (not spec.choice or hasChoice) and (not spec.extra or extra ~= nil)
+        local on = (not spec.choice or hasChoice)
+            and not (spec.plain and hasChoice)
+            and (not spec.extra or extra ~= nil)
         hint.label:SetShown(on)
         for _, cap in ipairs(hint.caps) do
             cap:Hide()
         end
         if on then
             local width = 0
-            for k = 1, 2 do
-                local action = spec.actions[k]
-                local key = action and overlay.ActionKey(action, 1)
-                if key then
-                    local cap = hint.caps[k]
-                    cap.width = overlay.SetKeyCap(cap, key)
-                    cap:Show()
-                    width = width + cap.width + (k > 1 and CAP_GAP or 0)
-                end
+            for k, capText in ipairs(overlay.ShownKeys(hintTexts, spec.actions, self.o:ShownSlot())) do
+                local cap = hint.caps[k]
+                cap.width = overlay.SetKeyCap(cap, nil, capText)
+                cap:Show()
+                width = width + cap.width + (k > 1 and CAP_GAP or 0)
             end
             hint.label:SetText(spec.extra and extra.text or spec.text)
             hint.width = width + LABEL_GAP + hint.label:GetStringWidth()

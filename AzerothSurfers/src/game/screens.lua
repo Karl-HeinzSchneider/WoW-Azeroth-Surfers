@@ -528,7 +528,9 @@ function overlay:ShowScreens()
     if self.screen == "title" then
         if not self.screenPrompt then
             self.screenPrompt = true
-            sc.promptText:SetText("Press E to enter")
+            -- The shown accept key (keys.lua: Key 1, or Gamepad 1 since a gamepad was used).
+            local accept = overlay.ActionKey("accept", self:ShownSlot())
+            sc.promptText:SetText(accept and ("Press " .. overlay.KeyText(accept) .. " to enter") or "Click to enter")
             sc.prompt:SetSize(sc.promptText:GetStringWidth() + 20, sc.promptText:GetStringHeight() + 10)
         end
         local pulse = (math.cos(2 * math.pi * now / PULSE) + 1) / 2
