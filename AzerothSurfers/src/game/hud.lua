@@ -19,7 +19,10 @@ local SCORE_EVERY = 0.05
 -- The coin beside the coins: the run's coin model in a scene of its own, GEM pixels square,
 -- spinning as the coins on the road do. Its camera's field of view (radians) and the room around
 -- the model.
-local GEM, GEM_FOV, GEM_MARGIN = 30, 0.5, 1.15
+local GEM, GEM_FOV, GEM_MARGIN = 32, 0.5, 1.15
+-- The gem fills a small part of its model's bounds (its glow reaches further): drawn this many
+-- times as big as the bounds fitted to the scene.
+local GEM_ZOOM = 2.5
 -- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
@@ -170,7 +173,7 @@ function overlay:CreateHud(f)
         distance = distance,
         multiplierPanel = multiplierPanel,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
-        coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 8),
+        coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 14),
         multiplier = multiplier,
         gem = coin,
         streakPanel = streakPanel,
@@ -273,7 +276,7 @@ function overlay:ShowHud()
 end
 
 -- The run's coin model (overlay.lua's LoadCoinModel), measured in its own actor once loaded:
--- scaled to a side of 1, the camera as far as that fills the scene.
+-- scaled to GEM_ZOOM, the camera as far as a side of 1 fills the scene.
 function overlay:ShowHudCoin(shown, now)
     local coin = self.hud.gem
     local entry = self.coinReady and self.biome.coin.models[self.coinModel]
@@ -302,7 +305,7 @@ function overlay:ShowHudCoin(shown, now)
         local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
         if size > 0.001 then
             shown.coinFitted = true
-            actor:SetScale(1 / size)
+            actor:SetScale(GEM_ZOOM / size)
             app.logger:debug("Scorecard coin: loaded, size %.3f", size)
         elseif now - shown.coinSince > 3 then
             shown.coinFitted = true
