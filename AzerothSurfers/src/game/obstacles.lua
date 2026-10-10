@@ -9,7 +9,7 @@ local cam = overlay.camera
 local ground = shapes.Ground
 local LANE, LAYER = sim.geometry.laneWidth, sim.LAYER
 local value, choose, pick = overlay.Value, overlay.Choose, overlay.Pick
--- Yards from the runner at which a creature attacks and plays its `sound`.
+-- Yards from the runner at which a creature starts its attack animation.
 local ATTACK_RANGE = 7
 
 local fitting = {}
@@ -242,10 +242,21 @@ function overlay:UpdateObstacles()
                                 entry.actor:SetAnimation(attack, 0, 1, 0)
                             end
                             entry.attacking = true
-                            -- Not when it comes into view already behind (a new biome).
-                            if entry.sound and s.status == "running" and d > 0 and app.db.profile.enemySound then
-                                PlaySoundFile(entry.sound, "SFX")
-                            end
+                        end
+                        -- Sound at the actual pass, only in this lane or the adjacent one.
+                        -- A newly loaded creature already behind the runner stays silent.
+                        local previous = entry.soundDistance
+                        entry.soundDistance = d
+                        if
+                            entry.sound
+                            and previous
+                            and previous > 0
+                            and d <= 0
+                            and s.status == "running"
+                            and app.db.profile.enemySound
+                            and math.abs(s.lateral - o.lane) <= 1 + 1e-6
+                        then
+                            PlaySoundFile(entry.sound, "SFX")
                         end
                     end
                 end

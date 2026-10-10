@@ -1051,3 +1051,61 @@ do
     end
 end
 print("PASS flying flocks and pairs spawn in the background at their configured speed")
+
+do
+    dofile("tests/load.lua")(app, { "game/obstacles" })
+    local oldSound, enabled = PlaySoundFile, app.db.profile.enemySound
+    local heard = 0
+    PlaySoundFile = function()
+        heard = heard + 1
+    end
+    app.db.profile.enemySound = true
+    local function pass(lateral, height, start)
+        local entry = {
+            actor = widget(),
+            item = { attack = 16 },
+            sound = 123,
+            along = 10,
+            scale = 1,
+            shiftX = 0,
+            shiftY = 0,
+            x = 0,
+            z = 0,
+        }
+        local mob = g.Box("obstacle", 1, 9, 2, 0, 2)
+        mob.surferActors = { entry }
+        local state =
+            { objects = { mob }, distance = start or 8, lateral = lateral, height = height, status = "running" }
+        local view = setmetatable({
+            state = state,
+            obstacleState = state,
+            modelled = {},
+            sceneRunner = 0,
+            biome = { ground = { fade = { to = 100 } } },
+            ObstacleLook = function()
+                return true
+            end,
+            FadeAlpha = function()
+                return 1
+            end,
+        }, { __index = o })
+        local before = heard
+        view:UpdateObstacles()
+        assert(heard == before, "approaching or newly loaded behind: no sound")
+        state.distance = 10.1
+        view:UpdateObstacles()
+        view:UpdateObstacles()
+        state.distance = 11
+        view:UpdateObstacles()
+        return heard - before
+    end
+    assert(pass(1, 1.64) == 1, "jumping over the mob sounds once at the pass")
+    assert(pass(0, 0) == 1, "passing an adjacent lane sounds once")
+    assert(pass(-1, 0) == 0, "opposite outer lanes stay silent")
+    assert(pass(-0.5, 0) == 0, "distance uses the runner's actual lateral position")
+    assert(pass(1, 0, 10.1) == 0, "loading a mob behind does not sound")
+    app.db.profile.enemySound = false
+    assert(pass(0, 0) == 0, "the sound option is respected")
+    PlaySoundFile, app.db.profile.enemySound = oldSound, enabled
+end
+print("PASS hostile sounds at the pass in the same or adjacent lane only")
