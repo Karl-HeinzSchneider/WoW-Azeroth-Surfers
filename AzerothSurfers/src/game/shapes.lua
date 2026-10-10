@@ -59,7 +59,7 @@ local function post(o, near, left, z)
 end
 
 -- How far faces are drawn this frame: DRAW_DISTANCE, or nearer where the view ends (a gate).
-local limit = DRAW_DISTANCE
+local limit, coinNear = DRAW_DISTANCE, NEAR
 
 local function box(o, s, viewX)
     local near, far = o.at - s.distance, o.at + o.length - s.distance
@@ -94,7 +94,7 @@ end
 
 local function coin(o, s)
     local d = o.at + o.length / 2 - s.distance
-    if d < NEAR or d > limit then
+    if d < coinNear or d > limit then
         return
     end
     local x, z = -o.lane * LANE, (o.layer + 0.5) * sim.LAYER + ground(d)
@@ -105,9 +105,11 @@ end
 
 -- Every face in view, reusing the same tables every frame. `viewX`: the camera's position to the
 -- screen's right (which sides it sees); `far`: where the view ends this frame.
-function shapes.Collect(s, viewX, far)
+-- `nearCoins`: behind the camera, with room for the coin's size; boxes keep their own cutoff.
+function shapes.Collect(s, viewX, far, nearCoins)
     count = 0
     limit = math.min(DRAW_DISTANCE, far or DRAW_DISTANCE)
+    coinNear = nearCoins or NEAR
     for _, o in ipairs(s.objects) do
         if not o.hit then
             if o.kind == "coin" then

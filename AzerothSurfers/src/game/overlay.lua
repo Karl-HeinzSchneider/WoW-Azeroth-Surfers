@@ -1164,7 +1164,7 @@ function overlay:Render(lap)
     lap = self:Lap("twin", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
-    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to)
+    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to, cam.x - COIN_SIZE)
     local coins = 0
     local real = self.worldScene and self.coinReady
     for i = 1, count do

@@ -52,6 +52,20 @@ test("lane limits and smooth movement", function()
     advance(s, 0.3, 60)
     assert(math.abs(s.lateral + 1) < 0.001)
 end)
+
+test("missed coins survive behind the runner without counting twice", function()
+    local missed = coin(1, 0)
+    local s = fresh(missed)
+    s.distance = 8
+    g.Update(s, 0.05)
+    assert(s.objects[1] == missed and missed.passed and s.coinTotal == 1)
+    s.distance = 24
+    g.Update(s, 0.05)
+    assert(s.objects[1] == missed and s.coinTotal == 1 and s.coins == 0)
+    s.distance = g.COIN_BEHIND + 1
+    g.Update(s, 0.05)
+    assert(#s.objects == 0 and s.coinTotal == 1, "old coins are eventually removed")
+end)
 test("a jump peaks past layer 2, lands and cannot double jump", function()
     local s = fresh()
     g.Jump(s)

@@ -291,6 +291,23 @@ o:Render()
 assert(actor.alpha == 1, "the twin is fully drawn while running")
 print("PASS twin stands on the real character, in the world scene at the runner")
 
+do
+    local objects, distance, zoom = o.state.objects, o.state.distance, settings.distance
+    local missed = coin(1, -5)
+    o.state.objects, o.state.distance, settings.distance = { missed }, 0, 24
+    o:Render()
+    assert(o.faceCount > 0, "a missed coin behind the runner still renders at wide zoom")
+    missed.hit = true
+    o:Render()
+    assert(o.faceCount == 0, "collected coins disappear immediately")
+    missed.hit, missed.at = false, -30
+    o:Render()
+    assert(o.faceCount == 0, "coins behind the camera are culled")
+    o.state.objects, o.state.distance, settings.distance = objects, distance, zoom
+    o:Render()
+end
+print("PASS missed coins remain visible behind the runner until past the camera")
+
 -- A tall character (2.5 yards) is drawn at a human's height in the track's world, the camera
 -- nearer by as much: on the screen it covers the real one just as before, and the track around
 -- it is bigger.
