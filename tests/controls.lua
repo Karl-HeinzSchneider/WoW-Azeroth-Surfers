@@ -8,11 +8,13 @@ dofile("tests/load.lua")(app, {
     "game/light",
     "game/shapes",
     "game/overlay",
+    "game/keys",
     "game/menus",
     "game/screens",
     "game/controls",
 })
 local r = app.overlay
+app.logger = app.logger or { debug = function() end }
 local focused, binding, chord
 function InCombatLockdown()
     return false
@@ -46,20 +48,46 @@ binding = "MOVEFORWARD"
 r:OnKey("W")
 assert(r.state.status == "running" and r.state.velocity == 0)
 assert(propagates, "observed keys go on to WoW")
-binding = "STRAFELEFT"
+-- The run's keys (keys.lua), whatever they are bound to in WoW: WASD, the arrows, the gamepad.
+binding = nil
 r:OnKey("A")
-assert(r.state.lane == 1)
-binding = "TURNRIGHT"
-r:OnKey("D")
-assert(r.state.lane == 0)
-binding = "JUMP"
+assert(r.state.lane == 1 and propagates, "A: lane left, observed")
+r:OnKey("RIGHT")
+assert(r.state.lane == 0, "the right arrow: lane right")
+r:OnKey("PADLSTICKRIGHT")
+assert(r.state.lane == -1, "the left stick: lane right")
+r:OnKey("PADDLEFT")
+assert(r.state.lane == 0, "the D-pad mirrors it (Gamepad 2): lane left")
+r:OnKey("PADDRIGHT")
+assert(r.state.lane == -1)
+assert(app.overlay.ActionKey("jump", 4) == nil, "Gamepad 2 is empty otherwise")
+r:OnKey("LEFT")
+-- The left stick's axis as buttons: one lane per push, held until it is let back.
+r:OnStick("Left", -0.8, 0)
+assert(r.state.lane == 1, "the stick pushed left: lane left")
+r:OnStick("Left", -0.4, 0)
+r:OnStick("Left", -0.9, 0.1)
+assert(r.state.lane == 1, "held: no second lane")
+r:OnStick("Left", 0, 0)
+r:OnStick("Right", 0.9, 0)
+assert(r.state.lane == 1, "the right stick is not the left")
+r:OnStick("Left", 0.7, 0)
+assert(r.state.lane == 0, "pushed right after it was let back")
+r:OnStick("Left", 0, 0)
+-- What a push sets on the Keys tab: the way a stick is pushed furthest, either stick.
+local stickButton = app.overlay.StickButton
+assert(stickButton("Left", -0.9, 0.2) == "PADLSTICKLEFT" and stickButton("Camera", 0.1, 0.8) == "PADRSTICKUP")
+assert(stickButton("Left", 0.3, 0) == nil and stickButton("Trigger", 1, 0) == nil, "not far enough, or no stick")
 r:OnKey("SPACE")
-assert(r.state.velocity > 0)
+assert(r.state.lane == 0 and r.state.velocity > 0)
 focused = {}
-binding = "TURNRIGHT"
 r:OnKey("D")
 assert(r.state.lane == 0 and propagates, "typing goes to the focused box")
 focused = nil
+-- A key set with a modifier works only with it.
+app.db = { profile = { keys = { right = { "SHIFT-Z", false, false } } } }
+r:OnKey("Z")
+assert(r.state.lane == 0, "Z alone is not SHIFT-Z")
 function IsShiftKeyDown()
     return true
 end
@@ -68,18 +96,19 @@ assert(chord == "SHIFT-Z" and r.state.lane == -1)
 function IsShiftKeyDown()
     return false
 end
+app.db = nil
 r.capture = true
-binding = "TURNLEFT"
 r:OnKey("A")
-assert(r.state.lane == 0 and propagates == false, "captured movement keys stop at the view")
+assert(r.state.lane == 0 and propagates == false, "captured, the run's keys stop at the view")
+binding = "MOVEFORWARD"
+r:OnKey("W")
+assert(propagates == false, "and WoW's movement keys, so the character stays put")
 binding = "TOGGLEMINIMAP"
 r:OnKey("M")
 assert(propagates, "other keys go on while captured")
 r.capture = nil
+binding = nil
 -- The game's own keys stop at the view: Q pauses and goes on, holding R starts over.
-function IsModifierKeyDown()
-    return false
-end
 r:OnKey("Q")
 assert(r.state.status == "paused" and propagates == false)
 r:OnKey("Q")
@@ -97,9 +126,41 @@ for _, k in ipairs({ "A", "Q", "R" }) do
     assert(propagates and r.state.lane == lane and r.state.status == "running" and r.holding == nil, k)
 end
 r.auto = nil
-print(
-    "PASS movement bindings, modifiers, forward start, jump, typing focus, capture, pause and restart keys, auto mode"
-)
+-- Keys set in the options take their place, slot by slot: Q and P go on to WoW, O pauses, the
+-- gamepad's Start still does; T starts over.
+app.db = { profile = { keys = { pause = { "O", false }, restart = { "T", false, false } } } }
+binding = nil
+r:OnKey("Q")
+r:OnKey("P")
+assert(propagates and r.state.status == "running", "Q and P are WoW's again")
+r:OnKey("O")
+assert(r.state.status == "paused" and propagates == false, "O pauses")
+r:OnKey("PADFORWARD")
+assert(r.state.status == "running", "the gamepad's default stays")
+r:OnKey("T")
+assert(r.holding == 0 and propagates == false, "T starts the hold")
+r:OnKeyRelease("T")
+assert(r.holding == nil)
+-- While the options show (a key being bound there), every key goes on and the game takes none.
+app.options = {
+    IsOpen = function()
+        return true
+    end,
+}
+r.capture = true
+local still = r.state.lane
+r:OnKey("A")
+r:OnStick("Left", -0.9, 0)
+assert(r.state.lane == still and propagates, "options open: the game takes no key")
+app.options, r.capture = nil, nil
+-- A profile as AceDB gives it, with nothing set: every default works.
+app.db = { profile = { keys = {} } }
+local before = r.state.lane
+r:OnKey("A")
+assert(r.state.lane == math.min(1, before + 1), "A: lane left by default")
+assert(app.overlay.ActionKey("accept", 1) == "E" and app.overlay.ActionKey("accept", 2) == nil)
+app.db = nil
+print("PASS the game's keys, modifiers, forward start, jump, typing focus, capture, pause and restart keys, auto mode")
 
 local x, y, map, facing, speed = 0, 0, 1, 0, 7
 function UnitPosition()

@@ -907,10 +907,27 @@ function overlay:Create()
     f:SetScript("OnKeyUp", function(_, key)
         self:OnKeyRelease(key)
     end)
+    -- Gamepad buttons ("PAD1", "PADDLEFT", ...) as keys: they pass on to WoW the same way.
+    if f.EnableGamePadButton then
+        f:EnableGamePadButton(true)
+        f:SetScript("OnGamePadButtonDown", function(_, button)
+            self:OnKey(button)
+        end)
+        f:SetScript("OnGamePadButtonUp", function(_, button)
+            self:OnKeyRelease(button)
+        end)
+    end
+    -- The left stick, as buttons of its directions (controls.lua's OnStick).
+    if f.EnableGamePadStick then
+        f:EnableGamePadStick(true)
+        f:SetScript("OnGamePadStick", function(_, stick, x, y)
+            self:OnStick(stick, x, y)
+        end)
+    end
     f:SetScript("OnHide", function()
         -- Closing the game (or combat) ends auto mode.
         self:SetAuto(false)
-        self.holding = nil
+        self.holding, self.stickHeld = nil, nil
         self:ForgetPosition()
         self.state.forward = false
         if self.state.status == "running" then

@@ -30,7 +30,7 @@ and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, nev
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
   (`logger.lua`) is the name players see.
-- `options.lua` — `app.options`: **one** AceConfig table, in tabs (Game, Display, Sound,
+- `options.lua` — `app.options`: **one** AceConfig table, in tabs (Game, Display, Sound, Keys,
   Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon.
@@ -86,12 +86,14 @@ default in `db.lua` and an entry in `options.lua`.
     models have below it (the 3D scenes share the depth buffer). How deep under the ground and
     from where (`SINK`, `BEHIND`) switches at the lobby's portal.
   - `obstacles.lua` (box models), `ambient.lua` (wildlife), `window.lua` (full screen / side
-    window, window frame), `menu.lua` (restart bar, number box), `hud.lua` (score),
-    `legend.lua` (the running keys).
+    window, window frame), `keys.lua` (the game's controls: `ACTIONS` of a run and of the menus,
+    two keys and two gamepad buttons each, `profile.keys` over their defaults; `KeyAction`,
+    `ActionKey`, `Chord`), `menu.lua` (restart bar, number box), `hud.lua` (score), `legend.lua`
+    (the running keys).
   - `messages.lua` — the pause and end menus, announcements, the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
-    boxes) steered by directions, accept (E), back (Q) and a page's extra action (R).
-    `MenuAction` maps keys to them; a gamepad would map to the same.
+    boxes) steered by directions, accept, back and a page's extra action. `MenuAction` maps a key
+    (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the keys of every screen and menu
     (`OnScreenKey`).

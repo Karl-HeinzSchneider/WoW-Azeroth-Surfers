@@ -36,45 +36,22 @@ local GRAY = { 0.8, 0.8, 0.8 }
 local MARKER_ART = "Interface\\Glues\\Common\\Glue-RightArrow-Button-Up"
 local ARROWS = { "Interface\\Buttons\\UI-SpellbookIcon-PrevPage", "Interface\\Buttons\\UI-SpellbookIcon-NextPage" }
 
--- Accept, back and a page's extra action by the key itself, whatever it is bound to (E and Q
--- strafe by default); the directions by the movement bindings and the arrow keys.
-local ACCEPT_KEY, BACK_KEY, EXTRA_KEY = "E", "Q", "R"
-local DIRECTIONS = {
-    UP = "up",
-    DOWN = "down",
-    LEFT = "left",
-    RIGHT = "right",
-    MOVEFORWARD = "up",
-    MOVEBACKWARD = "down",
-    TURNLEFT = "left",
-    STRAFELEFT = "left",
-    TURNRIGHT = "right",
-    STRAFERIGHT = "right",
-}
-
--- The menu action of `key` (bound to `binding`): "up", "down", "left", "right", "accept",
--- "back", "extra", or nil for a key the menu leaves to WoW.
-function overlay.MenuAction(key, binding)
-    if not IsModifierKeyDown() then
-        if key == ACCEPT_KEY then
-            return "accept"
-        elseif key == BACK_KEY then
-            return "back"
-        elseif key == EXTRA_KEY then
-            return "extra"
-        end
-    end
-    return DIRECTIONS[key] or DIRECTIONS[binding]
+-- The menu action of `key` (keys.lua's menu actions, with the modifiers held): "up", "down",
+-- "left", "right", "accept", "back", "extra", or nil for a key the menu leaves to WoW.
+function overlay.MenuAction(key)
+    local id = overlay.KeyAction("menu", overlay.Chord(key))
+    return id and overlay.ACTION_BY_ID[id].input
 end
 
--- The footer's hints: the keys of `bindings` (their first ones) or `key`, and what they do;
--- `choice`: only on a page with a choice; `extra`: the page's extra action, with its text.
+-- The footer's hints: the first keys of `actions` (keys.lua; one, or a pair such as up and
+-- down), and what they do; `choice`: only on a page with a choice; `extra`: the page's extra
+-- action, with its text.
 local HINTS = {
-    { bindings = { "MOVEFORWARD", "MOVEBACKWARD" }, text = "Select" },
-    { bindings = { "TURNLEFT", "TURNRIGHT" }, text = "Change", choice = true },
-    { key = ACCEPT_KEY, text = "Accept" },
-    { key = BACK_KEY, text = "Back" },
-    { key = EXTRA_KEY, extra = true },
+    { actions = { "up", "down" }, text = "Select" },
+    { actions = { "menuLeft", "menuRight" }, text = "Change", choice = true },
+    { actions = { "accept" }, text = "Accept" },
+    { actions = { "back" }, text = "Back" },
+    { actions = { "restart" }, extra = true },
 }
 
 local function text(parent, size, color)
@@ -385,11 +362,9 @@ function Menu:LayoutHints(y, hasChoice, extra)
         if on then
             local width = 0
             for k = 1, 2 do
-                local key = spec.key
-                if not key and spec.bindings[k] then
-                    key = GetBindingKey(spec.bindings[k])
-                end
-                if key and (k == 1 or not spec.key) then
+                local action = spec.actions[k]
+                local key = action and overlay.ActionKey(action, 1)
+                if key then
                     local cap = hint.caps[k]
                     cap.width = overlay.SetKeyCap(cap, key)
                     cap:Show()

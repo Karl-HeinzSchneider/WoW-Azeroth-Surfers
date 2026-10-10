@@ -1,9 +1,10 @@
 ---@type string, AzerothSurfers
 local _, app = ...
 local sim = app.simulation
--- Input, movement sampling, the per-frame step and scoring. Keys are only observed (WoW still
--- gets them) unless `profile.capture` stops the movement keys here; then the runner runs by
--- itself. In auto mode the game takes no keys at all.
+-- Input, movement sampling, the per-frame step and scoring. The run's keys (keys.lua) steer it;
+-- they and WoW's movement keys go on to WoW too unless `profile.capture` stops them here, and
+-- then the runner runs by itself. Pause and start over always stop here. In auto mode the game
+-- takes no keys at all.
 local overlay = app.overlay
 local autopilot = app.autopilot
 
@@ -20,10 +21,8 @@ local MOVEMENT = {
 }
 -- The twin's speed while captured: a character's normal run.
 local RUN_SPEED = 7
--- Pressed once after a run, or held RESTART_HOLD seconds during one, it starts a new run.
-local RESTART_KEY, RESTART_HOLD = "R", 0.75
-local PAUSE_KEY = "Q"
-overlay.GAME_KEYS = { pause = PAUSE_KEY, restart = RESTART_KEY }
+-- The start-over key (keys.lua): pressed once after a run, or held RESTART_HOLD seconds during one.
+local RESTART_HOLD = 0.75
 -- Seconds a finished auto mode run stays on screen.
 local AUTO_RESTART = 3
 
@@ -282,25 +281,34 @@ function overlay:ForgetPosition()
     end
 end
 
+-- Whether a key (`chord`, bound in WoW to `binding`) stays with the game whatever screen or menu
+-- shows: with `profile.capture` on, every key of the game's (keys.lua, a run's or the menus') and
+-- WoW's movement keys, so the character never moves or jumps while the game is open.
+function overlay:Captures(chord, binding)
+    if not self.capture then
+        return false
+    end
+    return (overlay.KeyAction("run", chord) or overlay.KeyAction("menu", chord) or MOVEMENT[binding]) ~= nil
+end
+
 function overlay:OnKey(key)
     -- In combat the view is closed, and whether a key reaches WoW cannot be changed.
     if InCombatLockdown() then
         return
     end
-    -- Typing goes to the focused box; in auto mode every key goes on to WoW.
-    if GetCurrentKeyBoardFocus() or self.auto then
+    -- Typing goes to the focused box; in auto mode, or while the options show (a key being bound
+    -- there), every key goes on to WoW and the game takes none.
+    if GetCurrentKeyBoardFocus() or self.auto or (app.options and app.options:IsOpen()) then
         self.frame:SetPropagateKeyboardInput(true)
         return
     end
-    local chord = (IsAltKeyDown() and "ALT-" or "")
-        .. (IsControlKeyDown() and "CTRL-" or "")
-        .. (IsShiftKeyDown() and "SHIFT-" or "")
-        .. key
+    local chord = overlay.Chord(key)
     local binding = GetBindingAction(chord, true)
-    if self:OnScreenKey(key, binding) then
+    if self:OnScreenKey(key, binding, chord) then
         return
     end
-    if key == RESTART_KEY and not IsModifierKeyDown() then
+    local action = overlay.KeyAction("run", chord)
+    if action == "restart" then
         self.frame:SetPropagateKeyboardInput(false)
         local status = self.state.status
         if status == "over" then
@@ -309,32 +317,108 @@ function overlay:OnKey(key)
             self.holding = self.holding or 0
         end
         return
-    end
-    if key == PAUSE_KEY and not IsModifierKeyDown() then
+    elseif action == "pause" then
         self.frame:SetPropagateKeyboardInput(false)
         self:Action("P")
         return
     end
-    self.frame:SetPropagateKeyboardInput(not (self.capture and binding and MOVEMENT[binding]))
-    if not binding then
-        return
-    end
-    if binding == "TURNLEFT" or binding == "STRAFELEFT" then
+    -- Captured, the game's keys and WoW's own movement keys stop here; else WoW gets them too.
+    self.frame:SetPropagateKeyboardInput(not self:Captures(chord, binding))
+    if action == "left" then
         self:Action("LEFT")
-    elseif binding == "TURNRIGHT" or binding == "STRAFERIGHT" then
+    elseif action == "right" then
         self:Action("RIGHT")
-    elseif binding == "JUMP" then
+    elseif action == "jump" then
         self:Action("SPACE")
-    elseif binding == "MOVEBACKWARD" then
+    elseif action == "duck" then
         self:Action("DOWN")
     elseif binding == "MOVEFORWARD" and self.state.status == "ready" then
         sim.Start(self.state)
     end
 end
 
+-- Letting go of a start-over key, whatever modifiers are still held.
 function overlay:OnKeyRelease(key)
-    if key == RESTART_KEY then
+    if overlay.IsActionKey("restart", key) then
         self.holding = nil
+    end
+end
+
+-- WoW reports the sticks only as axes (the left one moves the character): pushed past
+-- STICK_PRESS a direction is a button of its own (PADLSTICKLEFT, PADRSTICKUP, ...: the names
+-- keys.lua's slots hold), pressed until the stick is back under STICK_RELEASE.
+local STICK_PRESS, STICK_RELEASE = 0.5, 0.3
+-- By the names the client gives a stick (the device's, or its config's): its buttons per axis,
+-- toward minus and plus.
+local LEFT = { x = { "PADLSTICKLEFT", "PADLSTICKRIGHT" }, y = { "PADLSTICKDOWN", "PADLSTICKUP" } }
+local RIGHT = { x = { "PADRSTICKLEFT", "PADRSTICKRIGHT" }, y = { "PADRSTICKDOWN", "PADRSTICKUP" } }
+local STICKS = { Left = LEFT, Movement = LEFT, Right = RIGHT, Camera = RIGHT }
+
+-- The way (1: minus, 2: plus) an axis at `value` is pushed, `held` kept until it is let back.
+local function pushed(value, held)
+    if value <= -STICK_PRESS then
+        return 1
+    elseif value >= STICK_PRESS then
+        return 2
+    elseif (held == 1 and value < -STICK_RELEASE) or (held == 2 and value > STICK_RELEASE) then
+        return held
+    end
+end
+
+-- The button of the way `stick` is pushed furthest, nil while it is not pushed far enough: what
+-- a push sets on the options' Keys tab.
+function overlay.StickButton(stick, x, y)
+    local buttons = STICKS[stick]
+    if not buttons then
+        return nil
+    end
+    local axis, value = "x", x
+    if math.abs(y) > math.abs(x) then
+        axis, value = "y", y
+    end
+    local way = pushed(value)
+    return way and buttons[axis][way]
+end
+
+local function stickAxis(self, buttons, axis, value)
+    local held = self.stickHeld[buttons[axis]]
+    local want = pushed(value, held)
+    if want ~= held then
+        if held then
+            self:OnKeyRelease(buttons[axis][held])
+        end
+        self.stickHeld[buttons[axis]] = want
+        if want then
+            self:OnKey(buttons[axis][want])
+        end
+    end
+end
+
+-- Each stick name logged once at DEBUG, to see what the client calls them.
+local sticksSeen = {}
+
+function overlay:OnStick(stick, x, y)
+    if not sticksSeen[stick] then
+        sticksSeen[stick] = true
+        app.logger:debug("Gamepad stick: %s", tostring(stick))
+    end
+    local buttons = STICKS[stick]
+    if not buttons then
+        return
+    end
+    -- The options take a push to bind it; the game none.
+    if app.options and app.options:IsOpen() then
+        if not InCombatLockdown() then
+            self.frame:SetPropagateKeyboardInput(true)
+        end
+        return
+    end
+    self.stickHeld = self.stickHeld or {}
+    stickAxis(self, buttons, "x", x)
+    stickAxis(self, buttons, "y", y)
+    -- Captured, the left stick stays with the game, so the character does not walk off.
+    if buttons == LEFT and not InCombatLockdown() and not self.auto then
+        self.frame:SetPropagateKeyboardInput(not self.capture)
     end
 end
 

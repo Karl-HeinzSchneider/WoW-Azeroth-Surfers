@@ -20,6 +20,9 @@ local profile = {
     mode = "full",
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
     capture = true,
+    -- The game's keys by action (keys.lua's ACTIONS): { key 1, key 2, gamepad button }, false
+    -- for unbound; where an action or slot is not set, its default. Set on the Keys tab.
+    keys = {},
     difficulty = "normal", -- an id of simulation.DIFFICULTIES
     seed = false, -- a fixed seed for every run, or false: a new one each run
     frame = { full = false, side = true }, -- the window frame in each mode

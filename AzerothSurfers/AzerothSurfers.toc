@@ -37,6 +37,7 @@ src\game\occluder.lua
 src\game\obstacles.lua
 src\game\ambient.lua
 src\game\window.lua
+src\game\keys.lua
 src\game\menu.lua
 src\game\hud.lua
 src\game\legend.lua

@@ -20,6 +20,7 @@ dofile("tests/load.lua")(app, {
     "game/decorations",
     "game/occluder",
     "game/window",
+    "game/keys",
     "game/menu",
     "game/hud",
     "game/legend",
@@ -686,8 +687,10 @@ o.state.status = "running"
 assert(o:BiomeIdAt(lobby.rim - 1) == lobby.biome and o:BiomeIdAt(lobby.rim + 1) == "durotar", "the lobby's biome")
 o.state.status = "ready"
 app.db.profile.biome = "elwynn"
-IsModifierKeyDown = IsModifierKeyDown or function()
-    return false
+for _, name in ipairs({ "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown" }) do
+    _G[name] = _G[name] or function()
+        return false
+    end
 end
 for _, key in ipairs({ { "ENTER" }, { "W", "MOVEFORWARD" }, { "SPACE", "JUMP" } }) do
     o:OnScreenKey(key[1], key[2])
@@ -703,9 +706,6 @@ o:Render()
 assert(math.abs(o.camera.x - menu.at) < 1e-9 and not o.glide, "at the menu's shot")
 -- The menu (menus.lua): directions by the movement bindings, E accepts, Q goes back; every
 -- other key goes on to WoW.
-IsModifierKeyDown = IsModifierKeyDown or function()
-    return false
-end
 local passed
 o.frame.SetPropagateKeyboardInput = function(_, on)
     passed = on
@@ -813,6 +813,12 @@ o.state.status, o.state.newBest = "over", true
 o:Render()
 assert(status:Page().title == "Run complete" and status:Page().items[1].note, "the end, with a new best")
 assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
+-- Captured, a key the menu leaves unused stays with the game: the character does not jump.
+o.capture = true
+assert(press("SPACE", "JUMP") == false and o.state.status == "over", "captured, jump stays")
+assert(press("W", "MOVEFORWARD") == false, "and WoW's movement keys")
+assert(press("ENTER") == true, "other keys go on")
+o.capture = false
 press("R")
 assert(o.state.status == "running" and not o.state.lobby, "R runs again, a plain run")
 o:Render()

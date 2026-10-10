@@ -97,6 +97,143 @@ local function text(order, name)
     return { type = "description", order = order, fontSize = "medium", name = name .. "\n" }
 end
 
+-- The Keys tab: a row per action of keys.lua, its name, then its two keys and its two gamepad
+-- buttons. Built in OnInitialize: keys.lua loads after this file.
+local SLOT_NAMES = { "Key 1", "Key 2", "Gamepad 1", "Gamepad 2" }
+local CONTEXT_NAMES = { run = "Running", menu = "Menus", both = "Running and menus" }
+-- Widths in AceConfig's units (170 pixels): the five of a row fit the Settings panel.
+local NAME_WIDTH, KEY_WIDTH = 0.8, 0.68
+local GOLD = "|cffffd100%s|r"
+
+-- The gamepad slot's button: AceGUI's own key binding button that, while it waits for a key,
+-- also takes a push of a stick (the sticks send no button presses: overlay.StickButton).
+local GAMEPAD_KEY = "AzerothSurfersGamepadKey"
+local function registerGamepadKey()
+    local AceGUI = LibStub("AceGUI-3.0")
+    if AceGUI.WidgetRegistry[GAMEPAD_KEY] then
+        return
+    end
+    AceGUI:RegisterWidgetType(GAMEPAD_KEY, function()
+        local widget = AceGUI.WidgetRegistry.Keybinding()
+        widget.type = GAMEPAD_KEY
+        local button = widget.button
+        if not button.EnableGamePadStick then
+            return widget
+        end
+        local press = button:GetScript("OnGamePadButtonDown")
+        -- The sticks only while it waits: its own scripts start and end the waiting.
+        local function listen()
+            button:EnableGamePadStick(widget.waitingForKey == true)
+        end
+        for _, script in ipairs({ "OnClick", "OnKeyDown", "OnGamePadButtonDown", "OnMouseDown", "OnMouseWheel" }) do
+            button:HookScript(script, listen)
+        end
+        button:SetScript("OnGamePadStick", function(frame, stick, x, y)
+            local name = widget.waitingForKey and app.overlay.StickButton(stick, x, y)
+            if name then
+                press(frame, name)
+                listen()
+            end
+        end)
+        local acquire = widget.OnAcquire
+        widget.OnAcquire = function(self)
+            acquire(self)
+            button:EnableGamePadStick(false)
+        end
+        return widget
+    end, 1)
+end
+
+local function keyButton(order, action, slot)
+    local overlay = app.overlay
+    return {
+        type = "keybinding",
+        dialogControl = app.overlay.GAMEPAD_SLOTS[slot] and GAMEPAD_KEY or nil,
+        order = order,
+        width = KEY_WIDTH,
+        name = "",
+        desc = SLOT_NAMES[slot] .. " for " .. action.name .. ". Escape leaves it unbound.",
+        get = function()
+            return overlay.ActionKey(action.id, slot) or ""
+        end,
+        -- Within a run, or within the menus, a key does one thing.
+        validate = function(_, value)
+            if value == "" then
+                return true
+            end
+            for _, other in ipairs(overlay.ACTIONS) do
+                if app.overlay.SameContext(other.context, action.context) then
+                    for s = 1, overlay.KEY_SLOTS do
+                        local same = other ~= action or s ~= slot
+                        if same and overlay.ActionKey(other.id, s) == value then
+                            return value .. " is already " .. other.name .. "."
+                        end
+                    end
+                end
+            end
+            return true
+        end,
+        set = function(_, value)
+            local saved = app.db.profile.keys
+            if type(saved[action.id]) ~= "table" then
+                saved[action.id] = {}
+            end
+            saved[action.id][slot] = value ~= "" and value or false
+            overlay.legendState = nil
+        end,
+    }
+end
+
+local function keysTab()
+    local args = {
+        help = text(
+            1,
+            "The game's keys work only while it is open, whatever they are bound to in WoW; with Capture movement keys on, WoW does not get them. Two keys and two gamepad buttons for each: by default WASD, the arrow keys, and the gamepad with its left stick and D-pad mirroring each other. A key may do one thing in a run and another in the menus."
+        ),
+        reset = {
+            type = "execute",
+            order = 2,
+            name = "Reset all keys",
+            desc = "Back to WASD, the arrow keys and the gamepad's defaults.",
+            confirm = true,
+            confirmText = "Reset every key to its default?",
+            func = function()
+                wipe(app.db.profile.keys)
+                app.overlay.legendState = nil
+            end,
+        },
+    }
+    local order, context = 10, nil
+    for _, action in ipairs(app.overlay.ACTIONS) do
+        if action.context ~= context then
+            context = action.context
+            args["header_" .. context] = header(order, CONTEXT_NAMES[context])
+            args["columns_" .. context] = { type = "description", order = order + 1, width = NAME_WIDTH, name = "" }
+            for slot, name in ipairs(SLOT_NAMES) do
+                args["column_" .. context .. slot] = {
+                    type = "description",
+                    order = order + 1 + slot / 10,
+                    width = KEY_WIDTH,
+                    name = GOLD:format(name),
+                }
+            end
+            order = order + 2
+        end
+        args["name_" .. action.id] = {
+            type = "description",
+            order = order,
+            width = NAME_WIDTH,
+            fontSize = "medium",
+            name = action.name,
+        }
+        for slot = 1, app.overlay.KEY_SLOTS do
+            args["key_" .. action.id .. slot] = keyButton(order + slot / 10, action, slot)
+        end
+        order = order + 1
+    end
+    return { type = "group", order = 4, name = "Keys", args = args }
+end
+
 local game = {
     type = "group",
     order = 1,
@@ -191,15 +328,10 @@ local game = {
             21,
             "capture",
             "Capture movement keys",
-            "While the game is open it takes your move, strafe, turn and jump keys: your character stays where it is and the runner runs on its own. Steering with the mouse buttons still moves your character.",
+            "While the game is open it keeps the game's keys and your move, strafe, turn and jump keys from WoW, on every screen and menu: your character stays where it is and the runner runs on its own. Steering with the mouse buttons still moves your character.",
             applyMode
         ),
-        legend = toggle(
-            22,
-            "legend",
-            "Show hotkeys",
-            "List the game's keys beside the road: your own movement keys, and Q and R."
-        ),
+        legend = toggle(22, "legend", "Show hotkeys", "List the game's keys beside the road (set on the Keys tab)."),
         otherHeader = header(30, "Other"),
         minimap = {
             type = "toggle",
@@ -384,7 +516,7 @@ local sound = {
 
 local calibration = {
     type = "group",
-    order = 4,
+    order = 5,
     name = "Calibration",
     args = {
         help = text(
@@ -468,13 +600,25 @@ local options = {
 }
 
 function module:OnInitialize()
+    registerGamepadKey()
+    options.args.keys = keysTab()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100
 
     LibStub("AceConfig-3.0"):RegisterOptionsTable(appName, options)
     local dialog = LibStub("AceConfigDialog-3.0")
-    dialog:AddToBlizOptions(appName, app.TITLE)
+    -- Our panel in the game's Settings, to tell when it shows.
+    self.panel = dialog:AddToBlizOptions(appName, app.TITLE)
     dialog:SetDefaultSize(appName, WIDTH, HEIGHT)
+end
+
+-- Whether the options show, in their own window or in the game's Settings: the game then leaves
+-- every key alone (rebinding one must not steer it).
+function module:IsOpen()
+    if LibStub("AceConfigDialog-3.0").OpenFrames[appName] then
+        return true
+    end
+    return self.panel ~= nil and self.panel:IsVisible()
 end
 
 -- Toggles the options in a standalone window.

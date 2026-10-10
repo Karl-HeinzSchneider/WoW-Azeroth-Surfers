@@ -10,9 +10,9 @@ Install the **AzerothSurfers** subfolder in Interface/AddOns, reload, and type *
 The game opens on its title screen, at a portal in Elwynn Forest with the title music playing.
 Press **E** to enter the main menu, where your character sits
 at a campfire beside the track: **Play** (then **Play**, **Difficulty**, **Seed**, **Auto
-mode**, **Cancel**), **Stats**, **Options** and **Close**. Your move-forward / move-backward
-keys (or the arrow keys) choose, your turn keys change the difficulty, **E** accepts and **Q**
-goes back; the mouse works too, and every other key goes on to WoW (Enter still opens the chat).
+mode**, **Cancel**), **Stats**, **Options** and **Close**. **W** / **S** (or the arrow keys, or
+the D-pad) choose, **A** / **D** change the difficulty, **E** accepts and **Q** goes back; the
+mouse works too, and every other key goes on to WoW (Enter still opens the chat).
 The seed starts random: **R** rolls a new one, or type one into its box (**E** or a click, then
 Enter). On Play
 your character stands up, walks over to the track and runs through the portal into the first
@@ -22,13 +22,19 @@ can fix one instead). Paused or after a run, the same kind of menu shows the run
 Q), **Start over** / **Run again** (or R), **Difficulty** for the next run, **Auto mode** and
 **Main menu**, which goes back to the fire.
 
-- Your WoW turn-left / strafe-left binding: left lane.
-- Your WoW turn-right / strafe-right binding: right lane.
-- Your WoW jump binding: jump.
-- Your WoW move-backward binding: duck (a short roll, two layers tall); in the air, drop down fast
-  and roll on landing. Works best with **Capture movement keys** on: without it your character
-  also steps back.
-- Use the buttons at the top to restart, pause/resume, or close.
+| While running   | Keys                      | Arrow keys | Gamepad                 |
+| --------------- | ------------------------- | ---------- | ----------------------- |
+| Lane left/right | **A**/**D**               | ←/→        | Left stick or D-pad ←/→ |
+| Jump            | **Space**                 | ↑          | A                       |
+| Duck / drop     | **S**                     | ↓          | X                       |
+| Pause           | **Q**                     | **P**      | Start                   |
+| Start over      | **R** (hold during a run) |            | Y                       |
+
+Duck is a short roll, two layers tall; in the air it drops you fast and rolls on landing. Every
+key is the game's own while it is open, whatever it is bound to in WoW: change any of them, two
+keys and two gamepad buttons each, on the **Keys** tab of **/surfers options**. A key may do one
+thing in a run and another in the menus. Use the buttons at the top to restart, pause/resume, or
+close.
 
 All keyboard inputs pass through to WoW, so your real character moves and jumps too.
 Custom movement bindings and modifier keys are respected. Typing in an edit box does not
@@ -81,9 +87,11 @@ In **/surfers options**, on the **Display** tab (**Capture movement keys** is on
 - **Side window** puts the game in a window of its own, out of the way: drag it by its title, size
   it from its corner. It has its own camera (the calibration's pitch, focus, distance and field of
   view) and a sky behind the road. Its frame can be turned off too, which fixes it in place.
-- **Capture movement keys** (on by default) works in both: while the game is open it takes your
-  move, strafe, turn and jump keys, so your character stays where it is and the runner runs on
-  its own. Steering with the mouse buttons still moves your character.
+- **Capture movement keys** (on by default) works in both: while the game is open it keeps the
+  game's keys and your move, strafe, turn and jump keys from WoW, on every screen and menu, so
+  your character stays where it is and the runner runs on its own. Steering with the mouse
+  buttons still moves your character. While the options are open the game takes no keys at all,
+  so binding one there steers nothing.
 
 The window frame's minimize button switches from full screen to the side window, its maximize
 button back. The game opens on a start dialog with your best score. **R** starts over: press it

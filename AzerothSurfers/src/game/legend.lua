@@ -1,8 +1,8 @@
 ---@type string, AzerothSurfers
 local _, app = ...
 -- The hotkey legend, built like the client's input legend: a dialog panel per run state (only
--- the current one shown), rows of key caps and what they do. The keys are the player's own
--- movement bindings.
+-- the current one shown), rows of key caps and what they do. The keys are the game's own
+-- (keys.lua: the two keyboard keys of each action), and WoW's move-forward binding.
 local overlay = app.overlay
 
 local ROW_HEIGHT = 24
@@ -24,21 +24,18 @@ local KEY_CAP = {
 }
 local TRIM = "Interface\\Common\\UI-TooltipDivider"
 
--- `bindings`: the WoW bindings whose keys the row shows (at most two; `firsts`: only each
--- binding's first); `keys`: the game's own instead; `header`: a title row with trim;
--- `observed`: only while `profile.capture` is off.
-local LEFT = { "TURNLEFT", "STRAFELEFT" }
-local RIGHT = { "TURNRIGHT", "STRAFERIGHT" }
-local JUMP = { "JUMP" }
+-- `action`: the game's action (keys.lua) whose two keys the row shows; `bindings`: instead the WoW
+-- bindings whose keys it shows (at most two; `firsts`: only each binding's first); `header`: a
+-- title row with trim; `observed`: only while `profile.capture` is off.
 local GROUPS = {
     running = {
         { bindings = { "MOVEFORWARD" }, text = "Run (hold)", observed = true },
-        { bindings = LEFT, text = "Lane left" },
-        { bindings = RIGHT, text = "Lane right" },
-        { bindings = JUMP, text = "Jump" },
-        { bindings = { "MOVEBACKWARD" }, text = "Duck / drop" },
-        { keys = "pause", text = "Pause" },
-        { keys = "restart", text = "Start over (hold)" },
+        { action = "left", text = "Lane left" },
+        { action = "right", text = "Lane right" },
+        { action = "jump", text = "Jump" },
+        { action = "duck", text = "Duck / drop" },
+        { action = "pause", text = "Pause" },
+        { action = "restart", text = "Start over (hold)" },
     },
 }
 
@@ -104,16 +101,21 @@ function overlay:CreateLegend(f)
     end)
 end
 
--- Into `keys` (reused), without the game's own keys (they do something else here) or repeats.
-local function bindingKeys(keys, spec)
-    local game = overlay.GAME_KEYS
+-- Into `keys` (reused): an action's two keys, or its bindings' without repeats.
+local function rowKeys(keys, spec)
     for i = #keys, 1, -1 do
         keys[i] = nil
+    end
+    if spec.action then
+        for slot = 1, 2 do
+            keys[#keys + 1] = overlay.ActionKey(spec.action, slot)
+        end
+        return keys
     end
     for _, binding in ipairs(spec.bindings) do
         for pass = 1, spec.firsts and 1 or 2 do
             local key = select(pass, GetBindingKey(binding))
-            if key and #keys < 2 and key ~= game.pause and key ~= game.restart then
+            if key and #keys < 2 then
                 local seen = false
                 for _, k in ipairs(keys) do
                     seen = seen or k == key
@@ -163,7 +165,6 @@ local keys = {}
 
 -- The texts in one column after the widest keys, the panel sized around them.
 function overlay:LayoutLegend(group)
-    local game = self.GAME_KEYS
     local row, keysWidth, textWidth, headerWidth, header = 0, 0, 0, 0, false
     for _, e in ipairs(group.entries) do
         local spec = e.spec
@@ -184,11 +185,7 @@ function overlay:LayoutLegend(group)
                 e.label:SetPoint("TOPLEFT", INDENT, y - 3)
                 headerWidth = math.max(headerWidth, e.label:GetStringWidth())
             else
-                if spec.keys then
-                    keys[1], keys[2] = game[spec.keys], nil
-                else
-                    bindingKeys(keys, spec)
-                end
+                rowKeys(keys, spec)
                 keysWidth = math.max(keysWidth, placeKeys(e, keys, INDENT, y))
                 textWidth = math.max(textWidth, e.label:GetStringWidth())
             end

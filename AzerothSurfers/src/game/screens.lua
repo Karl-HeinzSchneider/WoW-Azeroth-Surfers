@@ -347,41 +347,44 @@ function overlay:Play(watch)
 end
 
 -- The keys while a screen or a menu shows; true when the run's own handling is not to see `key`.
--- The title goes on with E (the menus' accept); the main menu and the pause and end
--- menu (messages.lua) take their actions' keys (menus.lua's MenuAction). Every other key goes on
--- to WoW untouched.
-function overlay:OnScreenKey(key, binding)
+-- The title goes on with the menus' accept (keys.lua); the main menu and the pause and end
+-- menu (messages.lua) take their actions' keys (menus.lua's MenuAction). Captured, every other key
+-- of the game's and WoW's movement keys stay here too (controls.lua's Captures), so nothing the
+-- screen leaves unused moves the character; every other key goes on to WoW untouched.
+function overlay:OnScreenKey(key, binding, chord)
+    chord = chord or overlay.Chord(key)
     local screen = self.screen
     if screen == "title" then
-        -- The menus' accept (E), and nothing else.
-        local go = overlay.MenuAction(key, binding) == "accept"
-        self.frame:SetPropagateKeyboardInput(not go)
+        -- The menus' accept, and nothing else.
+        local go = overlay.MenuAction(key) == "accept"
+        self.frame:SetPropagateKeyboardInput(not (go or self:Captures(chord, binding)))
         if go then
             self:ContinueTitle()
         end
         return true
     elseif screen == "menu" then
-        return self:MenuKey(self.mainMenu, key, binding)
+        return self:MenuKey(self.mainMenu, key, binding, chord)
     elseif not screen and self.statusOpen then
-        return self:MenuKey(self.statusMenu, key, binding)
+        return self:MenuKey(self.statusMenu, key, binding, chord)
     elseif screen == "start" or app.autopilot.InIntro(self.state) then
-        -- On the way into the run and up to the portal, the run plays itself: the movement keys
-        -- do nothing here.
-        if MOVES[binding] then
-            self.frame:SetPropagateKeyboardInput(not self.capture)
+        -- On the way into the run and up to the portal, the run plays itself: the run's moves
+        -- (keys.lua) and WoW's movement keys do nothing here.
+        local move = overlay.KeyAction("run", chord)
+        if MOVES[binding] or (move and move ~= "pause" and move ~= "restart") then
+            self.frame:SetPropagateKeyboardInput(not self:Captures(chord, binding))
             return true
         end
     end
     return false
 end
 
--- `menu` takes `key` if it is one of its actions; every other key goes on to WoW.
-function overlay:MenuKey(menu, key, binding)
-    local action = overlay.MenuAction(key, binding)
+-- `menu` takes `key` if it is one of its actions; captured, the game's other keys stay too.
+function overlay:MenuKey(menu, key, binding, chord)
+    local action = overlay.MenuAction(key)
     if action and not menu:Takes(action) then
         action = nil
     end
-    self.frame:SetPropagateKeyboardInput(action == nil)
+    self.frame:SetPropagateKeyboardInput(not (action or self:Captures(chord or overlay.Chord(key), binding)))
     if action then
         menu:Input(action)
     end
