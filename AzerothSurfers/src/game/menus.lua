@@ -172,7 +172,9 @@ function overlay:CreateMenu(parent)
     -- page.
     local panel = CreateFrame("Frame", nil, parent, "DialogBorderTemplate")
     panel:ClearAllPoints()
-    panel:SetWidth(WIDTH)
+    -- A height before its first page: without one the panel has no rect, nor has what is
+    -- anchored to it (the scorecard beside the pause menu, hud.lua).
+    panel:SetSize(WIDTH, 1)
     panel:EnableMouse(true)
     menu.panel = panel
     menu.title = text(panel, TITLE_SIZE, GOLD)
