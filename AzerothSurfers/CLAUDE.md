@@ -61,7 +61,13 @@ display's existing voice wins. Other local constants in rendering/control code a
   Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
-  status (`challenges.StatusText`).
+  status (`challenges.StatusText`). The TOC and launcher share `assets/core/icon-gem-zoomed.tga`;
+  `icon-gem.tga` retains the wider variant. A mouse-disabled ModelScene replaces only the
+  button's icon during hover, using the resolved default gem's native idle animation.
+  Button scripts are hooked through `GetMinimapButton`, preserving library tooltip/click/drag
+  behavior. The scene is created once on demand, keeps the texture during loading/failure,
+  and stops rendering on leave, press/drag, profile refresh, hide or module disable. Bounds
+  polling is limited to loading during hover; there are no steady-state Lua frame updates.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a

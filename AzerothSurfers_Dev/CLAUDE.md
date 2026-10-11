@@ -30,8 +30,9 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   opaque; black preserves the blue glow better than chroma key). Keep PNG for external use;
   convert to BLP or uncompressed 32-bit TGA for the TOC and minimap texture. The model's
   built-in idle animation is frozen at time zero; `spin` only turns the actor's yaw.
-  The selected gem capture is shipped as `AzerothSurfers/assets/core/icon-gem.tga`, shared
-  by the TOC and minimap launcher. This tool never writes image files.
+  The selected gem capture has wider `AzerothSurfers/assets/core/icon-gem.tga` and tighter
+  `icon-gem-zoomed.tga` variants; the TOC and minimap launcher use the tighter one.
+  This tool never writes image files.
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).
 - `assets.lua` — `/surfers assets [all|models|animations|sounds] [all|biome]`: audits registered

@@ -1,7 +1,7 @@
 ## Interface: 16001, 120100, 20506
 ## Title: Azeroth Surfers
 ## Notes: A three-lane endless runner starring your character. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/AzerothSurfers/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
-## IconTexture: Interface\AddOns\AzerothSurfers\assets\core\icon-gem
+## IconTexture: Interface\AddOns\AzerothSurfers\assets\core\icon-gem-zoomed
 ## Author: Karl-HeinzSchneider
 ## Version: |cff8080ff@project-version@|r
 ## SavedVariables: AzerothSurfersDB
