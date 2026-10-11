@@ -8,6 +8,12 @@ local addon = app.addon
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\gem128"
 local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
+-- LibDBIcon calls this texture method on reset, press, release and drag. Keep our
+-- supplied image uncropped in every state, without changing the library itself.
+local function fullIconCoords(texture)
+    texture:SetTexCoord(0, 1, 0, 1)
+end
+
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
 ---@field backdrop table?  # opaque circular backing under the supplied icon
@@ -50,14 +56,16 @@ end
 
 function module:PositionIcon()
     local icon = LibStub("LibDBIcon-1.0")
-    -- Start from the library's client-specific anchor so refreshes cannot accumulate
-    -- the offset. Move only the image, keeping the rim and button hit area in place.
+    -- Reset the library defaults, then fill the circular interior with the complete
+    -- image. Only our texture's coordinate updater changes; input scripts stay intact.
     icon:ResetButtonIcon(appName)
     local button = icon:GetMinimapButton(appName)
     local texture = button.icon
-    local point, relativeTo, relativePoint, x, y = texture:GetPoint()
-    texture:SetPoint(point, relativeTo, relativePoint, x, y - 2)
     self:PositionBackdrop(button)
+    texture.UpdateCoord = fullIconCoords
+    texture:UpdateCoord()
+    texture:ClearAllPoints()
+    texture:SetAllPoints(self.backdrop.fill)
 end
 
 function module:PositionBackdrop(button)

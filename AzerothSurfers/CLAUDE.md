@@ -67,8 +67,10 @@ display's existing voice wins. Other local constants in rendering/control code a
   and slightly overlaps the inner rim to cover fading alpha and background seams.
   The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
   `icon-gem.tga` retains the wider variant.
-  The minimap image sits two UI pixels below the library's client-specific default anchor;
-  registration and profile refresh reapply that offset without moving the rim or hit area.
+  The minimap image fills and centers on the circular backing (at least 26 UI pixels).
+  Its own UpdateCoord method keeps full 0–1 texture coordinates on reset, press, release
+  and drag, preventing LibDBIcon's default 5% crop and pressed-state size change. Registration
+  and profile refresh reapply the layout without changing the rim, hit area or input scripts.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a
