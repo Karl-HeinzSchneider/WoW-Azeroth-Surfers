@@ -1,16 +1,27 @@
 -- Run the real vendored LibDBIcon scripts with WoW frame stand-ins. Verify that the
--- model hover coexists with tooltip/click/drag behavior and library profile refreshes.
+-- persistent model coexists with tooltip/click/drag behavior and profile visibility.
 local methods, sceneCount, actorCount = {}, 0, 0
 local function noop() end
 local function frame(kind, parent)
-    return setmetatable(
-        { kind = kind, parent = parent, shown = true, alpha = 1, scripts = {}, hooks = {}, owner = false, name = false },
-        {
-            __index = function(_, key)
-                return methods[key] or noop
-            end,
-        }
-    )
+    local f = setmetatable({
+        kind = kind,
+        parent = parent or false,
+        shown = true,
+        alpha = 1,
+        scripts = {},
+        hooks = {},
+        owner = false,
+        name = false,
+        children = {},
+    }, {
+        __index = function(_, key)
+            return methods[key] or noop
+        end,
+    })
+    if parent then
+        table.insert(parent.children, f)
+    end
+    return f
 end
 function methods:SetScript(event, fn)
     self.scripts[event] = fn
@@ -27,14 +38,29 @@ function methods:Run(event, ...)
         hook(self, ...)
     end
 end
+local function visibilityEvent(f, event)
+    f:Run(event)
+    for _, child in ipairs(f.children) do
+        if child.shown then
+            visibilityEvent(child, event)
+        end
+    end
+end
+function methods:IsVisible()
+    return self.shown and (not self.parent or self.parent:IsVisible())
+end
 function methods:Show()
+    local wasVisible = self:IsVisible()
     self.shown = true
+    if not wasVisible and self:IsVisible() then
+        visibilityEvent(self, "OnShow")
+    end
 end
 function methods:Hide()
-    local wasShown = self.shown
+    local wasVisible = self:IsVisible()
     self.shown = false
-    if wasShown then
-        self:Run("OnHide")
+    if wasVisible then
+        visibilityEvent(self, "OnHide")
     end
 end
 function methods:IsShown()
@@ -75,6 +101,12 @@ function methods:GetName()
 end
 function methods:GetVertexColor()
     return 1, 1, 1
+end
+function methods:SetTexture(texture)
+    self.texture = texture
+end
+function methods:GetTexture()
+    return self.texture
 end
 function methods:GetCenter()
     return 100, 100
@@ -155,12 +187,12 @@ LibStub = setmetatable({
 dofile("AzerothSurfers/lib/LibDBIcon-1.0/LibDBIcon-1.0/LibDBIcon-1.0.lua")
 local icon = libraries["LibDBIcon-1.0"]
 local index = 0
-local function new(model)
+local function new(model, hidden)
     index = index + 1
     local app = {
         TITLE = "Azeroth Surfers",
         logger = { debug = noop },
-        db = { profile = { minimap = { minimapPos = 200 } } },
+        db = { profile = { minimap = { minimapPos = 200, hide = hidden } } },
         biomes = {
             Get = function()
                 return { coin = { models = { { model = model or 201054 } } } }
@@ -186,7 +218,7 @@ local function new(model)
             app.clicked = "options"
         end,
     }
-    local name = "AzerothSurfersHoverTest" .. index
+    local name = "AzerothSurfersModelTest" .. index
     dofile("tests/load.lua")(app, {}) -- Supply the common Ace module stand-in.
     -- Give failure cases distinct identities in the real library's button registry.
     assert(loadfile("AzerothSurfers/src/core/minimapbutton.lua"))(name, app)
@@ -196,184 +228,143 @@ local function new(model)
     return app, app.minimapButton, name
 end
 local app, module, name = new()
-local button = module.button
-assert(sceneCount == 0, "initialization must not allocate a model scene")
+local button, gem = module.button, module.gem
 local enter, dragStart, click = button.scripts.OnEnter, button.scripts.OnDragStart, button.scripts.OnClick
+assert(sceneCount == 1 and actorCount == 1, "enable creates one scene without waiting for hover")
+assert(gem.scene:IsVisible() and gem.scene.scripts.OnUpdate, "visible button starts asynchronous loading immediately")
+assert(
+    gem.scene.target == button.icon and not gem.scene.mouseEnabled,
+    "model follows icon region without taking pointer input"
+)
+assert(gem.scene:GetFrameLevel() > button:GetFrameLevel(), "model renders above the button background")
+assert(button.icon:GetAlpha() == 1 and gem.scene:GetAlpha() > 0, "static fallback remains visible while model loads")
+gem.actor.loaded = true
+gem.scene:Run("OnUpdate", 0.1)
+assert(
+    gem.ready and gem.scene:GetAlpha() == 1 and button.icon:GetAlpha() == 0,
+    "loaded model replaces texture without hover"
+)
+assert(
+    gem.actor.speed == 1 and not gem.scene.scripts.OnUpdate,
+    "native animation runs without a steady Lua update handler"
+)
+assert(
+    button.icon:GetTexture() == module.ldb.icon and module.ldb.icon:find("icon-gem-zoomed", 1, true),
+    "real icon texture remains accessible to other addons"
+)
 button.mouseOver = true
 button:Run("OnEnter")
-assert(icon.tooltip:IsShown(), "library tooltip must still open")
-assert(sceneCount == 1 and actorCount == 1, "first hover creates exactly one scene and actor")
-local hover = module.hover
-assert(hover.scene.target == button.icon and not hover.scene.mouseEnabled, "scene follows icon without taking input")
-assert(
-    button.icon:GetAlpha() == 1 and hover.scene:GetAlpha() > 0 and hover.scene:GetAlpha() <= 0.01,
-    "texture stays visible while nonzero scene opacity allows native loading"
-)
-assert(hover.scene:GetFrameLevel() > button:GetFrameLevel(), "model renders above the button background")
-hover.scene:Run("OnUpdate", 0.1)
-assert(not hover.ready, "loading is asynchronous")
+assert(icon.tooltip:IsShown() and gem.scene:IsVisible(), "library tooltip coexists with the persistent model")
 button.mouseOver = false
 button:Run("OnLeave")
-assert(not hover.scene.scripts.OnUpdate and button.icon:GetAlpha() == 1, "leaving while loading cancels polling")
-button:Run("OnMouseUp")
-assert(not hover.scene:IsShown(), "mouse up outside the button cannot start a model")
-button.mouseOver = true
-button:Run("OnEnter")
-assert(sceneCount == 1, "unfinished loading resumes in the same scene")
-hover.actor.loaded = true
-hover.scene:Run("OnUpdate", 0.1)
-assert(hover.ready and button.icon:GetAlpha() == 0 and hover.scene:GetAlpha() == 1, "loaded model replaces texture")
 assert(
-    hover.actor.speed == 1 and hover.scene.scripts.OnUpdate,
-    "native animation is protected by an active hover watcher"
+    not icon.tooltip:IsShown() and gem.scene:IsVisible() and button.icon:GetAlpha() == 0,
+    "leaving preserves the model"
 )
-local boundsQueries = hover.actor.boundsQueries
-hover.scene:Run("OnUpdate", 0.1)
-assert(hover.actor.boundsQueries == boundsQueries, "ready hover watches lifecycle without polling model bounds")
 button:Run("OnClick", "LeftButton")
 assert(app.clicked == "play", "left click still opens game")
 button:Run("OnClick", "RightButton")
 assert(app.clicked == "options", "right click still opens options")
-button.mouseOver = false
-button:Run("OnLeave")
-assert(
-    not icon.tooltip:IsShown() and not hover.scene:IsShown() and button.icon:GetAlpha() == 1,
-    "leave restores texture and tooltip"
-)
-button.mouseOver = true
-button:Run("OnEnter")
-assert(sceneCount == 1 and actorCount == 1, "subsequent hover reuses scene and actor")
 button:Run("OnMouseDown")
-assert(button.isMouseDown and not hover.scene:IsShown(), "press keeps library pressed-icon behavior")
+assert(button.isMouseDown and gem.scene:IsVisible(), "model persists while pressed")
 button:Run("OnDragStart")
 assert(
-    module.dragging and button.scripts.OnUpdate and not hover.scene:IsShown(),
-    "library dragging owns button update script"
+    button.scripts.OnUpdate and gem.scene:IsVisible(),
+    "library drag update remains intact while model follows its anchor"
 )
 button:Run("OnMouseUp")
-assert(not hover.scene:IsShown(), "mouse up during drag does not restart hover")
 button:Run("OnDragStop")
-assert(
-    not module.dragging and not button.scripts.OnUpdate and hover.scene:IsShown(),
-    "drag stop resumes hover without replacing drag scripts"
-)
-module:OnProfileRefresh()
-assert(not hover.scene:IsShown() and button.icon:GetAlpha() == 1, "profile refresh cleans up hover")
+assert(not button.scripts.OnUpdate and gem.scene:IsVisible(), "drag stop leaves model visible")
 assert(
     button.scripts.OnEnter == enter and button.scripts.OnDragStart == dragStart and button.scripts.OnClick == click,
-    "library scripts are preserved"
+    "button input scripts are untouched"
 )
-button:Run("OnEnter")
-assert(hover.scene:IsShown(), "hooks survive library Refresh replacing scripts")
+assert(not button.hooks.OnEnter and not button.hooks.OnLeave, "no hover hooks are installed")
+module:OnProfileRefresh()
+assert(gem.scene:IsVisible() and button.icon:GetAlpha() == 0, "visible profile refresh keeps model active")
 app.db.profile.minimap.hide = true
 module:OnProfileRefresh()
-assert(not button:IsShown() and not hover.scene:IsShown() and button.icon:GetAlpha() == 1, "hidden profile stops model")
+assert(
+    not gem.scene:IsVisible() and not gem.actor:IsShown() and button.icon:GetAlpha() == 1,
+    "hidden profile stops rendering and restores fallback"
+)
 app.db.profile.minimap.hide, app.db.profile.minimap.lock = false, true
 module:OnProfileRefresh()
-assert(not button.scripts.OnDragStart, "library lock remains effective")
-button:Run("OnEnter")
-assert(hover.scene:IsShown(), "hover works while drag is locked")
+assert(
+    gem.scene:IsVisible() and button.icon:GetAlpha() == 0 and not button.scripts.OnDragStart,
+    "profile show resumes cached model with lock preserved"
+)
 module:OnDisable()
-button:Run("OnEnter")
-assert(not hover.scene:IsShown() and button.icon:GetAlpha() == 1, "disabled module does not restart hover")
+assert(not gem.scene:IsVisible() and button.icon:GetAlpha() == 1, "disable restores static icon")
 module:OnEnable()
-button:Run("OnEnter")
+assert(gem.scene:IsVisible() and sceneCount == 1 and actorCount == 1, "reenable reuses scene and actor")
 icon:Hide(name)
-assert(not hover.scene:IsShown() and not hover.actor:IsShown(), "direct library hide stops rendering")
+assert(not gem.scene:IsVisible() and not gem.actor:IsShown(), "direct library hide stops model rendering")
+icon:Show(name)
+assert(gem.scene:IsVisible() and button.icon:GetAlpha() == 0, "direct library show restores the model")
+Minimap:Hide()
+assert(not gem.scene:IsVisible() and not gem.actor:IsShown(), "ancestor hide propagates to scene lifecycle")
+Minimap:Show()
+assert(
+    gem.scene:IsVisible() and not gem.scene.scripts.OnUpdate,
+    "ancestor show resumes native animation without polling"
+)
+local prior = sceneCount
+icon.tooltip:SetOwner(frame("Button"))
+module.ldb.OnTooltipShow(icon.tooltip)
+assert(
+    sceneCount == prior and module.ldb.icon == button.icon:GetTexture(),
+    "broker/compartment tooltips retain the static icon and do not create scenes"
+)
 print(
-    "PASS real LibDBIcon tooltip, clicks, pressed state, dragging, refresh, lock, hide and disable with lazy native-animation hover"
+    "PASS persistent gem, retained LDB texture, real LibDBIcon input/tooltip/drag/lock behavior, visibility, disable and reuse"
 )
 
 local _, missing = new(999)
-missing.button.mouseOver = true
-missing.button:Run("OnEnter")
-assert(missing.hover.failed and missing.button.icon:GetAlpha() == 1, "rejected model retains static icon")
+assert(missing.gem.failed and missing.button.icon:GetAlpha() == 1, "rejected model retains static fallback")
 local _, legacy = new(998)
-legacy.button.mouseOver = true
-legacy.button:Run("OnEnter")
-assert(not legacy.hover.failed, "nil request result must not reject a legacy client's model")
-legacy.hover.actor.loaded = true
-legacy.hover.scene:Run("OnUpdate", 0.1)
-assert(legacy.hover.ready and legacy.button.icon:GetAlpha() == 0, "legacy model replaces icon after loading")
-local _, timeout = new()
-timeout.button.mouseOver = true
-timeout.button:Run("OnEnter")
-timeout.hover.scene:Run("OnUpdate", 5.1)
+assert(not legacy.gem.failed, "nil model request result is accepted")
+legacy.gem.actor.loaded = true
+legacy.gem.scene:Run("OnUpdate", 0.1)
+assert(legacy.gem.ready and legacy.button.icon:GetAlpha() == 0, "legacy model becomes visible without hover")
+local _, timeout, timeoutName = new()
+timeout.gem.scene:Run("OnUpdate", 5.1)
 assert(
-    timeout.hover.failed and not timeout.hover.scene:IsShown() and not timeout.hover.scene.scripts.OnUpdate,
-    "timeout stops polling and rendering"
+    timeout.gem.failed and not timeout.gem.scene.scripts.OnUpdate and timeout.button.icon:GetAlpha() == 1,
+    "timeout ends polling and restores texture"
 )
-timeout.button:Run("OnLeave")
-timeout.button:Run("OnEnter")
-assert(not timeout.hover.failed and timeout.hover.scene.scripts.OnUpdate, "next hover retries a cold-cache timeout")
-timeout.hover.actor.loaded = true
-timeout.hover.scene:Run("OnUpdate", 0.1)
-assert(timeout.hover.ready, "a timed-out model can recover without reloading the addon")
+icon:Hide(timeoutName)
+icon:Show(timeoutName)
+assert(not timeout.gem.failed and timeout.gem.scene.scripts.OnUpdate, "show retries a cold-cache timeout")
+timeout.gem.actor.loaded = true
+timeout.gem.scene:Run("OnUpdate", 0.1)
+assert(timeout.gem.ready, "timed-out model recovers after visibility cycle")
 local _, wrong = new()
-wrong.button.mouseOver = true
-wrong.button:Run("OnEnter")
-wrong.hover.actor.loaded, wrong.hover.actor.returnedModel = true, 123
-wrong.hover.scene:Run("OnUpdate", 5.1)
-assert(wrong.hover.failed and wrong.button.icon:GetAlpha() == 1, "error model with valid bounds cannot replace icon")
-print("PASS rejected, timed-out and incorrect models retain static fallback")
+wrong.gem.actor.loaded, wrong.gem.actor.returnedModel = true, 123
+wrong.gem.scene:Run("OnUpdate", 5.1)
+assert(wrong.gem.failed and wrong.button.icon:GetAlpha() == 1, "incorrect model cannot replace fallback texture")
+print("PASS nil, rejected, timed-out and mismatched model requests with static fallback and visibility retry")
 
-local _, entryEvent = new()
-entryEvent.button.mouseOver = false
-entryEvent.button:Run("OnEnter")
+local _, initiallyHidden, hiddenName = new(nil, true)
 assert(
-    entryEvent.hover and entryEvent.hoverEnters == 1,
-    "native entry must start loading even before pointer geometry updates"
+    not initiallyHidden.gem.scene:IsVisible() and not initiallyHidden.gem.scene.scripts.OnUpdate,
+    "initially hidden button does not poll or render"
 )
-assert(not entryEvent.hoverBlock, "entry must not be blocked by an IsMouseOver timing discrepancy")
-entryEvent.button:Run("OnLeave")
-entryEvent.button:Run("OnMouseUp")
+icon:Show(hiddenName)
 assert(
-    not entryEvent.hover.scene:IsShown() and entryEvent.hoverBlock == "pointer outside",
-    "mouse-up restart still requires pointer overlap"
+    initiallyHidden.gem.scene:IsVisible() and initiallyHidden.gem.scene.scripts.OnUpdate,
+    "first show starts loading even without pointer events"
 )
-print("PASS native hover entry is authoritative while non-entry restarts check pointer geometry")
-
-local _, callbacks = new()
-callbacks.button.hooks = {} -- Reproduce the reported tooltip with enters=0.
-callbacks.button.mouseOver = false
-callbacks.button:Run("OnEnter")
+icon:Hide(hiddenName)
 assert(
-    callbacks.hover and not callbacks.hoverEnters and callbacks.hoverTooltips == 1,
-    "tooltip callback starts the model without a native hover hook"
+    not initiallyHidden.gem.scene.scripts.OnUpdate and not initiallyHidden.gem.actor:IsShown(),
+    "hiding during loading cancels polling"
 )
-assert(callbacks.hoverOwnerMatches, "the library identifies our minimap button as tooltip owner")
-callbacks.hover.actor.loaded = true
-callbacks.hover.scene:Run("OnUpdate", 0.1)
+icon:Show(hiddenName)
+initiallyHidden.gem.actor.loaded = true
+initiallyHidden.gem.scene:Run("OnUpdate", 0.1)
 assert(
-    callbacks.hover.ready and callbacks.button.icon:GetAlpha() == 0,
-    "callback-driven hover replaces the static icon"
+    initiallyHidden.gem.ready and not initiallyHidden.gem.scene.scripts.OnUpdate,
+    "loading resumes and finishes after a visibility cycle"
 )
-callbacks.button:Run("OnMouseDown")
-callbacks.hover.scene:Run("OnUpdate", 0.1)
-assert(
-    not callbacks.hover.scene:IsShown() and callbacks.button.icon:GetAlpha() == 1,
-    "pressed state stops rendering even without native hooks"
-)
-callbacks.button:Run("OnMouseUp")
-callbacks.button:Run("OnEnter")
-icon.tooltip:Hide()
-callbacks.hover.scene:Run("OnUpdate", 0.1)
-assert(not callbacks.hover.scene:IsShown(), "tooltip closure stops rendering without leave hooks")
-callbacks.button:Run("OnEnter")
-callbacks.button:Run("OnLeave")
-assert(not callbacks.hover.scene:IsShown(), "launcher OnLeave restores the icon without native hooks")
-callbacks.button:Run("OnEnter")
-icon.tooltip:SetOwner(frame("Button"))
-callbacks.hover.scene:Run("OnUpdate", 0.1)
-assert(not callbacks.hover.scene:IsShown(), "tooltip changing to another launcher ends our hover")
-local _, otherDisplay = new()
-local before = sceneCount
-icon.tooltip:SetOwner(frame("Button"))
-otherDisplay.ldb.OnTooltipShow(icon.tooltip)
-assert(
-    not otherDisplay.hover and sceneCount == before and not otherDisplay.hoverOwnerMatches,
-    "compartment and broker tooltips cannot animate the minimap button"
-)
-print(
-    "PASS launcher callbacks animate without native hooks; watcher stops on press, tooltip close or owner change; other displays remain static"
-)
+print("PASS initially hidden model defers polling and resumes on visibility changes")

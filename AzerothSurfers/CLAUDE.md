@@ -62,18 +62,15 @@ display's existing voice wins. Other local constants in rendering/control code a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
   status (`challenges.StatusText`). The TOC and launcher share `assets/core/icon-gem-zoomed.tga`;
-  `icon-gem.tga` retains the wider variant. A mouse-disabled ModelScene replaces only the
-  button's icon during hover, using the resolved default gem's native idle animation.
-  Hover also starts directly from the launcher's `OnTooltipShow` for our button's tooltip
-  owner and ends through `OnLeave`, so it works when another display bypasses native hooks.
-  Button scripts are hooked through `GetMinimapButton`, preserving library tooltip/click/drag
-  behavior. The scene is created once on demand, keeps the texture during loading/failure,
-  and stops rendering on leave, press/drag, profile refresh, hide or module disable. Bounds
-  polling is limited to loading during hover. A check at 10 Hz during active hover restores
-  the texture if the library marks it pressed, hides its tooltip or changes tooltip owner;
-  it stops on hover end. Native idle animation needs no Lua yaw updates.
-  Loading uses nonzero opacity to avoid native scene culling; nil model-request results are
-  accepted, and timeouts retry on the next hover. The scene sits one level above the button.
+  `icon-gem.tga` retains the wider variant. One mouse-disabled ModelScene shows the resolved
+  default gem whenever the minimap button is visible, including while pressed or dragged.
+  The button's icon region retains its texture with alpha zero once the model is ready;
+  the LDB icon and addon-list icon stay static and available to other addons.
+  The library's input scripts remain untouched. The scene's own OnShow/OnHide follows parent
+  visibility, resumes cached models and stops rendering on hide/disable. Bounds polling ends
+  after loading/failure; native idle animation has no steady Lua update handler.
+  Loading uses nonzero opacity, accepts nil request results and keeps the texture as fallback.
+  Timed-out models retry on show or profile refresh. The scene sits above the button background.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a

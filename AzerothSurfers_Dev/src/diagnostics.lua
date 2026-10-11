@@ -2,39 +2,30 @@
 local _, dev = ...
 local app, log = dev.app, dev.log
 
-dev.Command("minimap", "minimap (report the icon's hover model state)", function()
+dev.Command("minimap", "minimap (report the icon's persistent model state)", function()
     local module = app.minimapButton
-    local button, hover = module.button, module.hover
+    local button, gem = module.button, module.gem
     log:chat(
-        "Minimap: enabled=%s button=%s hovered=%s dragging=%s pressed=%s scene=%s enters=%d blocked=%s",
-        tostring(module.hoverEnabled),
-        tostring(button and button:IsShown()),
-        tostring(button and button:IsMouseOver()),
-        tostring(module.dragging),
-        tostring(button and button.isMouseDown),
-        tostring(hover ~= nil),
-        module.hoverEnters or 0,
-        tostring(module.hoverBlock)
-    )
-    log:chat(
-        "Hover source: button=%s tooltips=%d owner=%s ownerMatches=%s",
+        "Minimap: enabled=%s button=%s visible=%s scene=%s texture=%s iconAlpha=%s",
+        tostring(module.modelEnabled),
         tostring(button and button:GetName()),
-        module.hoverTooltips or 0,
-        tostring(module.hoverOwner),
-        tostring(module.hoverOwnerMatches)
+        tostring(button and button:IsVisible()),
+        tostring(gem ~= nil),
+        tostring(button and button.icon:GetTexture()),
+        tostring(button and button.icon:GetAlpha())
     )
-    if hover then
+    if gem then
         log:chat(
             "Gem: requested=%s result=%s loaded=%s file=%s ready=%s wait=%.2fs failure=%s visible=%s alpha=%.2f",
-            tostring(hover.model),
-            tostring(hover.requestResult),
-            tostring(hover.actor:IsLoaded()),
-            tostring(hover.actor:GetModelFileID()),
-            tostring(hover.ready),
-            hover.wait,
-            tostring(hover.failure),
-            tostring(hover.scene:IsShown()),
-            hover.scene:GetAlpha()
+            tostring(gem.model),
+            tostring(gem.requestResult),
+            tostring(gem.actor:IsLoaded()),
+            tostring(gem.actor:GetModelFileID()),
+            tostring(gem.ready),
+            gem.wait,
+            tostring(gem.failure),
+            tostring(gem.scene:IsVisible()),
+            gem.scene:GetAlpha()
         )
     end
 end)

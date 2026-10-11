@@ -41,9 +41,10 @@ end)
 `advance(s, seconds, fps)`, `obstacle`, `coin`, `platform` (box builders), `branch` and
 `runnable` (the input search).
 
-`minimap.lua` runs the real vendored LibDBIcon with frame stand-ins: lazy hover-scene loading
-and reuse, native animation with an active-hover lifecycle watcher, static fallbacks, tooltip/click/press/
-drag coexistence, profile refresh, lock, hide and module disable.
+`minimap.lua` runs the real vendored LibDBIcon with frame stand-ins: persistent scene loading
+and reuse, native animation without steady Lua updates, retained static textures and loading
+fallbacks, tooltip/click/press/drag coexistence, profile refresh, lock, ancestor visibility and
+module disable.
 
 ## Writing a new one
 

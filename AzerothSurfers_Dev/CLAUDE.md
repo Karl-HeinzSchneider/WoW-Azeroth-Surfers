@@ -16,10 +16,9 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   (duck/slide candidates).
 - `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).
-  `/surfers minimap` reports hover enablement, button/scene visibility, model request result,
+  `/surfers minimap` reports model enablement, button/scene visibility, retained texture/alpha,
+  model request result,
   loaded file, fitting state, accumulated load wait and failure reason without changing them.
-  Includes the native hover-entry count and last reason scene startup was blocked.
-  Also reports launcher tooltip count, tooltip owner and whether it is our minimap button.
   `/surfers layers` reports existing unit frames, action bars, bags, chat and game frames sorted
   by strata and level, with visibility and parent names. `/surfers layers FrameName` inspects
   one named frame and its direct children. It never changes their layers or opens UI panels.

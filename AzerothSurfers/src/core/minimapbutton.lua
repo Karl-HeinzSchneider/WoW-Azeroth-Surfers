@@ -1,31 +1,22 @@
 ---@type string, AzerothSurfers
 local appName, app = ...
+local log, addon = app.logger, app.addon
 
-local log = app.logger
-local addon = app.addon
-
--- Same texture as the TOC's `## IconTexture`.
+-- Keep a real texture in LDB and on the library's icon region for other displays.
+-- Only our minimap region's alpha changes once the model is ready.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\icon-gem-zoomed"
-local HOVER_FOV, HOVER_ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
+local FOV, ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
 
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
----@field button table  # LibDBIcon's button and icon region; library scripts remain untouched
----@field hover table?  # one lazily created ModelScene and actor, reused across hovers
----@field hoverEnabled boolean?
----@field dragging boolean?
----@field hoverEnters number?  # native OnEnter events seen by our hook
----@field hoverBlock string?  # last reason StartHover returned before creating a scene
----@field hoverTooltips number?  # launcher tooltip callbacks received
----@field hoverOwner string?  # last tooltip owner name, for dev diagnostics
----@field hoverOwnerMatches boolean?  # whether the tooltip belongs to our minimap button
----@field hoverTooltip table?  # tooltip watched only while its minimap model is active
+---@field button table  # LibDBIcon's button and retained static icon region
+---@field gem table?  # one persistent ModelScene and actor
+---@field modelEnabled boolean?
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as AzerothSurfers.MinimapButton]]
 
 function module:OnInitialize()
-    ---@type LibDataBroker.QuickLauncher
-    local launcher = {
+    self.ldb = LibStub("LibDataBroker-1.1"):NewDataObject(appName, {
         type = "launcher",
         text = app.TITLE,
         icon = ICON,
@@ -33,9 +24,6 @@ function module:OnInitialize()
             self:OnClick(button)
         end,
         OnTooltipShow = function(tooltip)
-            -- Use the callback the library actually delivers, even if another addon
-            -- has replaced the button scripts and their native hooks.
-            self:TooltipHover(tooltip)
             tooltip:AddLine(app.TITLE)
             tooltip:AddLine("Left-click: play", 1, 1, 1)
             tooltip:AddLine("Right-click: options", 1, 1, 1)
@@ -52,215 +40,142 @@ function module:OnInitialize()
                 )
             end
         end,
-        OnLeave = function(frame)
-            if frame == self.button then
-                self:StopHover()
-            end
-        end,
-    }
-    self.ldb = LibStub("LibDataBroker-1.1"):NewDataObject(appName, launcher) --[[@as LibDataBroker.QuickLauncher]]
-
+    }) --[[@as LibDataBroker.QuickLauncher]]
     local icon = LibStub("LibDBIcon-1.0")
     icon:Register(appName, self.ldb, app.db.profile.minimap)
     self.button = icon:GetMinimapButton(appName)
-    -- LDB's OnEnter is skipped when OnTooltipShow exists. Hooks preserve the tooltip,
-    -- click handlers and drag scripts (including replacements on LibDBIcon:Refresh).
-    self.button:HookScript("OnEnter", function()
-        self.hoverEnters = (self.hoverEnters or 0) + 1
-        self:StartHover(true)
-    end)
-    self.button:HookScript("OnLeave", function()
-        self:StopHover()
-    end)
-    self.button:HookScript("OnHide", function()
-        self:StopHover()
-    end)
-    self.button:HookScript("OnMouseDown", function()
-        self:StopHover()
-    end)
-    self.button:HookScript("OnMouseUp", function()
-        self:StartHover()
-    end)
-    self.button:HookScript("OnDragStart", function()
-        self.dragging = true
-        self:StopHover()
-    end)
-    self.button:HookScript("OnDragStop", function()
-        self.dragging = false
-        self:StartHover()
-    end)
     log:debug("Minimap button registered")
 end
 
-function module:TooltipHover(tooltip)
-    self.hoverTooltips = (self.hoverTooltips or 0) + 1
-    local owner = tooltip:GetOwner()
-    self.hoverOwner = owner and owner:GetName() or "<unnamed>"
-    self.hoverOwnerMatches = self.button ~= nil and owner == self.button
-    -- Broker displays and the addon compartment share this launcher; animate only
-    -- the minimap button that owns our scene.
-    if self.hoverOwnerMatches then
-        self.hoverTooltip = tooltip
-        self:StartHover(true)
+function module:CreateGem()
+    if self.gem then
+        return
     end
+    local entry = app.biomes.Get("default").coin.models[1]
+    if not entry then
+        return
+    end
+    local scene = CreateFrame("ModelScene", nil, self.button)
+    scene:Hide()
+    scene:SetAllPoints(self.button.icon)
+    scene:EnableMouse(false)
+    scene:SetFrameLevel(self.button:GetFrameLevel() + 1)
+    scene:SetDrawLayer("OVERLAY")
+    scene:SetCameraNearClip(app.overlay.CLIP_NEAR)
+    scene:SetCameraFarClip(app.overlay.CLIP_FAR)
+    scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
+    scene:SetCameraFieldOfView(FOV)
+    scene:SetCameraPosition(-0.5 / math.tan(FOV / 2) * 1.15, 0, 0)
+    scene:SetLightAmbientColor(0.8, 0.8, 0.8)
+    scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+    local actor = scene:CreateActor()
+    actor:SetUseCenterForOrigin(true, true, true)
+    actor:SetPosition(0, 0, 0)
+    actor:SetScale(1)
+    actor:SetYaw(0)
+    actor:SetPitch(0)
+    actor:Hide()
+    self.gem = { scene = scene, actor = actor, model = entry.model, wait = 0 }
+    local accepted = actor:SetModelByFileID(entry.model)
+    self.gem.requestResult = tostring(accepted)
+    if accepted == false then
+        self.gem.failed, self.gem.failure = true, "request rejected"
+    end
+    -- Own scene scripts follow effective parent visibility. No minimap hover hooks,
+    -- tooltip ownership checks, or changes to the library's input scripts are needed.
+    scene:SetScript("OnShow", function()
+        self:ResumeGem()
+    end)
+    scene:SetScript("OnHide", function()
+        self:PauseGem()
+    end)
+end
+
+function module:PauseGem()
+    local gem = self.gem
+    if gem then
+        gem.scene:SetScript("OnUpdate", nil)
+        gem.actor:Hide()
+        if gem.iconAlpha then
+            self.button.icon:SetAlpha(gem.iconAlpha)
+            gem.iconAlpha = nil
+        end
+    end
+end
+
+function module:ShowGem()
+    local gem = self.gem
+    gem.scene:SetAlpha(1)
+    if not gem.iconAlpha then
+        gem.iconAlpha = self.button.icon:GetAlpha()
+    end
+    self.button.icon:SetAlpha(0)
+    gem.actor:Show()
+    gem.actor:SetAnimation(0, 0, 1, 0)
+    gem.scene:SetScript("OnUpdate", nil)
+end
+
+function module:ResumeGem()
+    local gem = self.gem
+    if not self.modelEnabled or not gem or not gem.scene:IsVisible() then
+        return
+    end
+    if gem.failed then
+        if gem.failure ~= "load timed out" then
+            return
+        end
+        gem.failed, gem.failure, gem.wait = false, nil, 0
+    end
+    if gem.ready then
+        self:ShowGem()
+        return
+    end
+    -- Nonzero opacity allows native loading to advance; the texture stays visible
+    -- until the requested model has usable bounds. Polling ends after fitting/failure.
+    gem.scene:SetAlpha(LOAD_ALPHA)
+    gem.actor:Show()
+    gem.scene:SetScript("OnUpdate", function(_, elapsed)
+        gem.wait = gem.wait + elapsed
+        local minX, minY, minZ, maxX, maxY, maxZ = app.overlay.Extents(gem.actor)
+        local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
+        if size > 0.001 and gem.actor:GetModelFileID() == gem.model then
+            gem.actor:SetScale(ZOOM / size)
+            gem.actor:SetPitch(maxZ - minZ < 0.3 * math.max(maxX - minX, maxY - minY) and math.pi / 2 or 0)
+            gem.ready = true
+            self:ShowGem()
+        elseif gem.wait > LOAD_TIMEOUT then
+            gem.failed, gem.failure = true, "load timed out"
+            self:PauseGem()
+            gem.scene:SetAlpha(0)
+            log:debug("Minimap gem model %d did not load; retaining texture", gem.model)
+        end
+    end)
 end
 
 function module:OnEnable()
-    self.hoverEnabled = true
+    self.modelEnabled = true
+    self:CreateGem()
+    if self.gem then
+        self.gem.scene:Show()
+        self:ResumeGem()
+    end
 end
 
 function module:OnDisable()
-    self.hoverEnabled, self.dragging = false, false
-    self:StopHover()
-end
-
-function module:StopHover()
-    self.hoverTooltip = nil
-    local hover = self.hover
-    if hover then
-        hover.scene:SetScript("OnUpdate", nil)
-        hover.scene:Hide()
-        hover.actor:Hide()
-        if hover.iconAlpha then
-            self.button.icon:SetAlpha(hover.iconAlpha)
-            hover.iconAlpha = nil
-        end
+    self.modelEnabled = false
+    self:PauseGem()
+    if self.gem then
+        self.gem.scene:Hide()
     end
 end
 
--- Native HookScript handlers can be absent after a display replaces button scripts.
--- Watch only an active hover, checking library pressed state and tooltip ownership
--- at 10 Hz. The gem itself still animates natively, without Lua yaw updates.
-function module:WatchHover(elapsed)
-    local hover = self.hover
-    hover.watchWait = hover.watchWait + elapsed
-    if hover.watchWait < 0.1 then
-        return false
-    end
-    hover.watchWait = 0
-    local tooltip = self.hoverTooltip
-    if
-        not self.hoverEnabled
-        or self.button.isMouseDown
-        or not self.button:IsShown()
-        or (tooltip and (not tooltip:IsShown() or tooltip:GetOwner() ~= self.button))
-    then
-        self:StopHover()
-        return true
-    end
-    return false
-end
-
-function module:ShowHover()
-    local hover = self.hover
-    hover.scene:SetAlpha(1)
-    if not hover.iconAlpha then
-        hover.iconAlpha = self.button.icon:GetAlpha()
-    end
-    self.button.icon:SetAlpha(0)
-    -- Rotation comes from the gem's idle animation, with no per-frame Lua yaw calls.
-    hover.actor:SetAnimation(0, 0, 1, 0)
-    hover.watchWait = 0
-    hover.scene:SetScript("OnUpdate", function(_, elapsed)
-        self:WatchHover(elapsed)
-    end)
-end
-
-function module:StartHover(entering)
-    local button = self.button
-    -- OnEnter itself proves pointer entry. The client can report IsMouseOver=false
-    -- inside that callback; query geometry only for mouse-up/drag-stop restarts.
-    self.hoverBlock = not self.hoverEnabled and "disabled"
-        or self.dragging and "dragging"
-        or button.isMouseDown and "pressed"
-        or not button:IsShown() and "hidden"
-        or (not entering and not button:IsMouseOver()) and "pointer outside"
-        or nil
-    if self.hoverBlock then
-        return
-    end
-    if not self.hover then
-        local entry = app.biomes.Get("default").coin.models[1]
-        if not entry then
-            self.hoverBlock = "no coin model"
-            return
-        end
-        local scene = CreateFrame("ModelScene", nil, button)
-        scene:Hide()
-        -- Follow the library's icon region, including Classic's offset and skin sizing.
-        -- Mouse-disabled child: the original button keeps all pointer input.
-        scene:SetAllPoints(button.icon)
-        scene:EnableMouse(false)
-        -- A separate frame at the button's level has no guaranteed ordering against
-        -- its background. Stay above it, within the icon's interior viewport.
-        scene:SetFrameLevel(button:GetFrameLevel() + 1)
-        scene:SetDrawLayer("OVERLAY")
-        scene:SetCameraNearClip(app.overlay.CLIP_NEAR)
-        scene:SetCameraFarClip(app.overlay.CLIP_FAR)
-        scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
-        scene:SetCameraFieldOfView(HOVER_FOV)
-        scene:SetCameraPosition(-0.5 / math.tan(HOVER_FOV / 2) * 1.15, 0, 0)
-        scene:SetLightAmbientColor(0.8, 0.8, 0.8)
-        scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
-        local actor = scene:CreateActor()
-        actor:SetUseCenterForOrigin(true, true, true)
-        actor:SetPosition(0, 0, 0)
-        actor:SetScale(1)
-        actor:SetYaw(0)
-        actor:SetPitch(0)
-        self.hover = { scene = scene, actor = actor, model = entry.model, wait = 0, watchWait = 0 }
-        local accepted = actor:SetModelByFileID(entry.model)
-        self.hover.requestResult = tostring(accepted)
-        -- Some clients return nil on a successful request, as the asset audit allows.
-        if accepted == false then
-            self.hover.failed, self.hover.failure = true, "request rejected"
-            log:debug("Minimap gem model %d request rejected; retaining texture", entry.model)
-        end
-    end
-    local hover = self.hover
-    if hover.failed then
-        if hover.failure ~= "load timed out" then
-            return
-        end
-        -- A cold-cache timeout must not disable hover for the rest of the session.
-        hover.failed, hover.failure, hover.wait = false, nil, 0
-    end
-    hover.actor:Show()
-    hover.scene:Show()
-    if hover.ready then
-        self:ShowHover()
-        return
-    end
-    -- Keep the texture visible while loading, with the scene nearly transparent.
-    -- Zero opacity can cull native scene work, preventing loading/bounds from advancing.
-    -- Poll only during hover; missing or mismatched assets retain the static fallback.
-    hover.scene:SetAlpha(LOAD_ALPHA)
-    hover.scene:SetScript("OnUpdate", function(_, elapsed)
-        if self:WatchHover(elapsed) then
-            return
-        end
-        hover.wait = hover.wait + elapsed
-        local minX, minY, minZ, maxX, maxY, maxZ = app.overlay.Extents(hover.actor)
-        local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
-        if size > 0.001 and hover.actor:GetModelFileID() == hover.model then
-            hover.actor:SetScale(HOVER_ZOOM / size)
-            hover.actor:SetPitch(maxZ - minZ < 0.3 * math.max(maxX - minX, maxY - minY) and math.pi / 2 or 0)
-            hover.ready = true
-            self:ShowHover()
-        elseif hover.wait > LOAD_TIMEOUT then
-            hover.failed, hover.failure = true, "load timed out"
-            self:StopHover()
-            log:debug("Minimap gem model %d did not load; retaining texture", hover.model)
-        end
-    end)
-end
-
--- The addon's first OnProfileRefresh runs before module:OnInitialize, hence the guard.
+-- The first profile refresh precedes initialization; the registration guard covers it.
 function module:OnProfileRefresh()
-    self:StopHover()
     local icon = LibStub("LibDBIcon-1.0")
     if icon:IsRegistered(appName) then
+        self:PauseGem()
         icon:Refresh(appName, app.db.profile.minimap)
+        self:ResumeGem()
     end
 end
 
