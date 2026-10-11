@@ -1,4 +1,4 @@
-## Interface: 16001
+## Interface: 16001, 120100
 ## Title: Azeroth Surfers
 ## Notes: A three-lane endless runner starring your character. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/AzerothSurfers/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
 ## IconTexture: Interface\Icons\INV_Misc_QuestionMark

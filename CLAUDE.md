@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) for the client set by the TOC's
-`## Interface` (`16001` = WoW Forever), plus Node/TypeScript tooling that checks, links and
-packages it.
+Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) targeting WoW Forever
+(`16001`) and retail (`120100`) through the TOC's `## Interface`, plus Node/TypeScript tooling
+that checks, links and packages it. Retail compatibility still needs in-client testing.
 
 | Part                  | What it is                                                  | Details                                                      |
 | --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
@@ -116,7 +116,7 @@ Creatures are named by display id, which the listfile lacks; a Wowhead classic N
 - **Don't hard-reference a retail or Classic frame**: don't inherit its templates, call its
   mixins, anchor to it or name it as the thing being copied. Remake the look with our own
   template and mixin; its art may be reused, and naming it as an example in a comment is fine.
-- Code the WoW Forever client itself ships (`Blizzard_*/Camelot/`, shared templates it loads such
-  as `Blizzard_SharedXML`) may be used directly, e.g. `PortraitFrameBaseTemplate`. Verify the
-  file is loaded by this client first.
+- Shared client templates may be used directly, e.g. `PortraitFrameBaseTemplate`, after verifying
+  they load on both supported clients. Forever-specific code (`Blizzard_*/Camelot/`) needs a
+  shared alternative or a compatibility fallback on retail.
 - A screenshot the user shares is a look reference, not a template to reproduce pixel by pixel.

@@ -1,6 +1,7 @@
 # Azeroth Surfers
 
-A Subway Surfers-inspired, three-lane runner for WoW Forever (interface 16001).
+A Subway Surfers-inspired, three-lane runner for WoW Forever (interface 16001),
+with initial retail support (interface 120100). Retail compatibility still needs in-client testing.
 Built from the shared addon template with Ace3, checks, formatting, packaging and release workflows.
 
 ## Play
