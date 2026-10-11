@@ -106,7 +106,7 @@ end
 -- the portal.
 local function scoreText(record)
     return record.finished and tostring(record.score)
-        or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
+        or string.format("%d  |cffaaaaaa%s|r", record.score, app.distance.Text(record.distance))
 end
 -- Rows of a leaderboard; this player's place below them when it is further down.
 local RANKS = 8
@@ -122,7 +122,7 @@ local BOARD = {
     spare = 0.25,
     values = {
         tostring(app.leaderboard.MOST_SCORE),
-        "9999 yd",
+        "9999 yd", -- reserve room for either distance unit
         string.format("%d/%d (100%%)", app.leaderboard.MOST_COINS, app.leaderboard.MOST_COINS),
     },
     heads = { "Score", "Distance", "Coins" },
@@ -133,7 +133,7 @@ local function boardColumns(record)
     if not record then
         return "", "", ""
     end
-    local far = string.format(record.finished and "%d yd" or "|cffaaaaaa%d yd|r", record.distance)
+    local far = string.format(record.finished and "%s" or "|cffaaaaaa%s|r", app.distance.Text(record.distance))
     local share = record.coinTotal > 0 and math.floor(100 * record.coins / record.coinTotal) or 0
     return tostring(record.score), far, string.format("%d/%d (%d%%)", record.coins, record.coinTotal, share)
 end
@@ -221,7 +221,7 @@ function challengePage(id)
             {
                 text = "Distance",
                 info = function()
-                    return string.format("%d yd", period.goal)
+                    return app.distance.Text(period.goal)
                 end,
             },
             {
@@ -331,7 +331,8 @@ local function historyPage(id)
                     return ""
                 end
                 local record = e.record
-                local far = record.finished and "" or string.format("|cffaaaaaa%d yd|r  ", record.distance)
+                local far = record.finished and ""
+                    or string.format("|cffaaaaaa%s|r  ", app.distance.Text(record.distance))
                 return string.format("%d  %s%d/%d", record.score, far, record.coins, record.coinTotal)
             end,
         }
@@ -397,7 +398,7 @@ PAGES.challenges = {
 local BESTS = {
     size = 20,
     label = "Difficulty",
-    values = { tostring(app.leaderboard.MOST_SCORE), "99999 yd", "99999" },
+    values = { tostring(app.leaderboard.MOST_SCORE), "99999 yd", "99999" }, -- widest distance suffix
     heads = { "Score", "Distance", "Coins" },
 }
 local function bestsPage()
@@ -418,7 +419,7 @@ local function bestsPage()
                 if not best then
                     return "-", "", ""
                 end
-                return tostring(best.score), string.format("%d yd", best.distance), tostring(best.coins)
+                return tostring(best.score), app.distance.Text(best.distance), tostring(best.coins)
             end,
         }
     end
@@ -447,7 +448,7 @@ PAGES.stats = {
             end,
         },
         statItem("Runs played", "runs", "%d"),
-        statItem("Distance", "yards", "%d yd"),
+        statItem("Distance", "yards", app.distance.Text),
         statItem("Coins", "coins", "%d"),
         statItem("Time running", "time", app.stats.TimeText),
         statItem("Portals reached", "portals", "%d"),

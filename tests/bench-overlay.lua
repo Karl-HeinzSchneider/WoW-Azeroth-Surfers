@@ -182,6 +182,7 @@ local app = {
     },
 }
 dofile("tests/load.lua")(app, {
+    "core/distance",
     "core/db",
     "game/biomes",
     "biomes/default",

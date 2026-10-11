@@ -212,12 +212,12 @@ overlay.HUD_INFO = {
     {
         id = "speed",
         name = "Speed",
-        desc = "How fast the runner runs, in yards per second. It rises the further a run goes, up to the difficulty's top speed.",
+        desc = "How fast the runner runs, in the selected distance unit per second. It rises the further a run goes, up to the difficulty's top speed.",
         value = function(_, s)
             return math.floor(s.speed * 10 + 0.5)
         end,
         write = function(t, value)
-            t:SetFormattedText("%.1f yd/s", value / 10)
+            t:SetFormattedText("%.1f %s/s", value / 10, app.distance.Unit())
         end,
     },
     {
@@ -232,12 +232,18 @@ overlay.HUD_INFO = {
     {
         id = "portal",
         name = "Next portal",
-        desc = "Yards to the next portal: into the next zone, or a challenge's last one.",
+        desc = "Distance to the next portal: into the next zone, or a challenge's last one.",
         value = function(_, s)
             local at = s.gates and s.gates[s.gatesPassed + 1]
             return at and math.max(0, math.floor(at - s.distance)) or -1
         end,
-        write = orNone("%d yd"),
+        write = function(t, value)
+            if value < 0 then
+                t:SetText("-")
+            else
+                t:SetFormattedText("%d %s", value, app.distance.Unit())
+            end
+        end,
     },
     {
         id = "coinRate",
@@ -411,11 +417,12 @@ function overlay:ShowHudInfo(s, now)
         return
     end
     info.at = now
+    local unit = app.distance.Unit()
     for i = 1, info.count do
         local r = info.shown[i]
         local value = r.stat.value(self, s)
-        if r.written ~= value then
-            r.written = value
+        if r.written ~= value or r.unit ~= unit then
+            r.written, r.unit = value, unit
             r.stat.write(r.value, value)
         end
     end
@@ -505,13 +512,14 @@ function overlay:ShowHud()
         hud.multiplier:SetTextColor(color[1], color[2], color[3])
     end
     local distance = math.floor(sim.Run(s))
-    if shown.distance ~= distance then
-        shown.distance = distance
+    local unit = app.distance.Unit()
+    if shown.distance ~= distance or shown.distanceUnit ~= unit then
+        shown.distance, shown.distanceUnit = distance, unit
         -- A challenge's: and the yards to its last portal.
         if s.finish then
-            hud.distance:SetFormattedText("%d / %d yd", distance, s.finish - s.start)
+            hud.distance:SetFormattedText("%d / %d %s", distance, s.finish - s.start, unit)
         else
-            hud.distance:SetFormattedText("%d yd", distance)
+            hud.distance:SetFormattedText("%d %s", distance, unit)
         end
     end
     if shown.layoutScore ~= hud.score.shown or shown.layoutMultiplier ~= s.multiplier then
@@ -651,7 +659,6 @@ function overlay:ShowChallengeCard(shown, now)
         if period then
             c.title:SetText(string.upper(period.kind.name .. " challenge"))
             c.period:SetText(period.label)
-            c.goal:SetFormattedText("%d yd", period.goal)
             local difficulty = sim.DIFFICULTIES[period.difficulty]
             c.difficulty:SetText(difficulty and difficulty.name or period.difficulty)
             shown.challengeLeft, shown.challengeTarget, shown.challengeAt = nil, nil, nil
@@ -659,6 +666,11 @@ function overlay:ShowChallengeCard(shown, now)
     end
     if not period then
         return
+    end
+    local unit = app.distance.Unit()
+    if shown.challengeGoal ~= period.goal or shown.challengeUnit ~= unit then
+        shown.challengeGoal, shown.challengeUnit = period.goal, unit
+        c.goal:SetFormattedText("%d %s", period.goal, unit)
     end
     -- Before the run begins: the best it chases; past it, no change until a restart.
     if shown.challengeBest ~= s.target then
