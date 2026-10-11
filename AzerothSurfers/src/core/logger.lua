@@ -1,8 +1,15 @@
 ---@type string, AzerothSurfers
-local _, app = ...
+local appName, app = ...
 
 -- The name players see; the addon's folder, `appName`, has no space.
 app.TITLE = "Azeroth Surfers"
+
+-- Read the installed build, including release/alpha/beta tags filled in by the packager.
+local metadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
+local version = metadata and metadata(appName, "Version") or ""
+version = version:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
+app.VERSION = (version == "" or version:find("@project-version@", 1, true)) and "Development build"
+    or "Version " .. version
 
 ---@class AzerothSurfers.Logger
 ---@operator call(...): nil
