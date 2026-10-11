@@ -82,9 +82,9 @@ local NUMBERS = {
         info = function(o)
             local s = o.state
             if s.finish then
-                return string.format("%d / %d yd", math.floor(sim.Run(s)), s.finish - s.start)
+                return app.distance.Text(math.floor(sim.Run(s)), s.finish - s.start)
             end
-            return string.format("%d yd", math.floor(sim.Run(s)))
+            return app.distance.Text(math.floor(sim.Run(s)))
         end,
     },
     -- A challenge's: its own best.
@@ -155,7 +155,9 @@ local SEED_MODE = {
 }
 -- Yards into the seed every run begins (simulation.lua's Skip).
 local START_AT = {
-    text = "Start at",
+    text = function()
+        return "Start at (" .. app.distance.Unit() .. ")"
+    end,
     input = {
         get = function()
             return tostring(app.db.profile.startAt or 0)
@@ -170,7 +172,9 @@ local START_AT = {
 }
 -- Yards into the seed every run ends, at a last portal as a challenge's does; 0: never.
 local END_AT = {
-    text = "Ends at",
+    text = function()
+        return "Ends at (" .. app.distance.Unit() .. ")"
+    end,
     input = {
         get = function()
             local yards = app.db.profile.endAt or 0
@@ -265,12 +269,16 @@ end
 -- How a custom game's runs score: changed values in white, Defaults (its extra action) undoes
 -- every change.
 local SCORING_PAGE = rulesPage("Scoring", {
-    rule("Yard points", { "yardPoints" }, 1, 0, 10),
+    rule(function()
+        return "Points per " .. app.distance.Unit()
+    end, { "yardPoints" }, 1, 0, 10),
     rule("Coin points", { "coinPoints" }, 5, 0, 200),
     category(rulesPage("Streak", {
         rule("Bonus from", { "streak", "from" }, 1, 1, 30),
         rule("Bonus points", { "streak", "points" }, 5, 0, 200),
-        rule("Gap (yards)", { "streak", "gap" }, 1, 1, 20),
+        rule(function()
+            return "Gap (" .. app.distance.Unit() .. ")"
+        end, { "streak", "gap" }, 1, 1, 20),
         rule("Gap (seconds)", { "streak", "seconds" }, 0.05, 0, 2),
     })),
     category(rulesPage("Multiplier", {
@@ -329,10 +337,11 @@ function overlay.ShareText(s)
         or s.custom and string.format("%s (custom game)", app.TITLE)
         or app.TITLE
     local text = string.format(
-        "%s: %s points, %s yards, %s coins on %s",
+        "%s: %s points, %s %s, %s coins on %s",
         what,
         thousands(sim.Score(s)),
         thousands(sim.Run(s)),
+        app.distance.Name(),
         thousands(s.coins),
         s.difficulty.name
     )

@@ -1,6 +1,38 @@
 -- Exercise the full-screen projection, the twin and the coins without creating client UI frames.
+-- Resolve client units from spell tooltip text, with a fallback for clients without it.
+do
+    local oldLocale, oldRange = GetLocale, SPELL_RANGE
+    local function client(locale, range, expected)
+        GetLocale = function()
+            return locale
+        end
+        SPELL_RANGE = range
+        local probe = { db = { profile = {} } }
+        dofile("tests/load.lua")(probe, { "core/distance", "core/db" })
+        assert(probe.dbDefaults.profile.distanceUnit == "client", "client default")
+        assert(probe.distance.Unit() == expected, "client unit for " .. locale)
+        probe.db.profile.distanceUnit = "meters"
+        assert(probe.distance.Text(40, 100) == "40 / 100 m", "WoW distances keep their numbers")
+        probe.db.profile.distanceUnit = "yards"
+        assert(probe.distance.Text(40) == "40 yd", "explicit yards override")
+        probe.db.profile.distanceUnit = "client"
+        assert(probe.distance.Unit() == expected, "back to client unit")
+    end
+    client("enUS", "%s yd range", "yd")
+    client("deDE", "%s Meter Reichweite", "m")
+    client("enUS", "%s Meter Reichweite", "m") -- the actual tooltip takes precedence
+    client("zhCN", "%s码射程", "yd")
+    client("zhTW", "%s碼距離", "yd")
+    client("enGB", nil, "yd")
+    client("deDE", nil, "m")
+    client("zhCN", nil, "yd")
+    GetLocale, SPELL_RANGE = oldLocale, oldRange
+end
+print("PASS distance unit defaults, client detection and explicit overrides")
+
 local app = {}
 dofile("tests/load.lua")(app, {
+    "core/distance",
     "game/biomes",
     "biomes/default",
     "biomes/elwynn",
@@ -1035,16 +1067,16 @@ assert(seedPage.title == "Seed options", "its seed options on a page of their ow
 assert(press("R") == false and app.db.profile.seed, "R fixes a new seed")
 local function item(page, label)
     for _, it in ipairs(page.items) do
-        if it.text == label then
+        if (type(it.text) == "function" and it.text(o) or it.text) == label then
             return it
         end
     end
 end
 item(seedPage, "Seed").input.set(o, "12345")
 assert(app.db.profile.seed == 12345 and item(seedPage, "Seed").input.get(o) == "12345", "a seed typed in")
-assert(item(seedPage, "Ends at").input.get(o) == "Never", "no end at first")
-item(seedPage, "Ends at").input.set(o, "3000")
-assert(app.db.profile.endAt == 3000 and item(seedPage, "Ends at").input.get(o) == "3000", "an end typed in")
+assert(item(seedPage, "Ends at (yd)").input.get(o) == "Never", "no end at first")
+item(seedPage, "Ends at (yd)").input.set(o, "3000")
+assert(app.db.profile.endAt == 3000 and item(seedPage, "Ends at (yd)").input.get(o) == "3000", "an end typed in")
 app.db.profile.endAt = 0
 press("Q", "STRAFELEFT")
 assert(main:Page() == custom, "back to Custom")
@@ -1280,7 +1312,7 @@ app.db.global.stats = { runs = 3, yards = 4200, coins = 77, time = 3725, portals
 app.db.global.stats.best = { hard = { score = 9100, distance = 2300, coins = 40 } }
 local function info(page, label)
     for _, it in ipairs(page.items) do
-        if it.text == label then
+        if (type(it.text) == "function" and it.text(o) or it.text) == label then
             if it.info then
                 return it.info(o)
             end
@@ -1295,6 +1327,11 @@ assert(info(stats, "Time running") == "1h 2m" and info(stats, "Longest streak") 
 info(stats, "Best per difficulty").run(o, main)
 local bests = main:Page()
 assert(bests.columns and select(2, info(bests, "Hard")) == "2300 yd" and info(bests, "Easy") == "-")
+app.db.profile.distanceUnit = "meters"
+assert(info(stats, "Distance") == "4200 m", "stats use selected units")
+assert(select(2, info(bests, "Hard")) == "2300 m", "saved bests use selected units")
+assert(o.ShareText(o.state):find(" meters,", 1, true), "shared scores use selected units")
+app.db.profile.distanceUnit = nil
 main:Back()
 main:Back()
 assert(main:Page().title == nil, "back on the main menu")
@@ -1652,6 +1689,53 @@ grown = collectgarbage("count") - before
 collectgarbage("restart")
 assert(timeRow.written == 350, "the time row still follows the run")
 assert(grown < 0.5, string.format("300 frames with every extra info allocated %.2f KB", grown))
+-- Changing units refreshes cached values even while the run is paused.
+do
+    local oldStatus, oldGates, oldPassed = run.status, run.gates, run.gatesPassed
+    run.status, run.gates, run.gatesPassed = "paused", { run.distance + 100 }, 0
+    local distanceText, goalText
+    local distanceWriter, goalWriter = o.hud.distance.SetFormattedText, o.hud.challenge.goal.SetFormattedText
+    o.hud.distance.SetFormattedText = function(_, format, ...)
+        distanceText = string.format(format, ...)
+    end
+    o.hud.challenge.goal.SetFormattedText = function(_, format, ...)
+        goalText = string.format(format, ...)
+    end
+    local writers, texts = {}, {}
+    for _, r in ipairs(info.shown) do
+        local id = r.stat.id
+        if id == "speed" or id == "portal" then
+            writers[id] = r.value.SetFormattedText
+            r.value.SetFormattedText = function(_, format, ...)
+                texts[id] = string.format(format, ...)
+            end
+        end
+    end
+    for _, setting in ipairs({ "meters", "yards", "client" }) do
+        app.db.profile.distanceUnit = setting
+        local unit = app.distance.Unit()
+        o:ShowHud()
+        o:ShowHudInfo(run, info.at + 1)
+        assert(distanceText == app.distance.Text(math.floor(g.Run(run)), run.finish - run.start), "paused HUD distance")
+        assert(goalText == app.distance.Text(period.goal), "cached challenge goal")
+        assert(texts.speed == string.format("%.1f %s/s", math.floor(run.speed * 10 + 0.5) / 10, unit), "cached speed")
+        assert(
+            texts.portal
+                == string.format("%d %s", math.max(0, math.floor(run.gates[run.gatesPassed + 1] - run.distance)), unit),
+            "cached portal distance"
+        )
+    end
+    o.hud.distance.SetFormattedText, o.hud.challenge.goal.SetFormattedText = distanceWriter, goalWriter
+    for _, r in ipairs(info.shown) do
+        if writers[r.stat.id] then
+            r.value.SetFormattedText = writers[r.stat.id]
+        end
+    end
+    app.db.profile.distanceUnit, run.status = nil, oldStatus
+    run.gates, run.gatesPassed = oldGates, oldPassed
+end
+print("PASS unit changes refresh paused HUD, speed, portal distance and challenge goal")
+
 app.db.profile.hudInfo = nil
 o:LayoutHudInfo()
 assert(o:HudInfoRoom() == 0, "turned off, the section goes")

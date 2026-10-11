@@ -54,8 +54,12 @@ and create or update its draft PR; no additional confirmation is needed for thes
   and `npm run check` plus relevant tests have been run. Fix failures caused by the change;
   disclose unavailable checks, pre-existing failures and pending in-client testing in the PR.
   Do not publish an empty diff or unfinished exploratory work.
-- Work in the task's worktree. If HEAD is detached, create a descriptive `codex/` branch there.
-  Commit only changes belonging to the task, and push that branch without force-pushing.
+- Work in the task's worktree. For a new task with detached HEAD, create a descriptive
+  `codex/` branch there. For follow-up work on an existing PR, reuse its head branch. Before
+  attaching it, check `git worktree list`: if the branch is checked out in the user's local
+  folder, keep working detached and fast-forward the branch only when it has been released.
+  Never switch the user's local checkout automatically or overwrite its work. Commit only
+  changes belonging to the task, and push its branch without force-pushing.
 - Target `main` unless the task explicitly uses a different base. Use GitHub CLI (`gh`) or an
   available authenticated GitHub integration. Check for an existing open PR for the same head
   branch first; update it on subsequent milestones instead of creating duplicates.
@@ -64,6 +68,11 @@ and create or update its draft PR; no additional confirmation is needed for thes
 - Attach the PR URL to the Codex chat using `attach_artifact` when available, and include the
   link in the final response. Never merge, mark ready for review or publish a release unless
   the user explicitly requests it.
+- After successfully pushing and creating or updating the draft PR, record its head branch
+  and commit in the final response and run `git switch --detach` in the task's worktree at
+  that same commit. Verify the branch is no longer checked out there. This frees it for the
+  user to select in GitHub Desktop at `E:\Projects\WoW-Surfer`, while preserving the worktree's
+  files. Do not delete the branch or worktree. Repeat this release after each published update.
 - If authentication, tooling, network access or permissions prevent publication, preserve the
   work and report the specific blocker; do not claim a PR was created.
 

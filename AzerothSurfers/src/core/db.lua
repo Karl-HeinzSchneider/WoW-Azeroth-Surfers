@@ -16,6 +16,7 @@ local profile = {
     music = true, -- the title music on the title screen and in the menu
     challengeReminder = true, -- a chat line at login: each challenge new, beaten or not finished
     legend = true,
+    distanceUnit = "client", -- "client", "yards" or "meters"; WoW's localized units, same numbers
     -- A biome id, or "auto": zone to zone as the run goes.
     biome = "auto",
     -- "full": the game covers the screen around the real character; "side": a window of its own.
