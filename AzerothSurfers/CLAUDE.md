@@ -187,8 +187,9 @@ default in `db.lua` and an entry in `options.lua`.
     `CUSTOM`, a page per category such as Seed options: **a new custom setting is an item on
     its category's page** over a profile setting `NewState` reads; full screen, they hang from
     one top line); a challenge's own pause and end pages (its best, the difference to the one
-    before); announcements (the challenge's or a custom game's "Finish!", `Finish`), the gate's
-    flash and vortex.
+    before); the end menus' Share (`ShareText`, one plain chat line to the guild or the group,
+    on leaderboard.lua's `Channels`); announcements (the challenge's or a custom game's
+    "Finish!", `Finish`), the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action; a page may set its own `width`, or be a table (`columns`: sized from
