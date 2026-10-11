@@ -864,7 +864,7 @@ daily.items[#daily.items - 1].run(o, main)
 local board = main:Page()
 assert(board.title == "Daily leaderboard" and board.extra, board.title)
 -- The longest name, then the longest score, distance and coins, apart, inside the borders.
-local need = 10 * #board.columns.label
+local need = 10 * #board.columns.label * (1 + board.columns.spare)
 for k, sample in ipairs(board.columns.values) do
     need = need + 20 + 10 * math.max(#sample, #board.columns.heads[k])
 end

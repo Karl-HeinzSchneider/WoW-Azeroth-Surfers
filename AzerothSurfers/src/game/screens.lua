@@ -113,12 +113,13 @@ local RANKS = 8
 -- A full name as long as names get: a first name and a surname of 12 letters each (WoW's
 -- limit; other clients have no surname), of letters as wide as names have on average.
 local LONG_NAME = "Zimtschnecke Zimtschnecke"
--- A leaderboard is a table (menus.lua): its name column as wide as a place and LONG_NAME (a name
--- of wider letters, or another realm's "-Realm", is cut), then score, distance and coins, as
--- wide as the most leaderboard.lua takes of each.
+-- A leaderboard is a table (menus.lua): its name column as wide as a place and LONG_NAME and a
+-- quarter more, for wider letters (a name wider still, or another realm's "-Realm", is cut),
+-- then score, distance and coins, as wide as the most leaderboard.lua takes of each.
 local BOARD = {
     size = 20,
     label = "99. " .. LONG_NAME,
+    spare = 0.25,
     values = {
         tostring(app.leaderboard.MOST_SCORE),
         "9999 yd",

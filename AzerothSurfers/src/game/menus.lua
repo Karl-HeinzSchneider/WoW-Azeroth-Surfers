@@ -11,7 +11,8 @@ local _, app = ...
 -- extra = { text = its hint, run = function(o, menu) }, width = the window's in pixels, WIDTH
 -- when left out, columns = a table's (below) }.
 -- A table: columns = { size = its font's, label = the longest label, values = { the longest
--- value of each column }, heads = { each column's header, or nil } }; a column is as wide as
+-- value of each column }, heads = { each column's header, or nil }, spare = a share of the
+-- label's width to add, for labels of wider letters than its sample }; a column is as wide as
 -- its longest value or its header, whichever is wider. The window is as wide as those samples need at that size (at the
 -- least its width), every label is cut to its sample's width, and an info item's values (its
 -- function returns one per column) stand in columns on the right.
@@ -372,7 +373,7 @@ function Menu:Layout()
     local size, labelWidth, widths = ITEM_SIZE, nil, nil
     if columns then
         size, widths = columns.size, {}
-        labelWidth = self:Measure(columns.label, size)
+        labelWidth = math.ceil(self:Measure(columns.label, size) * (1 + (columns.spare or 0)))
         local need = labelWidth
         for k, sample in ipairs(columns.values) do
             local head = columns.heads and columns.heads[k]
