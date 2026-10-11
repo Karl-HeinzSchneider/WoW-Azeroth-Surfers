@@ -114,6 +114,14 @@ the same, and the paused and finished screens show the seed of the run.
 The `AzerothSurfers_Dev` addon in this repository (never released) adds development tools to `/surfers`:
 `/surfers help` lists them.
 
+To check assets on a new client, enable **AzerothSurfers_Dev** and run `/surfers assets`.
+It scans models, used animation IDs, and sounds across all biomes and the lobby. Use
+`/surfers assets models elwynn` to narrow a scan, `/surfers assets report` for a copyable
+list of suspects, or `/surfers assets report all` for every result. Sound probes briefly
+request playback; `/surfers assets listen <report number>` auditions one, and
+`/surfers assets stop` cancels scanning or playback. Timeouts and sound failures are
+inconclusive; even a loaded model needs visual verification with `/surfers preview`.
+
 ## Development
 
 - npm install

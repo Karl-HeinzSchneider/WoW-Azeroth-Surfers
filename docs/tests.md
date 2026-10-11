@@ -6,6 +6,7 @@ them. No framework, no client, no build.
 ```sh
 npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua (stops at the first failure)
 npm run bench:overlay   # WoW API calls per frame; not part of test:game or check
+npm run test:assets     # dev asset audit: asynchronous loading, missing animations, audio and reports
 lua tests/simulation.lua  # one file on its own, from the repo root
 ```
 
