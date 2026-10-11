@@ -11,7 +11,6 @@ local ACTIONS = {
     "right",
     "pause",
     "restart",
-    "forward",
 }
 local POSITIONS = {
     { 104, -76 },
@@ -20,7 +19,6 @@ local POSITIONS = {
     { 182, -138 },
     { 260, -76 },
     { 260, -138 },
-    { 338, -138 },
 }
 
 function overlay:InputHudContext()
@@ -32,15 +30,25 @@ function overlay:ClearInputHud()
     self.inputHudUntil = nil
 end
 
+function overlay:InputHudIsPlaying()
+    return self.screen == nil
+        and not self.statusOpen
+        and self.state ~= nil
+        and self.state.status == "running"
+        and not app.autopilot.InIntro(self.state)
+end
+
+function overlay:SyncInputHudVisibility()
+    if self.inputHud then
+        self.inputHud:SetShown(app.db.profile.inputHud and self.frame:IsShown() and self:InputHudIsPlaying())
+    end
+end
+
 function overlay:InputHudPress(key, chord)
-    if not (self.inputHud and self.inputHud:IsShown() and app.db.profile.inputHud) then
+    if not (self.inputHud and self.inputHud:IsShown() and app.db.profile.inputHud and self:InputHudIsPlaying()) then
         return
     end
-    local context = self:InputHudContext()
-    local action = overlay.KeyAction(context, chord)
-    if not action and context == "run" and not self.capture and GetBindingAction(chord, true) == "MOVEFORWARD" then
-        action = "forward"
-    end
+    local action = overlay.KeyAction("run", chord)
     if not action then
         return
     end
@@ -67,7 +75,7 @@ function overlay:RefreshInputHud()
     f:SetFrameLevel(app.db.profile.drawLevel + 40)
     f:ClearAllPoints()
     f:SetPoint(saved.point, UIParent, saved.relative, saved.x, saved.y)
-    f:SetShown(app.db.profile.inputHud and self.frame:IsShown())
+    self:SyncInputHudVisibility()
 end
 
 function overlay:UpdateInputHud()
@@ -81,17 +89,10 @@ function overlay:UpdateInputHud()
         local id = ACTIONS[i]
         if id then
             local action = overlay.ACTION_BY_ID[id]
-            local key
-            if id == "forward" then
-                key = GetBindingKey("MOVEFORWARD")
-            else
-                key = overlay.ActionKey(id, slot) or overlay.ActionKey(id, slot + 1)
-            end
+            local key = overlay.ActionKey(id, slot) or overlay.ActionKey(id, slot + 1)
             local text = key and overlay.KeyText(key) or "—"
             local enabled = key ~= nil and not blocked
-            if id == "forward" then
-                enabled = enabled and context == "run" and not self.capture and not self.auto
-            else
+            do
                 enabled = enabled and overlay.SameContext(action.context, context)
                 if self.screen == "title" then
                     enabled = enabled and id == "accept"
@@ -109,7 +110,7 @@ function overlay:UpdateInputHud()
             end
             if cap.action ~= id then
                 cap.action = id
-                cap.label:SetText(action and action.name or "Run (hold)")
+                cap.label:SetText(action.name)
             end
             local active = self.inputHudUntil and (self.inputHudUntil[id] or 0) > now or false
             if self.inputHudHeld then
@@ -139,7 +140,7 @@ function overlay:CreateInputHud()
     local f, window = menu.panel, menu.window
     self.inputHud = f
     self.inputHudMenu = menu
-    f:SetSize(440, 220)
+    f:SetSize(362, 220)
     f:SetFrameStrata("HIGH")
     menu.title:SetText("Input HUD")
     menu:PlaceTrim(menu.trims[1], -58)
@@ -175,6 +176,10 @@ function overlay:CreateInputHud()
     end)
     self.frame:HookScript("OnShow", function()
         self:RefreshInputHud()
+    end)
+    -- Observe the game frame: a hidden HUD cannot update itself when play resumes.
+    self.frame:HookScript("OnUpdate", function()
+        self:SyncInputHudVisibility()
     end)
     self:RefreshInputHud()
 end

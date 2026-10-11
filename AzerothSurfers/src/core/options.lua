@@ -610,7 +610,7 @@ local display = {
             40,
             "inputHud",
             "Show input HUD",
-            "A separate draggable window highlights the game's bound actions as you press them. Shown while the game is open; drag it to place it for your stream.",
+            "A separate draggable window highlights the game's bound actions as you press them. Shown only during gameplay, hidden in menus and the lobby; drag it to place it for your stream.",
             function()
                 app.overlay:RefreshInputHud()
             end

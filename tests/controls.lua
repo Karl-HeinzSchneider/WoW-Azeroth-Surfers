@@ -612,15 +612,17 @@ do
     end
     local probe = { db = { profile = { inputHud = true, keys = { jump = { "SHIFT-E", "UP" } } } } }
     probe.overlay = {}
+    probe.autopilot = app.autopilot
     dofile("tests/load.lua")(probe, { "game/keys", "game/inputhud" })
     local hud = probe.overlay
+    hud.state = { status = "running" }
     hud.inputHud = {
         IsShown = function()
             return true
         end,
     }
     hud.inputHudCaps = {}
-    for i = 1, 7 do
+    for i = 1, 6 do
         local cap = { SetShown = function() end, SetBackdropBorderColor = function() end }
         cap.SetAlpha = function(_, value)
             cap.alpha = value
@@ -654,18 +656,31 @@ do
     hud.screen = "menu"
     hud:InputHudPress("W", "W")
     hud:UpdateInputHud()
-    assert(#hud.inputHudCaps == 7, "one set of gameplay indicators, without duplicate menu controls")
+    assert(#hud.inputHudCaps == 6, "only the six game actions, without a forward or menu indicator")
     assert(
         hud.inputHudCaps[1].action == "jump" and hud.inputHudCaps[1].alpha == 0.3,
         "gameplay keys retain their layout and dim in menus"
     )
-    assert(
-        hud.inputHudCaps[7].action == "forward" and hud.inputHudCaps[7].alpha == 0.3,
-        "captured forward key stays visible and dim"
-    )
+    assert(not hud:InputHudIsPlaying(), "menu hides the HUD")
     hud:ClearInputHud()
     assert(not hud.inputHudHeld and not hud.inputHudUntil, "closing clears held inputs and taps")
     hud.screen = nil
+    assert(hud:InputHudIsPlaying(), "active gameplay shows the HUD")
+    hud.screen = "title"
+    assert(not hud:InputHudIsPlaying(), "title hides the HUD")
+    hud.screen = "start"
+    assert(not hud:InputHudIsPlaying(), "lobby launch hides the HUD")
+    hud.screen = nil
+    hud.state.lobby, hud.state.distance, hud.state.start = {}, 0, 100
+    assert(not hud:InputHudIsPlaying(), "lobby intro hides the HUD after the start screen")
+    hud.state.distance = 100
+    assert(hud:InputHudIsPlaying(), "crossing the lobby portal shows the HUD")
+    hud.statusOpen = true
+    assert(not hud:InputHudIsPlaying(), "pause menu hides the HUD")
+    hud.statusOpen = nil
+    hud.state.status = "over"
+    assert(not hud:InputHudIsPlaying(), "finished run hides the HUD")
+    hud.state.status = "running"
     probe.db.profile.keys.left = { false, false, false, false }
     hud:UpdateInputHud()
     assert(

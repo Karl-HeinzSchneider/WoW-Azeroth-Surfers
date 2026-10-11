@@ -1806,7 +1806,7 @@ do
         menu.window.template == "DialogBorderTemplate" and menu.window.point,
         "menu window keeps its frame and anchors"
     )
-    assert(#o.inputHudCaps == 7 and #menu.rows == 0, "one set of inputs replaces option rows")
+    assert(#o.inputHudCaps == 6 and #menu.rows == 0, "only the six game actions replace option rows")
     for _, cap in ipairs(o.inputHudCaps) do
         assert(cap.parent == menu.window, "input caps are inside the menu window")
     end
