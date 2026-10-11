@@ -76,8 +76,11 @@ default in `db.lua` and an entry in `options.lua`.
   - Live target: a challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`,
     `Trace`), saved with its best (`SavedTrace`); `Target` reads the best's score at a distance.
   - History: every period's best stays (`History`, `ShortLabel`; past ones lose their trace at
-    login, `Compact`), and the streak counts days in a row with a daily challenge run
-    (`Streak`): the Challenges page's History in screens.lua.
+    login and reload, `Compact`), and the streak counts days in a row with a daily challenge
+    run (`Streak`): the Challenges page's History in screens.lua.
+  - Login and reload: `ace.lua`'s first `PLAYER_ENTERING_WORLD`, once the realm's clock is
+    known, runs `Compact` and the leaderboard's `Prune`; never earlier, as the periods follow
+    that clock.
   - `Status` (new, beaten or tried), `StatusText`, and `Reminder`, the chat line `ace.lua`
     prints at login (`profile.challengeReminder`).
 - `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
@@ -85,9 +88,9 @@ default in `db.lua` and an entry in `options.lua`.
   opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel
   every `ASK_EVERY`), and whoever has one answers on that channel (once every `ANSWER_EVERY`).
   The message format is at the top of the file. Only the current periods' bests are kept, in
-  `global.leaderboard` by key then sender (ended periods dropped when it is enabled, `Prune`); anything malformed, from another period, another
-  channel or another protocol version is ignored. `Ranked(period)` sorts them with the player's
-  own as challenges.lua does (`Beats`).
+  `global.leaderboard` by key then sender (ended periods dropped at login and reload, `Prune`);
+  anything malformed, from another period, another channel or another protocol version is
+  ignored. `Ranked(period)` sorts them with the player's own as challenges.lua does (`Beats`).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in

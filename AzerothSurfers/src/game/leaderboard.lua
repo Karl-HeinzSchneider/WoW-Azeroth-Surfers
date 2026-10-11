@@ -35,7 +35,6 @@ module.MOST_SCORE, module.MOST_COINS = 99999999, 9999
 module.MOST_PLAYERS = 200
 
 function module:OnEnable()
-    self:Prune()
     self:RegisterComm(PREFIX)
 end
 
@@ -49,7 +48,8 @@ local function current(now)
     return periods
 end
 
--- Drops what arrived for a period that is over.
+-- Drops what arrived for a period that is over. ace.lua's PLAYER_ENTERING_WORLD, once the
+-- realm's clock is known.
 function module:Prune(now)
     local periods, saved = current(now), app.db.global.leaderboard
     for key in pairs(saved) do
