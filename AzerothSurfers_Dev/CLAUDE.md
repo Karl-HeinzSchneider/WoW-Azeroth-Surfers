@@ -31,7 +31,7 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   convert to BLP or uncompressed 32-bit TGA for the TOC and minimap texture. The model's
   built-in idle animation is frozen at time zero; `spin` only turns the actor's yaw.
   The selected gem capture has wider `AzerothSurfers/assets/core/icon-gem.tga` and tighter
-  `icon-gem-zoomed.tga` variants; the TOC uses the tighter one. The minimap uses the supplied
+  `icon-gem-zoomed.tga` variants. Both TOCs and the minimap use the supplied
   `AzerothSurfers/assets/core/gem128.blp` instead.
   This tool never writes image files.
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`

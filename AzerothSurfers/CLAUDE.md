@@ -65,8 +65,8 @@ display's existing voice wins. Other local constants in rendering/control code a
   `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes
   or update handlers. An opaque black circle under the image uses Blizzard's portrait mask
   and slightly overlaps the inner rim to cover fading alpha and background seams.
-  The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
-  `icon-gem.tga` retains the wider variant.
+  Both the main and dev TOCs use the same `gem128.blp` for the addon list.
+  `icon-gem.tga` and `icon-gem-zoomed.tga` retain the earlier capture variants.
   The minimap image fills the circular backing's size (at least 26 UI pixels), shifted
   two UI pixels left from its center.
   Its own UpdateCoord method keeps full 0–1 texture coordinates on reset, press, release

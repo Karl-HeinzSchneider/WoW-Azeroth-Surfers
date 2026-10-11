@@ -4,7 +4,7 @@ local appName, app = ...
 local log = app.logger
 local addon = app.addon
 
--- Custom minimap/LDB texture; the addon-list icon is set separately in the TOC.
+-- Shared with the main and dev addon's TOC icons.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\gem128"
 local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
