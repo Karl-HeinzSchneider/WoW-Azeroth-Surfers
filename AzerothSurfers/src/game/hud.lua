@@ -236,15 +236,6 @@ overlay.HUD_INFO = {
         write = orNone("%d yd"),
     },
     {
-        id = "difficulty",
-        name = "Difficulty",
-        desc = "The run's difficulty.",
-        value = function(_, s)
-            return s.difficulty
-        end,
-        write = name,
-    },
-    {
         id = "coinRate",
         name = "Coins taken",
         desc = "The share of the coins that came past that you collected.",
@@ -311,7 +302,8 @@ function overlay:CreateHud(f)
     -- From the top: the extra info makes the card taller below them.
     coinPanel:SetPoint("LEFT", card, "TOPLEFT", INSET - PAD, -COIN_ROW)
     local coin = gem(coinPanel)
-    -- The share of the coins come past that were collected, right of the digits.
+    -- The share of the coins come past that were collected, right of the digits
+    -- (profile.hudCoinShare).
     local coinShare = text(card, 15)
     coinShare:SetPoint("LEFT", coinPanel, "RIGHT", 6 - PAD, 0)
     coinShare:SetTextColor(0.78, 0.78, 0.78)
@@ -484,8 +476,8 @@ function overlay:ShowHud()
         shown.coins = s.coins
         show(hud.coins, s.coins)
     end
-    -- -1 before any coin came past: none shown.
-    local share = s.coinTotal > 0 and math.floor(100 * s.coins / s.coinTotal) or -1
+    -- -1 before any coin came past or turned off: none shown.
+    local share = app.db.profile.hudCoinShare and s.coinTotal > 0 and math.floor(100 * s.coins / s.coinTotal) or -1
     if shown.coinShare ~= share then
         shown.coinShare = share
         if share < 0 then

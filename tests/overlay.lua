@@ -1387,7 +1387,6 @@ end
 assert(row("time") == "2m 05s", "the run's time: " .. tostring(row("time")))
 assert(row("fps") == "60", "frames per second, rounded")
 assert(row("seed") == string.format("%.0f", run.seed), "the seed")
-assert(row("difficulty") == run.difficulty.name, "the difficulty")
 assert(row("biome") == o.biome.name, "the biome")
 for i = 1, 50 do
     run.time = i

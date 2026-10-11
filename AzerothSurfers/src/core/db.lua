@@ -35,6 +35,7 @@ local profile = {
     -- the side window: top right), "topright", "top" or "topleft"; x and y move it that many
     -- pixels (right and up).
     hud = { position = "menu", x = 0, y = 0 },
+    hudCoinShare = true, -- the share of coins collected beside the scorecard's coin counter
     -- The scorecard's extra info (hud.lua's HUD_INFO), each by its id: true to show it.
     hudInfo = {
         seed = false,
@@ -43,7 +44,6 @@ local profile = {
         speed = false,
         biome = false,
         portal = false,
-        difficulty = false,
         coinRate = false,
         bestStreak = false,
         best = false,

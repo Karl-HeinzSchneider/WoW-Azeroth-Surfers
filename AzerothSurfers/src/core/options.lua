@@ -578,6 +578,12 @@ local display = {
                 placeHud()
             end,
         },
+        hudCoinShare = toggle(
+            25,
+            "hudCoinShare",
+            "Coin percentage",
+            "Show the share of the coins that came past that you collected beside the coin counter, as in 156 (60%)."
+        ),
         hudX = hudOffset(22, "x", "Move right", "Pixels to move the score right of its position (left when negative)."),
         hudY = hudOffset(23, "y", "Move up", "Pixels to move the score up from its position (down when negative)."),
         hudReset = {
