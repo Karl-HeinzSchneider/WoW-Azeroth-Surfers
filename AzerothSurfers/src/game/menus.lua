@@ -106,7 +106,7 @@ function Menu:Row(i)
     if row then
         return row
     end
-    row = CreateFrame("Button", nil, self.panel)
+    row = CreateFrame("Button", nil, self.window)
     row.index = i
     row:SetHeight(ROW)
     row.label = text(row, ITEM_SIZE, GOLD)
@@ -168,38 +168,54 @@ function Menu:Hint(i)
     end
     hint = { caps = {} }
     for k = 1, HINT_CAPS do
-        hint.caps[k] = overlay.KeyCap(self.panel)
+        hint.caps[k] = overlay.KeyCap(self.window)
     end
-    hint.label = self.panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    hint.label = self.window:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     self.hints[i] = hint
     return hint
 end
 
--- A menu window in `parent`, placed by its owner (`menu.panel`); `o` is the overlay.
+-- A menu window in `parent`, placed by its owner (`menu.panel`); `o` is the overlay. The
+-- window is dragged by its frame (the title, the trims, the hints) away from that place, and
+-- opening a menu puts it back: nothing remembers where it was. What is anchored to the panel
+-- (the scorecard beside the pause menu, hud.lua) stays where the owner put the menu.
 function overlay:CreateMenu(parent)
     local menu = setmetatable({ o = self, stack = {}, rows = {}, hints = {}, columns = {} }, Menu)
-    -- The template fills its parent (setAllPoints): the panel is anchored anew and sized by its
-    -- page.
-    local panel = CreateFrame("Frame", nil, parent, "DialogBorderTemplate")
-    panel:ClearAllPoints()
-    -- A height before its first page: without one the panel has no rect, nor has what is
-    -- anchored to it (the scorecard beside the pause menu, hud.lua).
+    -- Where the owner places the menu, sized by its page; it shows nothing itself. A height
+    -- before its first page: without one the panel has no rect, nor has what is anchored to it.
+    local panel = CreateFrame("Frame", nil, parent)
     panel:SetSize(WIDTH, 1)
-    panel:EnableMouse(true)
     menu.panel = panel
-    menu.title = text(panel, TITLE_SIZE, GOLD)
+    -- The template fills its parent (setAllPoints): the window is anchored anew, over the panel
+    -- at the dragged offset.
+    local window = CreateFrame("Frame", nil, panel, "DialogBorderTemplate")
+    window:EnableMouse(true)
+    window:SetClampedToScreen(true)
+    window:RegisterForDrag("LeftButton")
+    window:SetScript("OnDragStart", function()
+        menu:StartDrag()
+    end)
+    window:SetScript("OnDragStop", function()
+        window:SetScript("OnUpdate", nil)
+    end)
+    window:HookScript("OnHide", function()
+        window:SetScript("OnUpdate", nil)
+    end)
+    menu.window = window
+    menu:PlaceWindow(0, 0)
+    menu.title = text(window, TITLE_SIZE, GOLD)
     menu.title:SetPoint("TOP", 0, -TOP)
     menu.trims = {}
     for i = 1, 2 do
-        menu.trims[i] = panel:CreateTexture(nil, "ARTWORK")
+        menu.trims[i] = window:CreateTexture(nil, "ARTWORK")
         menu.trims[i]:SetTexture(TRIM)
         menu.trims[i]:SetHeight(TRIM_HEIGHT)
     end
-    menu.marker = panel:CreateTexture(nil, "ARTWORK")
+    menu.marker = window:CreateTexture(nil, "ARTWORK")
     menu.marker:SetTexture(MARKER_ART)
     menu.marker:SetSize(MARKER, MARKER)
     -- Never shown: measures a table's samples.
-    menu.measure = text(panel, ITEM_SIZE, WHITE)
+    menu.measure = text(window, ITEM_SIZE, WHITE)
     menu.measure:Hide()
     return menu
 end
@@ -257,8 +273,31 @@ function Menu:Takes(action)
     return action ~= "extra" or (page ~= nil and page.extra ~= nil)
 end
 
--- Shows `page` alone.
+-- Moves the window `x`, `y` pixels from its place.
+function Menu:PlaceWindow(x, y)
+    self.dx, self.dy = x, y
+    local window = self.window
+    window:ClearAllPoints()
+    window:SetPoint("TOPLEFT", self.panel, "TOPLEFT", x, y)
+    window:SetPoint("BOTTOMRIGHT", self.panel, "BOTTOMRIGHT", x, y)
+end
+
+-- Follows the cursor from where the drag began until it ends.
+function Menu:StartDrag()
+    local window = self.window
+    local scale = window:GetEffectiveScale()
+    local cx, cy = GetCursorPosition()
+    local x0, y0 = self.dx - cx / scale, self.dy - cy / scale
+    window:SetScript("OnUpdate", function()
+        local x, y = GetCursorPosition()
+        self:PlaceWindow(x0 + x / scale, y0 + y / scale)
+    end)
+end
+
+-- Shows `page` alone, the window back in its place.
 function Menu:Open(page)
+    self.window:SetScript("OnUpdate", nil)
+    self:PlaceWindow(0, 0)
     for i = #self.stack, 1, -1 do
         self.stack[i] = nil
     end
@@ -362,7 +401,7 @@ end
 
 -- Lays the page out: its title and trim, a row per item, the hints under a trim.
 function Menu:Layout()
-    local page, panel = self:Page(), self.panel
+    local page, window = self:Page(), self.window
     if not page then
         return
     end
@@ -383,7 +422,7 @@ function Menu:Layout()
         -- A row's label starts MARKER + 6 into it, MARKER / 2 left of PAD.
         width = math.max(width, math.ceil(need) + 2 * PAD + 6)
     end
-    panel:SetWidth(width)
+    self.panel:SetWidth(width)
     self.title:SetShown(page.title ~= nil)
     if page.title then
         self.title:SetText(page.title)
@@ -399,7 +438,7 @@ function Menu:Layout()
         local row = self:Row(i)
         row:SetWidth(width - 2 * PAD + MARKER)
         row:ClearAllPoints()
-        row:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - MARKER / 2, y)
+        row:SetPoint("TOPLEFT", window, "TOPLEFT", PAD - MARKER / 2, y)
         row.label:SetFont(FONT, size, "OUTLINE")
         -- A table's labels are cut to the sample's width; 0: as wide as its text.
         row.label:SetWidth(columns and not item.note and labelWidth or 0)
@@ -447,15 +486,15 @@ function Menu:Layout()
     self:PlaceTrim(self.trims[2], y)
     y = y - TRIM_HEIGHT - 8
     y = self:LayoutHints(y, hasChoice, page.extra, width)
-    panel:SetHeight(-y + PAD - 6)
+    self.panel:SetHeight(-y + PAD - 6)
     self.shownSelected = nil
     self:Show()
 end
 
 function Menu:PlaceTrim(trim, y)
     trim:ClearAllPoints()
-    trim:SetPoint("TOPLEFT", self.panel, "TOPLEFT", PAD - 6, y)
-    trim:SetPoint("TOPRIGHT", self.panel, "TOPRIGHT", -PAD + 6, y)
+    trim:SetPoint("TOPLEFT", self.window, "TOPLEFT", PAD - 6, y)
+    trim:SetPoint("TOPRIGHT", self.window, "TOPRIGHT", -PAD + 6, y)
     trim:Show()
 end
 
@@ -505,13 +544,13 @@ function Menu:LayoutHints(y, hasChoice, extra, width)
             for _, cap in ipairs(hint.caps) do
                 if cap:IsShown() then
                     cap:ClearAllPoints()
-                    cap:SetPoint("TOPLEFT", self.panel, "TOPLEFT", x, y)
+                    cap:SetPoint("TOPLEFT", self.window, "TOPLEFT", x, y)
                     x = x + cap.width + CAP_GAP
                 end
             end
             x = x - CAP_GAP + LABEL_GAP
             hint.label:ClearAllPoints()
-            hint.label:SetPoint("LEFT", self.panel, "TOPLEFT", x, y - HINT_HEIGHT / 2)
+            hint.label:SetPoint("LEFT", self.window, "TOPLEFT", x, y - HINT_HEIGHT / 2)
             x = x + hint.label:GetStringWidth() + HINT_GAP
         end
         y = y - HINT_HEIGHT - 6

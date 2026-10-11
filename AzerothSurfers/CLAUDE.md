@@ -188,7 +188,9 @@ default in `db.lua` and an entry in `options.lua`.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action; a page may set its own `width`, or be a table (`columns`: sized from
-    samples of its longest label and values, as the leaderboard is).
+    samples of its longest label and values, as the leaderboard is). The window can be dragged
+    away from where its owner placed it (`menu.panel`, what the scorecard is anchored to); each
+    `Open` puts it back, and nothing is saved.
     `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the main menu's pages: Play (a new
