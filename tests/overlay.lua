@@ -1500,3 +1500,26 @@ app.db.profile.hudInfo = nil
 o:LayoutHudInfo()
 assert(o:HudInfoRoom() == 0, "turned off, the section goes")
 print(string.format("PASS the scorecard's extra info, and its frames allocate nothing (%.2f KB)", grown))
+-- The Anniversary swim offset affects only the drawn twin and resets after ducking.
+do
+    local state, screen, seated, animation = o.state, o.screen, o.seated, o.twinAnimation
+    o.state = { status = "running", duck = 1, lateral = 0 }
+    o.screen, o.seated, o.twinAnimation = nil, false, 666
+    o:PlaceTwin()
+    local normalZ = o.twinActor.position[3]
+    app.biomes.playerAnimations = { [666] = 42 }
+    app.biomes.playerAnimationOffsets = { [42] = -0.5 }
+    local feet = o.camera.feet
+    o:PlaceTwin()
+    assert(
+        math.abs(o.twinActor.position[3] - (normalZ - 0.5 * o.bodyScale / o:TwinScale())) < 1e-9,
+        "swim lowered visually"
+    )
+    assert(o.camera.feet == feet and o.state.duck == 1, "camera and duck state unchanged")
+    o.state.duck = 0
+    o:PlaceTwin()
+    assert(o.twinActor.position[3] == normalZ, "normal height restored after duck")
+    app.biomes.playerAnimations, app.biomes.playerAnimationOffsets = nil, nil
+    o.state, o.screen, o.seated, o.twinAnimation = state, screen, seated, animation
+end
+print("PASS swim visual offset and restoration")

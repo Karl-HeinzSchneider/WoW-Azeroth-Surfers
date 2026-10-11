@@ -875,6 +875,7 @@ function overlay:Create()
     self.twinActor = self.worldScene:CreateActor()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
     self.twinActor:SetYaw(0)
+
     self:LoadPlayer()
     -- Under the view's frame: it needs a level above the lowest.
     self:CreateOccluder()
@@ -1036,7 +1037,12 @@ function overlay:PlaceTwin()
     -- The scene's y points left; its position counts in its scale.
     local scale = self:TwinScale()
     actor:SetScale(scale)
-    actor:SetPosition((self.sceneRunner or 0) / scale, -runner / scale, cam.feet / scale - self.twinLow)
+    local offsets = app.biomes.playerAnimationOffsets
+    local visualZ = 0
+    if offsets and not self.screen and s.status == "running" and s.duck > 0 and self.twinAnimation == ROLL then
+        visualZ = (offsets[app.biomes.PlayerAnimation(self.twinAnimation)] or 0) * self.bodyScale
+    end
+    actor:SetPosition((self.sceneRunner or 0) / scale, -runner / scale, (cam.feet + visualZ) / scale - self.twinLow)
     actor:SetAlpha((s.status == "running" or self.side or self.screen == "start") and 1 or 0.5)
     actor:Show()
     local x, y, size = project(0, runner, cam.feet + self.body / 2)

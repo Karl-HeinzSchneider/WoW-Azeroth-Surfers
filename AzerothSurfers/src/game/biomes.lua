@@ -96,6 +96,7 @@ end
 -- change; numbers such as heights, weights, speeds and animation rates are never remapped.
 function biomes.ApplyAssetOverrides(overrides)
     biomes.playerAnimations = overrides.playerAnimations
+    biomes.playerAnimationOffsets = overrides.playerAnimationOffsets
     local function mapped(kind, value)
         local map = overrides[kind]
         return map and map[value] or value

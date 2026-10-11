@@ -34,6 +34,9 @@ replacements there, never conditionals inside individual biomes.
 20506), separately from vanilla Era. It replaces the rabbit, ready stance and player roll.
 `playerAnimations` maps player animation IDs through `biomes.PlayerAnimation`, shared by
 rendering and the asset audit. New replacements still need in-client verification.
+Anniversary maps roll to Swim (42). `playerAnimationOffsets = { [42] = -0.5 }` lowers
+only the rendered character during grounded ducks, scaled with its body size. Collision,
+movement and camera positions are unchanged; the normal height returns when ducking ends.
 
 Mappings cover `creatures`, `models`, `sounds`, `textures` and explicit biome `animations`.
 The application step copies definitions and clears merged caches, so the dev asset audit sees
