@@ -42,12 +42,15 @@ function overlay:SaveBest()
 end
 
 -- A challenge's run (`s.challenge`, its period) once it is over, at the end or before: its
--- best, if it beats it (challenges.lua), shared with the guild and the group (leaderboard.lua).
--- A run left before its end saves nothing.
+-- best, if it beats it (challenges.lua), shared with the guild and the group (leaderboard.lua),
+-- and the one before (`s.lastBest`, the end menu's difference). A run left before its end saves
+-- nothing; one over, once.
 function overlay:SaveChallenge(s)
-    if s.status ~= "over" then
+    if s.status ~= "over" or s.saved then
         return
     end
+    s.saved = true
+    s.lastBest = app.challenges.Best(s.challenge)
     local record = {
         score = sim.Score(s),
         coins = s.coins,
@@ -57,6 +60,8 @@ function overlay:SaveChallenge(s)
         difficulty = s.difficulty.id,
         goal = s.finish - s.start,
         at = app.challenges.Now(),
+        trace = app.challenges.SavedTrace(s),
+        traceEvery = app.challenges.TRACE_EVERY,
     }
     if app.challenges.Save(s.challenge, record) then
         s.newBest = true
@@ -76,6 +81,9 @@ function overlay:NewState(lobby, seed, at)
     if challenge then
         local s = sim.New(challenge.seed, challenge.difficulty, true, lobby or app.lobby, challenge.goal)
         s.challenge = challenge
+        -- The live target: the best when the run begins, and the run's own trace.
+        s.target = app.challenges.Best(challenge)
+        app.challenges.NewTrace(s)
         if not lobby then
             sim.Skip(s, 0)
         end
@@ -257,6 +265,12 @@ function overlay:Step(elapsed)
     else
         sim.Update(s, elapsed)
     end
+    -- Through a challenge's last portal: its finish, once.
+    if status == "running" and s.finish and not s.finishShown and s.distance >= s.finish then
+        s.finishShown = true
+        self:Finish(s)
+    end
+    app.challenges.Trace(s)
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end

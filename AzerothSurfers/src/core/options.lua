@@ -393,9 +393,15 @@ local game = {
                 app.minimapButton:OnProfileRefresh()
             end,
         },
+        challengeReminder = toggle(
+            32,
+            "challengeReminder",
+            "Challenge reminder at login",
+            "At login, one chat line says whether today's daily, this week's and this month's challenge are new, beaten or not finished yet."
+        ),
         logLevel = {
             type = "select",
-            order = 32,
+            order = 33,
             name = "Log level",
             desc = "How much " .. app.TITLE .. " writes to the chat window. Same as /surfers loglevel <level>.",
             values = levelNames,
@@ -612,7 +618,7 @@ local sound = {
             3,
             "portalSound",
             "Portal sounds",
-            "Play a teleport sound when you go through a portal between zones."
+            "Play a teleport sound when you go through a portal between zones, and a fanfare at a challenge's last portal."
         ),
         music = toggle(
             4,

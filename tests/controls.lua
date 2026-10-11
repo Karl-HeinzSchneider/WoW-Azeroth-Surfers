@@ -251,6 +251,30 @@ end
 assert(r.state.coins == 2 and #played == 1, "the option silences it")
 print("PASS coin pickup plays the loot sound once, unless switched off")
 
+-- Through a challenge's last portal: its finish once, the run going on to its end past it.
+local finishes = 0
+function r:Finish(s)
+    assert(s == self.state and s.status == "running")
+    finishes = finishes + 1
+end
+r.state = g.New()
+r.state.nextRow = math.huge
+r.state.objects = {}
+g.Start(r.state)
+r.state.finish = r.state.distance + 1
+while r.state.distance < r.state.finish do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(finishes == 1 and r.state.status == "running", "once, past it")
+for _ = 1, 100 do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(finishes == 1 and r.state.finished and r.state.status == "over", "and not again at its end")
+r.Finish = nil
+print("PASS a challenge's last portal: its finish once")
+
 -- Motion relative to facing, for the twin: ahead and to the left are positive.
 facing, speed, map = 0, 7, 1
 x, y = 0, 0
@@ -423,14 +447,33 @@ assert(r.state.challenge == period and not r.state.practice, "a restart ignores 
 assert(r.state.finish - r.state.start == period.goal and r.state.seed == period.seed)
 assert(r.state.difficulty.id == period.difficulty)
 same(ahead(r:NewState(app.lobby), 1500), ahead(r.state, 1500))
+assert(r.state.target == nil and #r.state.trace == math.ceil(period.goal / app.challenges.TRACE_EVERY))
 r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
 r.state.points, r.state.coins = 6000, 42
+app.challenges.Trace(r.state)
 r:SaveBest()
 local best = app.challenges.Best(period)
 assert(best and best.score == 6000 and best.coins == 42 and best.finished and best.distance == period.goal)
 assert(best.difficulty == period.difficulty and best.goal == period.goal)
 assert(r.state.newBest and app.db.global.bestScore ~= 6000, "not the endless best")
+assert(#best.trace == math.floor(period.goal / app.challenges.TRACE_EVERY) and best.trace[1] == 6000)
+assert(best.traceEvery == app.challenges.TRACE_EVERY)
+assert(r.state.lastBest == nil, "no best before it")
 r:Restart()
+assert(r.state.target == best, "the next run chases the best")
 r:SaveBest()
 assert(app.challenges.Best(period).score == 6000, "a run left before its end saves nothing")
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points = 5000
+r:SaveBest()
+assert(not r.state.newBest and r.state.lastBest.score == 6000, "the best before it, kept")
+r:SaveBest()
+assert(r.state.lastBest.score == 6000, "saved once")
+r:Restart()
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points = 7000
+r:SaveBest()
+assert(r.state.newBest and r.state.lastBest.score == 6000 and app.challenges.Best(period).score == 7000)
+r:SaveBest()
+assert(r.state.lastBest.score == 6000, "not the best it just set")
 print("PASS a challenge's runs: its seed to its goal, restarts, its best")
