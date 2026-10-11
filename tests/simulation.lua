@@ -1014,6 +1014,52 @@ test("a challenge's run keeps its score at checkpoints, the live target reads th
     assert(c.Target(best, 250) == 500 and c.Target(best, 251) == nil, "nothing past it")
     assert(c.Target({ score = 500, distance = 250 }, 10) == nil, "an older record has no trace")
 end)
+test("past challenges stay as history, with the streak of days played", function()
+    local c = app.challenges
+    local function at(year, month, day, hour)
+        return c.Days(year, month, day) * 86400 + hour * 3600
+    end
+    local now = at(2026, 10, 10, 12)
+    for _, kind in ipairs(c.KINDS) do
+        local period = c.Period(kind.id, now)
+        for back = 0, 14 do
+            local index = period.index - back
+            local again = c.ByIndex(kind.id, index)
+            assert(again.index == index and again.key == kind.id .. "-" .. index, "a period by its number")
+        end
+    end
+    assert(c.ShortLabel(c.Period("daily", now), now) == "10 Oct")
+    assert(c.ShortLabel(c.Period("weekly", now), now) == "5 Oct")
+    assert(c.ShortLabel(c.Period("monthly", now), now) == "Oct 2026")
+    assert(c.ShortLabel(c.Period("daily", at(2025, 12, 31, 12)), now) == "31 Dec 2025")
+
+    local today = c.Period("daily", now).index
+    local function record()
+        return { score = 1, coins = 1, coinTotal = 2, distance = 1, finished = true, trace = { 1 }, traceEvery = 100 }
+    end
+    local all = {}
+    app.db = { global = { challenges = all } }
+    assert(c.Streak(now) == 0, "nothing played")
+    for _, back in ipairs({ 1, 2, 3, 5, 6, 7, 8 }) do
+        all["daily-" .. (today - back)] = record()
+    end
+    all["daily-" .. (today - 9)] = { normal = record() } -- an earlier version's: no best
+    all["weekly-" .. c.Period("weekly", now).index] = record()
+    local current, longest = c.Streak(now)
+    assert(current == 3 and longest == 4, "today still to play: up to yesterday " .. current .. " " .. longest)
+    all["daily-" .. today] = record()
+    current = c.Streak(now)
+    assert(current == 4, "and with today's")
+    local list = c.History("daily")
+    assert(#list == 8 and list[1].index == today and list[8].index == today - 8, "newest first, no old records")
+    assert(#c.History("weekly") == 1 and #c.History("monthly") == 0)
+
+    c.Compact(now)
+    assert(all["daily-" .. today].trace and all["weekly-" .. c.Period("weekly", now).index].trace, "now's keep it")
+    assert(all["daily-" .. (today - 1)].trace == nil and all["daily-" .. (today - 1)].traceEvery == nil)
+    assert(all["daily-" .. (today - 1)].score == 1, "past ones keep the rest")
+    app.db = nil
+end)
 print(string.format("%d simulation tests passed", count))
 
 -- Near misses use the same box dimensions the views draw.

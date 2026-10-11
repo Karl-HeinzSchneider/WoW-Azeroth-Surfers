@@ -937,8 +937,28 @@ assert(board.items[4].text(o) == "", "one player")
 press("Q", "STRAFELEFT")
 assert(main:Page() == daily, "back to the challenge")
 assert(panelWidth == 400, "the menu's own width again")
+-- The history under the challenges: the streak, and a kind's past bests a page at a time.
+press("Q", "STRAFELEFT")
+press("S")
+press("S")
+press("S")
+press("E")
+local history = main:Page()
+assert(history.title == "History" and history.items[1].info(o) == "0 days", "no streak yet")
+assert(main.stack[3].selected == 4, "the streak's lines cannot be chosen")
+local past = app.challenges.Period("daily").index - 1
+app.db.global.challenges["daily-" .. past] =
+    { score = 1200, coins = 30, coinTotal = 80, distance = 2500, finished = false, at = 0 }
+press("E")
+local list = main:Page()
+assert(list.title == "Daily history" and list.items[1].choice.get(o) == "1 / 1", "one page")
+assert(list.items[2].text(o) == "9 Oct", list.items[2].text(o))
+assert(list.items[2].info(o) == "1200  |cffaaaaaa2500 yd|r  30/80", list.items[2].info(o))
+assert(list.items[3].text(o) == "" and list.items[3].info(o) == "", "the rows below it empty")
 press("Q", "STRAFELEFT")
 press("Q", "STRAFELEFT")
+press("Q", "STRAFELEFT")
+app.db.global.challenges["daily-" .. past] = nil
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
 assert(press("R") == true, "R goes on to WoW on a page without an extra action")
 press("Q", "STRAFELEFT")

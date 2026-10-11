@@ -71,6 +71,9 @@ default in `db.lua` and an entry in `options.lua`.
   The end menu says how much the run beat or missed the best before it by (`s.lastBest`).
   A challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved
   with its best, for the live target (`Target`: the best's score at a distance).
+  Every period's best stays as history (`History`, `ByIndex`, `ShortLabel`; past ones lose
+  their trace at login, `Compact`), and the streak of days played counts days in a row with a
+  daily challenge run (`Streak`): the Challenges page's History in screens.lua.
   `Status` (new, beaten or tried) and `Reminder`, the chat line `ace.lua` prints at login
   (`profile.challengeReminder`).
 - `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
