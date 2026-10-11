@@ -346,6 +346,8 @@ end
 
 function overlay:CreateChallengeCard(scorecard)
     local card = CreateFrame("Frame", nil, self.hud.frame, "DialogBorderTemplate")
+    -- The template fills its parent: only under the scorecard.
+    card:ClearAllPoints()
     card:SetHeight(CHALLENGE_HEIGHT)
     card:SetPoint("TOPLEFT", scorecard, "BOTTOMLEFT", 0, -CHALLENGE_GAP)
     card:SetPoint("TOPRIGHT", scorecard, "BOTTOMRIGHT", 0, -CHALLENGE_GAP)
