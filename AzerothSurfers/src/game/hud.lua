@@ -8,7 +8,10 @@ local overlay = app.overlay
 
 -- At scale 1 (full screen); the side window scales by SIDE_SCALE.
 local HEIGHT, PAD, ICON = 32, 10, 18
-local CARD_WIDTH, CARD_HEIGHT, INSET = 280, 116, 18
+local CARD_WIDTH, CARD_HEIGHT, INSET = 280, 119, 18
+-- From the card's top: the divider under the score (its top; the texture is 8 high) and the
+-- centre of the coins' row, as far under it as the extra info's divider is (CreateHudInfo).
+local DIVIDER, COIN_ROW = 70, 94
 local SCORE_SIZE, MULTIPLIER_SIZE, COINS_SIZE = 28, 22, 18
 -- Digits a panel always has room for: it widens only past them.
 local SCORE_DIGITS, COINS_DIGITS = 6, 3
@@ -143,8 +146,10 @@ end
 -- built), and `write(t, value)` writes it, only when it changed. Redrawn every INFO_EVERY
 -- seconds.
 local INFO_EVERY = 0.25
--- The section's divider and its first row's centre, under the card's own height.
-local INFO_DIVIDER, INFO_FIRST, INFO_BOTTOM = 6, 14, 22
+-- From the card's top: the section's divider, as far under the coins' row as the divider above
+-- it is over it, and its first row's centre; INFO_BOTTOM pixels under the last row's centre.
+local INFO_DIVIDER = 2 * COIN_ROW - DIVIDER - 8
+local INFO_FIRST, INFO_BOTTOM = INFO_DIVIDER + 20, 26
 local function number(t, value)
     t:SetFormattedText("%d", value)
 end
@@ -296,17 +301,17 @@ function overlay:CreateHud(f)
 
     local divider = card:CreateTexture(nil, "ARTWORK")
     divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
-    divider:SetPoint("TOPLEFT", INSET - 4, -70)
-    divider:SetPoint("TOPRIGHT", -INSET + 4, -70)
+    divider:SetPoint("TOPLEFT", INSET - 4, -DIVIDER)
+    divider:SetPoint("TOPRIGHT", -INSET + 4, -DIVIDER)
     divider:SetHeight(8)
 
     local coinPanel = panel(card)
     coinPanel:SetHeight(24)
-    -- From the top: the extra info widens the card below them.
-    coinPanel:SetPoint("BOTTOMLEFT", card, "TOPLEFT", INSET - PAD, 13 - CARD_HEIGHT)
+    -- From the top: the extra info makes the card taller below them.
+    coinPanel:SetPoint("LEFT", card, "TOPLEFT", INSET - PAD, -COIN_ROW)
     local coin = gem(coinPanel)
     local distance = text(card, 15)
-    distance:SetPoint("BOTTOMRIGHT", card, "TOPRIGHT", -INSET, 18 - CARD_HEIGHT)
+    distance:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -COIN_ROW)
     distance:SetTextColor(0.78, 0.78, 0.78)
 
     -- Follows the twin's square, which follows the character on screen.
@@ -338,13 +343,13 @@ end
 function overlay:CreateHudInfo(card)
     local divider = card:CreateTexture(nil, "ARTWORK")
     divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
-    divider:SetPoint("TOPLEFT", INSET - 4, INFO_DIVIDER - CARD_HEIGHT)
-    divider:SetPoint("TOPRIGHT", -INSET + 4, INFO_DIVIDER - CARD_HEIGHT)
+    divider:SetPoint("TOPLEFT", INSET - 4, -INFO_DIVIDER)
+    divider:SetPoint("TOPRIGHT", -INSET + 4, -INFO_DIVIDER)
     divider:SetHeight(8)
     divider:Hide()
     local info = { divider = divider, rows = {}, count = 0, room = 0 }
     for i, stat in ipairs(overlay.HUD_INFO) do
-        local value, label = row(card, CARD_HEIGHT, stat.name, 14)
+        local value, label = row(card, INFO_FIRST, stat.name, 14)
         value:Hide()
         label:Hide()
         info.rows[i] = { stat = stat, value = value, label = label }
@@ -367,7 +372,7 @@ function overlay:LayoutHudInfo()
         if shown then
             count = count + 1
             info.shown[count] = r
-            local y = CARD_HEIGHT + INFO_FIRST + (count - 1) * ROW
+            local y = INFO_FIRST + (count - 1) * ROW
             r.label:ClearAllPoints()
             r.label:SetPoint("LEFT", card, "TOPLEFT", INSET, -y)
             r.value:ClearAllPoints()
@@ -378,7 +383,7 @@ function overlay:LayoutHudInfo()
         info.shown[i] = nil
     end
     info.count, info.at = count, nil
-    info.room = count > 0 and INFO_FIRST + (count - 1) * ROW + INFO_BOTTOM or 0
+    info.room = count > 0 and INFO_FIRST + (count - 1) * ROW + INFO_BOTTOM - CARD_HEIGHT or 0
     info.divider:SetShown(count > 0)
     card:SetHeight(CARD_HEIGHT + info.room)
 end
