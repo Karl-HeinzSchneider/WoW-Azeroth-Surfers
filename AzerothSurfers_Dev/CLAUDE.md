@@ -29,7 +29,8 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   with WoW's screenshot key, crop outside WoW, and edit alpha externally (screenshots are
   opaque; black preserves the blue glow better than chroma key). Keep PNG for external use;
   convert to BLP or uncompressed 32-bit TGA for the TOC and minimap texture. The model's
-  intrinsic glow animation can still run while rotation is stopped. No shipped icon changes
+  built-in idle animation is frozen at time zero; `spin` only turns the actor's yaw.
+  No shipped icon changes
   until a capture has been chosen and converted; this tool never writes image files.
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).

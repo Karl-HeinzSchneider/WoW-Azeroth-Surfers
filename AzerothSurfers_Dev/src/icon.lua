@@ -23,6 +23,8 @@ local function update(_, elapsed)
         local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
         if size > 0.001 then
             state.size = size
+            -- Loading can restart the model's own idle loop; freeze it once ready too.
+            view.actor:SetAnimation(0, 0, 0, 0)
             -- Match gameplay's upright pose for models whose native geometry lies flat.
             if not state.pitchManual then
                 state.pitch = maxZ - minZ < 0.3 * math.max(maxX - minX, maxY - minY) and 90 or 0
@@ -191,6 +193,8 @@ dev.Command("icon", USAGE, function(rest)
         state.model, state.size, state.wait, state.failed = entry.model, nil, 0, false
         view.actor:SetScale(1)
         view.actor:SetModelByFileID(state.model)
+        -- Stop the gem's built-in rotation, independently of our optional yaw spin.
+        view.actor:SetAnimation(0, 0, 0, 0)
         view.actor:Show()
         local size = math.min(512, UIParent:GetWidth() - 40, UIParent:GetHeight() - 220)
         view.scene:SetSize(size, size)
