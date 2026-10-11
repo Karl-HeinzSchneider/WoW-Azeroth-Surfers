@@ -311,6 +311,20 @@ do
 end
 print("PASS missed coins remain visible behind the runner until past the camera")
 
+do
+    local objects, distance, zoom = o.state.objects, o.state.distance, settings.distance
+    local passed = obstacle(1, -6)
+    o.state.objects, o.state.distance, settings.distance = { passed }, 0, 24
+    o:Render()
+    assert(o.faceCount > 0, "a passed obstacle behind the runner still renders at wide zoom")
+    passed.at = -30
+    o:Render()
+    assert(o.faceCount == 0, "obstacles behind the camera are culled")
+    o.state.objects, o.state.distance, settings.distance = objects, distance, zoom
+    o:Render()
+end
+print("PASS passed obstacles remain visible behind the runner until past the camera")
+
 -- A tall character (2.5 yards) is drawn at a human's height in the track's world, the camera
 -- nearer by as much: on the screen it covers the real one just as before, and the track around
 -- it is bigger.

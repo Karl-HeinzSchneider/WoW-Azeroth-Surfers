@@ -80,6 +80,17 @@ test("passed enemies remain available until beyond the widest camera", function(
     g.Update(s, 0.05)
     assert(#s.objects == 0, "enemies beyond the camera are eventually removed")
 end)
+test("passed obstacles remain available until beyond the widest camera", function()
+    local passed, collected = obstacle(0, 0), coin(1, 0)
+    local s = fresh(passed, collected)
+    collected.hit = true
+    s.distance = 24
+    g.Update(s, 0.05)
+    assert(s.objects[1] == passed and #s.objects == 1, "the obstacle stays, a collected coin goes")
+    s.distance = g.VIEW_BEHIND + passed.length + 1
+    g.Update(s, 0.05)
+    assert(#s.objects == 0, "obstacles beyond the camera are eventually removed")
+end)
 
 test("a jump peaks past layer 2, lands and cannot double jump", function()
     local s = fresh()

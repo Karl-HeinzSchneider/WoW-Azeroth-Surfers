@@ -38,6 +38,8 @@ local ORDER = {
 -- compare as in one scene (the world scene with the twin, and the occluder's, occluder.lua).
 local CLIP_NEAR, CLIP_FAR = 0.2, 250
 local COIN_SIZE = 0.5 -- a coin model's largest side
+-- Flat boxes are cut this far ahead of the camera: a face with a corner nearer is not drawn.
+local BOX_NEAR = 1
 -- The twin's animations, and the speeds walking, running and backpedalling are animated for. A
 -- normal jump (about 0.83 seconds) plays JUMP_START throughout; JUMP loops after AIR_LOOP.
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
@@ -1166,7 +1168,7 @@ function overlay:Render(lap)
     lap = self:Lap("twin", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
-    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to, cam.x - COIN_SIZE)
+    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to, cam.x + BOX_NEAR, cam.x - COIN_SIZE)
     local coins = 0
     local real = self.worldScene and self.coinReady
     for i = 1, count do
