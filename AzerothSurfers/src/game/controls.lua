@@ -42,12 +42,14 @@ function overlay:SaveBest()
 end
 
 -- A challenge's run (`s.challenge`, its period) once it is over, at the end or before: its
--- best, if it beats it (challenges.lua). A run left before its end saves
--- nothing.
+-- best, if it beats it (challenges.lua), and the one before (`s.lastBest`, the end menu's
+-- difference). A run left before its end saves nothing; one over, once.
 function overlay:SaveChallenge(s)
-    if s.status ~= "over" then
+    if s.status ~= "over" or s.saved then
         return
     end
+    s.saved = true
+    s.lastBest = app.challenges.Best(s.challenge)
     local record = {
         score = sim.Score(s),
         coins = s.coins,
@@ -255,6 +257,11 @@ function overlay:Step(elapsed)
         self:StepAuto(s, elapsed)
     else
         sim.Update(s, elapsed)
+    end
+    -- Through a challenge's last portal: its finish, once.
+    if status == "running" and s.finish and not s.finishShown and s.distance >= s.finish then
+        s.finishShown = true
+        self:Finish(s)
     end
     if status == "running" and s.status == "over" then
         self:SaveBest()
