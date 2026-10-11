@@ -43,6 +43,30 @@ the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev too
 `lua-language-server --check` uses `.luarc.json`; `lib/` is excluded from LuaLS, StyLua and
 Prettier. Tooling code is ESM with `.js` extensions in relative imports, strict `tsc`.
 
+## Codex worktree pull requests
+
+For implementation tasks in a linked Git worktree, automatically publish a draft pull request
+when the requested change reaches a reviewable milestone, unless the user asks to keep it local.
+This is standing authorization to commit the task's changes, push its feature branch to `origin`,
+and create or update its draft PR; no additional confirmation is needed for these steps.
+
+- A reviewable milestone means the requested scope is implemented, the diff has been reviewed,
+  and `npm run check` plus relevant tests have been run. Fix failures caused by the change;
+  disclose unavailable checks, pre-existing failures and pending in-client testing in the PR.
+  Do not publish an empty diff or unfinished exploratory work.
+- Work in the task's worktree. If HEAD is detached, create a descriptive `codex/` branch there.
+  Commit only changes belonging to the task, and push that branch without force-pushing.
+- Target `main` unless the task explicitly uses a different base. Use GitHub CLI (`gh`) or an
+  available authenticated GitHub integration. Check for an existing open PR for the same head
+  branch first; update it on subsequent milestones instead of creating duplicates.
+- Create new PRs as drafts. Describe the problem, resulting behavior, validation and remaining
+  limitations. For `gh`, write multiline descriptions to a temporary file and use `--body-file`.
+- Attach the PR URL to the Codex chat using `attach_artifact` when available, and include the
+  link in the final response. Never merge, mark ready for review or publish a release unless
+  the user explicitly requests it.
+- If authentication, tooling, network access or permissions prevent publication, preserve the
+  work and report the specific blocker; do not claim a PR was created.
+
 ## Releases
 
 A pushed `v*` tag (`release-tag.yml`) or Actions > Run workflow (`release.yml`, `beta.yml`,
