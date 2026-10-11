@@ -61,19 +61,10 @@ display's existing voice wins. Other local constants in rendering/control code a
   Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
-  status (`challenges.StatusText`). The TOC and launcher share `assets/core/icon-gem-zoomed.tga`;
-  `icon-gem.tga` retains the wider variant. One mouse-disabled ModelScene shows the resolved
-  default gem whenever the minimap button is visible, including while pressed or dragged.
-  Its camera is raised slightly to put the gem about two UI pixels lower. An opaque black
-  disk behind it follows the library background region, shifted two UI pixels down and rounded with Blizzard's
-  `Interface/CharacterFrame/TempPortraitAlphaMask`; no custom texture is needed.
-  The button's icon region retains its texture with alpha zero once the model is ready;
-  the LDB icon and addon-list icon stay static and available to other addons.
-  The library's input scripts remain untouched. The scene's own OnShow/OnHide follows parent
-  visibility, resumes cached models and stops rendering on hide/disable. Bounds polling ends
-  after loading/failure; native idle animation has no steady Lua update handler.
-  Loading uses nonzero opacity, accepts nil request results and keeps the texture as fallback.
-  Timed-out models retry on show or profile refresh. The scene sits above the button background.
+  status (`challenges.StatusText`). The minimap/LDB launcher uses the supplied static
+  `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes,
+  masks or update handlers. The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
+  `icon-gem.tga` retains the wider variant.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a

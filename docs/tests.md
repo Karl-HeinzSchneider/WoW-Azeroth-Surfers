@@ -4,7 +4,7 @@ Plain Lua scripts in `tests/` that load the addon's files outside the client and
 them. No framework, no client, no build.
 
 ```sh
-npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua, minimap.lua (stops at the first failure)
+npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua (stops at the first failure)
 npm run bench:overlay   # WoW API calls per frame; not part of test:game or check
 npm run test:assets     # dev asset audit: asynchronous loading, missing animations, audio and reports
 lua tests/simulation.lua  # one file on its own, from the repo root
@@ -40,11 +40,6 @@ end)
 `simulation.lua` helpers: `fresh(...)` (a started run, empty track plus the given boxes),
 `advance(s, seconds, fps)`, `obstacle`, `coin`, `platform` (box builders), `branch` and
 `runnable` (the input search).
-
-`minimap.lua` runs the real vendored LibDBIcon with frame stand-ins: persistent scene loading
-and reuse, native animation without steady Lua updates, retained static textures and loading
-fallbacks, tooltip/click/press/drag coexistence, profile refresh, lock, ancestor visibility and
-module disable.
 
 ## Writing a new one
 

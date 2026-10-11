@@ -2,34 +2,6 @@
 local _, dev = ...
 local app, log = dev.app, dev.log
 
-dev.Command("minimap", "minimap (report the icon's persistent model state)", function()
-    local module = app.minimapButton
-    local button, gem = module.button, module.gem
-    log:chat(
-        "Minimap: enabled=%s button=%s visible=%s scene=%s texture=%s iconAlpha=%s",
-        tostring(module.modelEnabled),
-        tostring(button and button:GetName()),
-        tostring(button and button:IsVisible()),
-        tostring(gem ~= nil),
-        tostring(button and button.icon:GetTexture()),
-        tostring(button and button.icon:GetAlpha())
-    )
-    if gem then
-        log:chat(
-            "Gem: requested=%s result=%s loaded=%s file=%s ready=%s wait=%.2fs failure=%s visible=%s alpha=%.2f",
-            tostring(gem.model),
-            tostring(gem.requestResult),
-            tostring(gem.actor:IsLoaded()),
-            tostring(gem.actor:GetModelFileID()),
-            tostring(gem.ready),
-            gem.wait,
-            tostring(gem.failure),
-            tostring(gem.scene:IsVisible()),
-            gem.scene:GetAlpha()
-        )
-    end
-end)
-
 -- Read-only snapshot; no UI is opened or restacked to collect it.
 local UI_FRAMES = {
     "UIParent",

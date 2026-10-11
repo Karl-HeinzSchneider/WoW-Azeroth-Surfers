@@ -27,18 +27,18 @@ the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev too
 
 ## Commands (run from the root after `npm install`)
 
-| Command                            | Does                                                                                                   |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `npm run check`                    | typecheck, addons, Lua syntax, XML schema, formatting. Run it before finishing a change.               |
-| `npm run format`                   | Prettier on TS/JSON/Markdown/YAML, StyLua on Lua (XML is left to the editor). `format:check` reports.  |
-| `npm run check:addons`             | TOC and loader XML entries exist (`[TextLocale]` ones for every language), companions, no cycles.      |
-| `npm run check:lua`                | `luac -p` on every addon Lua file (needs Lua 5.1 `luac` on PATH).                                      |
-| `npm run check:xml`                | Every addon XML against Blizzard's `UI.xsd`; skipped without `../_data/BlizzardInterfaceCode`.         |
-| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua`, `leaderboard.lua`, `minimap.lua` (needs `lua`). |
-| `npm run bench:overlay`            | WoW API calls per frame, offline.                                                                      |
-| `npm run dev:link -- <AddOns dir>` | Links (junctions on Windows) every addon into a client; never replaces a path that isn't our link.     |
-| `npm run package:addons`           | Deterministic `dist/AzerothSurfers-<version>.zip` without development addons and `CLAUDE.md` files.    |
-| `npm run package:local`            | The release workflows' BigWigs packager, locally, no upload, into `.release/` (Windows: Git's bash).   |
+| Command                            | Does                                                                                                  |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `npm run check`                    | typecheck, addons, Lua syntax, XML schema, formatting. Run it before finishing a change.              |
+| `npm run format`                   | Prettier on TS/JSON/Markdown/YAML, StyLua on Lua (XML is left to the editor). `format:check` reports. |
+| `npm run check:addons`             | TOC and loader XML entries exist (`[TextLocale]` ones for every language), companions, no cycles.     |
+| `npm run check:lua`                | `luac -p` on every addon Lua file (needs Lua 5.1 `luac` on PATH).                                     |
+| `npm run check:xml`                | Every addon XML against Blizzard's `UI.xsd`; skipped without `../_data/BlizzardInterfaceCode`.        |
+| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua`, `leaderboard.lua` (needs `lua`).               |
+| `npm run bench:overlay`            | WoW API calls per frame, offline.                                                                     |
+| `npm run dev:link -- <AddOns dir>` | Links (junctions on Windows) every addon into a client; never replaces a path that isn't our link.    |
+| `npm run package:addons`           | Deterministic `dist/AzerothSurfers-<version>.zip` without development addons and `CLAUDE.md` files.   |
+| `npm run package:local`            | The release workflows' BigWigs packager, locally, no upload, into `.release/` (Windows: Git's bash).  |
 
 `lua-language-server --check` uses `.luarc.json`; `lib/` is excluded from LuaLS, StyLua and
 Prettier. Tooling code is ESM with `.js` extensions in relative imports, strict `tsc`.

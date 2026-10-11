@@ -16,9 +16,6 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   (duck/slide candidates).
 - `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).
-  `/surfers minimap` reports model enablement, button/scene visibility, retained texture/alpha,
-  model request result,
-  loaded file, fitting state, accumulated load wait and failure reason without changing them.
   `/surfers layers` reports existing unit frames, action bars, bags, chat and game frames sorted
   by strata and level, with visibility and parent names. `/surfers layers FrameName` inspects
   one named frame and its direct children. It never changes their layers or opens UI panels.
@@ -34,7 +31,8 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   convert to BLP or uncompressed 32-bit TGA for the TOC and minimap texture. The model's
   built-in idle animation is frozen at time zero; `spin` only turns the actor's yaw.
   The selected gem capture has wider `AzerothSurfers/assets/core/icon-gem.tga` and tighter
-  `icon-gem-zoomed.tga` variants; the TOC and minimap launcher use the tighter one.
+  `icon-gem-zoomed.tga` variants; the TOC uses the tighter one. The minimap uses the supplied
+  `AzerothSurfers/assets/core/gem128.blp` instead.
   This tool never writes image files.
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).
