@@ -70,6 +70,38 @@ function addon:OnProfileRefresh()
     end
 end
 
+function addon:ResetProfile()
+    self.db:ResetProfile()
+    log:chat("Profile reset")
+end
+
+local RESET_POPUP = "AZEROTHSURFERS_RESET_PROFILE"
+
+-- `/surfers reset` puts every setting of the profile back to its default, so it asks first;
+-- `/surfers reset confirm` skips the question (the only way where the client has no popups).
+function addon:ConfirmResetProfile()
+    if not StaticPopupDialogs or not StaticPopup_Show then
+        log:chat("Type /surfers reset confirm to reset every setting of this profile")
+        return
+    end
+    if not StaticPopupDialogs[RESET_POPUP] then
+        StaticPopupDialogs[RESET_POPUP] = {
+            text = "Reset every Azeroth Surfers setting of this profile to its default? Your best runs are kept.",
+            button1 = YES,
+            button2 = NO,
+            OnAccept = function()
+                addon:ResetProfile()
+            end,
+            timeout = 0,
+            whileDead = true,
+            hideOnEscape = true,
+            showAlert = true,
+            preferredIndex = 3,
+        }
+    end
+    StaticPopup_Show(RESET_POPUP)
+end
+
 ---@param input string
 function addon:OnSlashCommand(input)
     local cmd, arg = self:GetArgs(input, 2)
@@ -116,13 +148,16 @@ function addon:OnSlashCommand(input)
             overlay:SetAuto(not overlay.auto)
         end
     elseif cmd == "reset" then
-        self.db:ResetProfile()
-        log:chat("Profile reset")
+        if arg and arg:lower() == "confirm" then
+            self:ResetProfile()
+        else
+            self:ConfirmResetProfile()
+        end
     elseif app.devCommands[cmd] then
         app.devCommands[cmd].run(input:match("^%s*%S+%s*(.-)%s*$"))
     else
         log:chat(
-            "Commands: /surfers [options], /surfers auto, /surfers loglevel <level>, /surfers seed [<number> [<yards>]|random], /surfers reset"
+            "Commands: /surfers [options], /surfers auto, /surfers loglevel <level>, /surfers seed [<number> [<yards>]|random], /surfers reset [confirm]"
         )
         local names = {}
         for name in pairs(app.devCommands) do
