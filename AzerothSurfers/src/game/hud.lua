@@ -311,6 +311,10 @@ function overlay:CreateHud(f)
     -- From the top: the extra info makes the card taller below them.
     coinPanel:SetPoint("LEFT", card, "TOPLEFT", INSET - PAD, -COIN_ROW)
     local coin = gem(coinPanel)
+    -- The share of the coins come past that were collected, right of the digits.
+    local coinShare = text(card, 15)
+    coinShare:SetPoint("LEFT", coinPanel, "RIGHT", 6 - PAD, 0)
+    coinShare:SetTextColor(0.78, 0.78, 0.78)
     local distance = text(card, 15)
     distance:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -COIN_ROW)
     distance:SetTextColor(0.78, 0.78, 0.78)
@@ -329,6 +333,7 @@ function overlay:CreateHud(f)
         card = card,
         label = label,
         distance = distance,
+        coinShare = coinShare,
         multiplierPanel = multiplierPanel,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
         coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 14),
@@ -478,6 +483,16 @@ function overlay:ShowHud()
     if shown.coins ~= s.coins then
         shown.coins = s.coins
         show(hud.coins, s.coins)
+    end
+    -- -1 before any coin came past: none shown.
+    local share = s.coinTotal > 0 and math.floor(100 * s.coins / s.coinTotal) or -1
+    if shown.coinShare ~= share then
+        shown.coinShare = share
+        if share < 0 then
+            hud.coinShare:SetText("")
+        else
+            hud.coinShare:SetFormattedText("(%d%%)", share)
+        end
     end
     if shown.multiplier ~= s.multiplier then
         shown.multiplier = s.multiplier
