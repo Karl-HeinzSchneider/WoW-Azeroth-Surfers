@@ -2,8 +2,8 @@
 local _, app = ...
 local sim = app.simulation
 -- What the game shows in the middle of the view, over everything else:
--- * the status menu while a run is paused or over (menus.lua): the run's numbers, whether its
---   seed is kept, the next run's difficulty and what to do next (before a run: screens.lua's
+-- * the status menu while a run is paused or over (menus.lua): the run's numbers, a custom
+--   game's settings, the next run's difficulty and what to do next (before a run: screens.lua's
 --   main menu);
 -- * announcements in zone-text style (`Announce`);
 -- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
@@ -119,12 +119,16 @@ local DIFFICULTY = {
     },
 }
 
--- The seed: the kept one, else this run's. One typed in is kept for every run from now on.
+-- A custom game's settings (screens.lua's Custom page, and its pause and end menus): every run
+-- of it takes them, from the menu and every restart. A new one is an item on its category's
+-- page here (menus.lua; a new category is a page and an item in CUSTOM) over a profile setting
+-- NewState (controls.lua) reads while `custom` is on.
+-- The seed: the fixed one, or a new one each run. One typed in is fixed from now on.
 local SEED = {
     text = "Seed",
     input = {
-        get = function(o)
-            return tostring(app.db.profile.seed or o.state.seed)
+        get = function()
+            return app.db.profile.seed and tostring(app.db.profile.seed) or "Random"
         end,
         set = function(o, typed)
             local seed = tonumber(typed)
@@ -134,13 +138,12 @@ local SEED = {
         end,
     },
 }
--- Keeps the seed above for every run from now on (the options' fixed seed), or a random one
--- each run.
-local KEEP_SEED = {
+-- Fixes the seed (the one shown, else the current run's) or draws a new one each run.
+local SEED_MODE = {
     text = "Seed mode",
     choice = {
         get = function()
-            return app.db.profile.seed and "Keep" or "Random each run"
+            return app.db.profile.seed and "Fixed" or "Random each run"
         end,
         can = function(_, dir)
             return (dir > 0) ~= (app.db.profile.seed ~= false)
@@ -150,30 +153,134 @@ local KEEP_SEED = {
         end,
     },
 }
-
--- Yards into the seed a run begins: one from the main menu (screens.lua) with its seed, and
--- with a fixed seed every restart.
-local function startAt()
-    return tostring(app.db.profile.startAt or 0)
-end
-local function setStartAt(o, typed)
-    local yards = tonumber(typed)
-    if yards then
-        o:SetStartAt(yards)
-    end
-end
-overlay.START_AT = { text = "Start at", input = { get = startAt, set = setStartAt } }
--- Here grayed out while every run draws a new seed: a restart begins there only with a kept one.
+-- Yards into the seed every run begins (simulation.lua's Skip).
 local START_AT = {
     text = "Start at",
     input = {
-        get = startAt,
-        set = setStartAt,
-        can = function(o)
-            return o:StartsAt()
+        get = function()
+            return tostring(app.db.profile.startAt or 0)
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetStartAt(yards)
+            end
         end,
     },
 }
+-- Yards into the seed every run ends, at a last portal as a challenge's does; 0: never.
+local END_AT = {
+    text = "Ends at",
+    input = {
+        get = function()
+            local yards = app.db.profile.endAt or 0
+            return yards > 0 and tostring(yards) or "Never"
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetEndAt(yards)
+            end
+        end,
+    },
+}
+-- The settings by category, a page each: the custom game's page, its pause and end menus show
+-- one item per category that opens its page.
+local SEED_PAGE = {
+    title = "Seed options",
+    items = { SEED_MODE, SEED, START_AT, END_AT, { text = "Back", back = true } },
+    extra = {
+        text = "New seed",
+        run = function(o)
+            o:SetSeed(app.random.Seed())
+        end,
+    },
+}
+local function category(page)
+    return {
+        text = page.title,
+        run = function(_, menu)
+            menu:Push(page)
+        end,
+    }
+end
+-- A scoring rule (scoring.lua's DEFAULTS) at `path` (its keys), the custom game's own while it
+-- differs: a choice stepping by `step` from `least` to `most`; `huge`: past `most` it has no
+-- limit (math.huge).
+local function rule(text, path, step, least, most, huge)
+    local function get()
+        return overlay:CustomRule(path)
+    end
+    return {
+        text = text,
+        choice = {
+            get = function()
+                local value = get()
+                if value == math.huge then
+                    return "No limit"
+                end
+                local shown = string.format("%g", value)
+                return value == overlay:CustomRule(path, true) and shown or "|cffffffff" .. shown .. "|r"
+            end,
+            can = function(_, dir)
+                local value = get()
+                if dir < 0 then
+                    return value > least
+                end
+                return value < most or (huge and value ~= math.huge)
+            end,
+            step = function(o, dir)
+                local value = get()
+                if value == math.huge then
+                    value = most
+                elseif huge and dir > 0 and value >= most then
+                    value = math.huge
+                else
+                    -- Whole steps: no 0.35000001.
+                    value = math.floor((value + dir * step) / step + 0.5) * step
+                    value = math.max(least, math.min(most, value))
+                end
+                o:SetCustomRule(path, value)
+            end,
+        },
+    }
+end
+local function rulesPage(title, items)
+    items[#items + 1] = { text = "Back", back = true }
+    return {
+        title = title,
+        items = items,
+        extra = {
+            text = "Defaults",
+            run = function(o)
+                o:ResetCustomRules()
+            end,
+        },
+    }
+end
+local DIFFICULTY_FACTORS = {}
+for _, difficulty in ipairs(sim.DIFFICULTIES) do
+    DIFFICULTY_FACTORS[#DIFFICULTY_FACTORS + 1] = rule(difficulty.name, { "difficulty", difficulty.id }, 0.25, 0, 5)
+end
+-- How a custom game's runs score: changed values in white, Defaults (its extra action) undoes
+-- every change.
+local SCORING_PAGE = rulesPage("Scoring", {
+    rule("Yard points", { "yardPoints" }, 1, 0, 10),
+    rule("Coin points", { "coinPoints" }, 5, 0, 200),
+    category(rulesPage("Streak", {
+        rule("Bonus from", { "streak", "from" }, 1, 1, 30),
+        rule("Bonus points", { "streak", "points" }, 5, 0, 200),
+        rule("Gap (yards)", { "streak", "gap" }, 1, 1, 20),
+        rule("Gap (seconds)", { "streak", "seconds" }, 0.05, 0, 2),
+    })),
+    category(rulesPage("Multiplier", {
+        rule("Start", { "multiplier", "start" }, 1, 1, 10),
+        rule("Per gate", { "multiplier", "perGate" }, 1, 0, 5),
+        rule("Most", { "multiplier", "most" }, 1, 1, 20, true),
+    })),
+    category(rulesPage("Difficulty factor", DIFFICULTY_FACTORS)),
+})
+overlay.CUSTOM = { category(SEED_PAGE), category(SCORING_PAGE) }
 
 local function restart(o)
     if not InCombatLockdown() then
@@ -274,16 +381,18 @@ local function statusPage(o, s)
         local p = page(
             "Paused",
             NUMBERS,
-            { GO_ON, { text = "Start over", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { GO_ON, { text = "Start over", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
         )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
         p.extra = { text = "Start over", run = restart }
         return p
     elseif s.status == "over" then
-        -- A run begun further into its seed ("Start at") saves no best score: says so.
+        -- A custom run saves no best score: says so.
         local best = s.newBest and { { text = "New best!", note = GREEN } }
-            or s.practice and { { text = string.format("From %d yd: no best score", s.practice), note = GRAY } }
+            or s.custom and { { text = "Custom game: no best score", note = GRAY } }
             or {}
         if o.auto then
             return page("Run complete", best, NUMBERS, { STOP })
@@ -292,7 +401,9 @@ local function statusPage(o, s)
             "Run complete",
             best,
             NUMBERS,
-            { { text = "Run again", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { { text = "Run again", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
         )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }
@@ -447,10 +558,11 @@ function overlay:EndAnnouncement()
     end
 end
 
--- A challenge's last portal (`s.finish`), gone through: its banner and fanfare (with the
--- portal sounds).
+-- A challenge's or a custom game's last portal (`s.finish`), gone through: its banner and
+-- fanfare (with the portal sounds).
 function overlay:Finish(s)
-    self:Announce("Finish!", FINISH_SECONDS, s.challenge and s.challenge.kind.name .. " challenge")
+    local small = s.challenge and s.challenge.kind.name .. " challenge" or s.custom and "Custom game" or nil
+    self:Announce("Finish!", FINISH_SECONDS, small)
     if app.db.profile.portalSound then
         PlaySoundFile(FINISH_SOUND, "SFX")
     end

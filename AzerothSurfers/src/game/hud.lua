@@ -174,7 +174,7 @@ overlay.HUD_INFO = {
     {
         id = "seed",
         name = "Seed",
-        desc = "The run's seed: type it in the pause menu to run the same track again.",
+        desc = "The run's seed: type it in the main menu's Custom to run the same track again.",
         value = function(_, s)
             return s.seed
         end,

@@ -88,7 +88,8 @@ function addon:OnSlashCommand(input)
             log:chat("Log level is %s", log:getLevelName())
         end
     elseif cmd == "seed" then
-        -- `/surfers seed <number> [<yards>]`: the yards a restart begins into it.
+        -- `/surfers seed <number> [<yards>]`: the custom game's seed, and the yards its runs begin
+        -- into it.
         local _, typed, yards = self:GetArgs(input, 3)
         local overlay, seed = app.overlay, tonumber(typed or "")
         if seed then
@@ -99,9 +100,9 @@ function addon:OnSlashCommand(input)
         end
         local fixed, startAt = self.db.profile.seed, self.db.profile.startAt or 0
         if fixed and startAt > 0 then
-            log:chat("Seed %d on every run, restarts from %d yards", fixed, startAt)
+            log:chat("Custom game: seed %d on every run, from %d yards", fixed, startAt)
         else
-            log:chat(fixed and "Seed %d on every run" or "A new seed every run", fixed)
+            log:chat(fixed and "Custom game: seed %d on every run" or "Custom game: a new seed every run", fixed)
         end
         if overlay.state and overlay.state.seed ~= fixed then
             log:chat("This run: seed %d", overlay.state.seed)

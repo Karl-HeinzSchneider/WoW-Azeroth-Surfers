@@ -28,7 +28,8 @@ local AUTO_RESTART = 3
 
 function overlay:SaveBest()
     local s = self.state
-    if s.piloted or s.practice then
+    -- A custom run (screens.lua's Custom: its own seed, start and the like) is not comparable.
+    if s.piloted or s.practice or s.custom then
         return
     elseif s.challenge then
         self:SaveChallenge(s)
@@ -69,12 +70,15 @@ function overlay:SaveChallenge(s)
     end
 end
 
--- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's. Any other
+-- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of a new one. Any other
 -- run (a restart) is the lobby's run of its seed begun past the portal (simulation.Skip), or
--- `at` yards in: a seed lays out one track, from the menu or a restart. `at` when left out:
--- with a fixed seed the profile's `startAt`, else 0. While a challenge is on (`challenge`, its
--- period: screens.lua's PlayChallenge), its seed and difficulty through zones to its goal, never
--- further in.
+-- `at` yards in: a seed lays out one track, from the menu or a restart. A run from Play draws
+-- a new seed each time and begins at the portal. While a custom game is on (`custom`: the main
+-- menu's Custom), its settings (`CUSTOM` in messages.lua: the profile's fixed `seed`, else a new
+-- one, `startAt`, `at` when left out, `endAt`, its last portal, and `customScoring`, its
+-- scoring rules) and `s.custom`, so it saves no best score. While a
+-- challenge is on (`challenge`, its period: screens.lua's PlayChallenge), its seed and
+-- difficulty through zones to its goal, never further in.
 function overlay:NewState(lobby, seed, at)
     local profile = app.db.profile
     local challenge = self.challenge
@@ -89,16 +93,26 @@ function overlay:NewState(lobby, seed, at)
         end
         return s
     end
+    local custom = self.custom
     local zones = profile.biome == app.biomes.AUTO
-    local s = sim.New(seed or profile.seed or nil, profile.difficulty, zones, lobby or app.lobby)
+    local scoring = custom and profile.customScoring or nil
+    local s =
+        sim.New(seed or (custom and profile.seed) or nil, profile.difficulty, zones, lobby or app.lobby, nil, scoring)
+    s.custom = custom or nil
+    -- A custom game's end, past its start and the portal: a last portal there, as a challenge's
+    -- `finish` (yards from the camp, as "Start at").
+    local endAt = custom and profile.endAt or 0
+    if endAt > math.max(profile.startAt or 0, s.start) then
+        s.finish = endAt
+    end
     if not lobby then
-        sim.Skip(s, at or (profile.seed and profile.startAt) or 0)
+        sim.Skip(s, at or (custom and profile.startAt) or 0)
     end
     return s
 end
 
--- The yards into a seed a run begins: one from the menu with its seed, and with a fixed seed
--- every restart. A run not started yet takes it at once.
+-- A custom game's start (`CUSTOM` in messages.lua): yards into the seed every run begins. A run
+-- not started yet takes it at once.
 function overlay:SetStartAt(yards)
     app.db.profile.startAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
     if app.options then
@@ -109,9 +123,53 @@ function overlay:SetStartAt(yards)
     end
 end
 
--- Whether a restart begins `startAt` yards in: only with a fixed seed.
-function overlay:StartsAt()
-    return app.db.profile.seed ~= false
+-- A custom game's end (`CUSTOM` in messages.lua): yards into the seed every run ends at a last
+-- portal, 0 for never. A run not started yet takes it at once.
+function overlay:SetEndAt(yards)
+    app.db.profile.endAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
+    if app.options then
+        app.options:Refresh()
+    end
+    if self.frame and self.state.status == "ready" and not self.state.lobby then
+        self.state = self:NewState(nil, self.state.seed)
+    end
+end
+
+-- A custom game's scoring rule at `path` (keys into scoring.lua's DEFAULTS): its own
+-- (`profile.customScoring`, only what differs), else the default; `default`: the default.
+function overlay:CustomRule(path, default)
+    local own, value = not default and app.db.profile.customScoring or nil, app.scoring.DEFAULTS
+    for _, key in ipairs(path) do
+        own, value = type(own) == "table" and own[key] or nil, value[key]
+    end
+    return type(own) == "number" and own or value
+end
+
+-- A run not started yet takes the custom game's rules at once.
+local function rulesChanged(self)
+    if self.frame and self.state.status == "ready" and self.state.custom then
+        self.state = self:NewState(self.state.lobby, self.state.seed)
+    end
+end
+
+-- Sets a custom game's rule at `path`; the default's value drops its own (so no limit, the
+-- multiplier's default most, is never saved: SavedVariables have no math.huge).
+function overlay:SetCustomRule(path, value)
+    local profile = app.db.profile
+    profile.customScoring = profile.customScoring or {}
+    local into, last = profile.customScoring, #path
+    for i = 1, last - 1 do
+        into[path[i]] = into[path[i]] or {}
+        into = into[path[i]]
+    end
+    into[path[last]] = value ~= self:CustomRule(path, true) and value or nil
+    rulesChanged(self)
+end
+
+-- Every custom scoring rule back to the default.
+function overlay:ResetCustomRules()
+    app.db.profile.customScoring = {}
+    rulesChanged(self)
 end
 
 function overlay:Restart()
@@ -120,7 +178,8 @@ function overlay:Restart()
     sim.Start(self.state)
 end
 
--- A whole number, or false: every run draws its own. A run not started yet takes it at once.
+-- A custom game's seed: a whole number, or false: every run draws its own. A run not started
+-- yet takes it at once.
 function overlay:SetSeed(seed)
     app.db.profile.seed = seed and app.random.Normalize(seed) or false
     if app.options then
@@ -159,7 +218,7 @@ function overlay:StepDifficulty(step)
     end
 end
 
--- On keeps the current run's seed for every run.
+-- On keeps the current run's seed for every custom run.
 function overlay:SetFixedSeed(on)
     if on then
         self:SetSeed(self.state and self.state.seed or app.random.Seed())

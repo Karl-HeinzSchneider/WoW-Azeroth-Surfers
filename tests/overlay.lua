@@ -824,6 +824,8 @@ assert(said.text == "Finish!" and said.small == "Daily challenge" and fanfares =
 app.db.profile.portalSound = false
 o:Finish({})
 assert(said.small == "" and fanfares == 1, "silent without portal sounds")
+o:Finish({ custom = true })
+assert(said.small == "Custom game", "a custom game's end")
 app.db.profile.portalSound, PlaySoundFile = portalSound, playSound
 -- Ended early (a menu over it): it fades out from then on, from where its fade in got to.
 now = 200
@@ -1001,10 +1003,64 @@ press("Q", "STRAFELEFT")
 assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
 press("E")
 assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
+-- Custom: Play's items and its own settings, the seed among them.
+press("S")
+press("S")
+press("E")
+local custom = main:Page()
+assert(custom.title == "Custom" and main.stack[2].selected == 2, "Custom opens its page, at Play past its note")
+assert(custom.items[3].text == "Difficulty" and custom.items[4].text == "Seed options")
+press("S")
+press("S")
+press("E")
+local seedPage = main:Page()
+assert(seedPage.title == "Seed options", "its seed options on a page of their own")
+assert(press("R") == false and app.db.profile.seed, "R fixes a new seed")
+local function item(page, label)
+    for _, it in ipairs(page.items) do
+        if it.text == label then
+            return it
+        end
+    end
+end
+item(seedPage, "Seed").input.set(o, "12345")
+assert(app.db.profile.seed == 12345 and item(seedPage, "Seed").input.get(o) == "12345", "a seed typed in")
+assert(item(seedPage, "Ends at").input.get(o) == "Never", "no end at first")
+item(seedPage, "Ends at").input.set(o, "3000")
+assert(app.db.profile.endAt == 3000 and item(seedPage, "Ends at").input.get(o) == "3000", "an end typed in")
+app.db.profile.endAt = 0
+press("Q", "STRAFELEFT")
+assert(main:Page() == custom, "back to Custom")
+-- Its scoring: a rule steps left and right, Defaults undoes it.
+press("S")
+press("E")
+local scoringPage = main:Page()
+assert(scoringPage.title == "Scoring" and item(scoringPage, "Coin points").choice.get(o) == "25")
+press("D", "TURNRIGHT")
+press("S")
+press("D", "TURNRIGHT")
+assert(app.db.profile.customScoring.coinPoints == 30, "five more a coin")
+assert(item(scoringPage, "Coin points").choice.get(o) == "|cffffffff30|r", "changed: in white")
+press("S")
+press("S")
+press("E")
+local most = item(main:Page(), "Most")
+assert(main:Page().title == "Multiplier" and most.choice.get(o) == "No limit")
+assert(not most.choice.can(o, 1) and most.choice.can(o, -1))
+most.choice.step(o, -1)
+assert(app.db.profile.customScoring.multiplier.most == 20 and most.choice.get(o) == "|cffffffff20|r")
+most.choice.step(o, 1)
+assert(app.db.profile.customScoring.multiplier.most == nil, "no limit again")
+press("Q", "STRAFELEFT")
+assert(press("R") == false and next(app.db.profile.customScoring) == nil, "Defaults")
+press("Q", "STRAFELEFT")
+press("Q", "STRAFELEFT")
+assert(main:Page().title == nil and main.stack[1].selected == 3, "back at Custom")
+press("UP")
+press("UP")
 press("E")
 assert(main:Page().title == "Play", "Play opens its page")
-local seed = o.state.seed
-assert(press("R") == false and o.state.seed ~= seed and o.state.lobby, "R rolls a new seed for the lobby's run")
+assert(press("R") == true and o.state.seed ~= 12345, "Play has no seed of its own: R goes on to WoW")
 -- Whatever the seed, and so the first zone: the same ground, the same look behind the portal,
 -- the same boxes.
 app.db.profile.biome = "auto"
@@ -1013,7 +1069,7 @@ for i, box in ipairs(o.state.objects) do
     looks[i] = box.seed
 end
 for _ = 1, 8 do
-    press("R")
+    o.state = o:NewState(lobby, app.random.Seed())
     assert(o:GroundCurve() == curve, "the same ground curve with a new seed")
     assert(o:BiomeIdAt(lobby.rim + 5) == lobby.biome, "the lobby's ground behind the portal until the run")
     for i, box in ipairs(o.state.objects) do
@@ -1021,8 +1077,6 @@ for _ = 1, 8 do
     end
 end
 app.db.profile.biome = "elwynn"
-main:Page().items[3].input.set(o, "12345")
-assert(o.state.seed == 12345 and o.state.lobby and o.state.status == "ready", "a seed typed in")
 press("DOWN")
 press("D", "TURNRIGHT")
 assert(
@@ -1065,6 +1119,7 @@ for _ = 1, 20 do
     o:StepApproach(0.1)
 end
 assert(o.screen == nil and o.state.status == "running", "in the lane the run starts")
+assert(not o.state.custom and o.state.seed ~= 12345, "Play's run: a new seed, not Custom's")
 assert(o.state.lateral == lobby.lane and o.state.distance == lobby.seat.walk, "in the lane, its walk ahead")
 assert(o.state.speed == lobby.launch.speed, "slow at first")
 o:OnScreenKey("A", "STRAFELEFT")
@@ -1094,10 +1149,19 @@ local function ended()
     o.state.status = "over"
     o:Render()
 end
-o.state.newBest, o.state.practice = nil, 3000
+local function labels()
+    local list = {}
+    for _, it in ipairs(status:Page().items) do
+        list[#list + 1] = type(it.text) == "string" and it.text or "?"
+    end
+    return table.concat(list, ",")
+end
+assert(not labels():find("Seed options", 1, true), "Play's end: no custom settings")
+o.state.newBest, o.state.custom = nil, true
 ended()
-assert(status:Page().items[1].text == "From 3000 yd: no best score", "a run begun further in says it saves none")
-o.state.practice = nil
+assert(status:Page().items[1].text == "Custom game: no best score", "a custom run says it saves none")
+assert(labels():find("Seed options", 1, true), "and its settings' pages")
+o.state.custom = nil
 ended()
 assert(not status:Page().items[1].note, "a plain run without a new best: no note")
 -- A challenge's end: how much it beat or missed the best before it by, when both reached the
