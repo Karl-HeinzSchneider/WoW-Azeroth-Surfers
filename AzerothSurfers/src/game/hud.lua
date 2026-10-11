@@ -326,7 +326,7 @@ end
 -- it, CHALLENGE_GAP pixels below. Its period, goal, difficulty and time to the reset, its best
 -- and the live target: ahead or behind the best's score at the same distance
 -- (challenges.Target, from the checkpoints saved with the best).
-local CHALLENGE_HEIGHT, CHALLENGE_GAP, ROW = 158, 6, 21
+local CHALLENGE_HEIGHT, CHALLENGE_GAP, ROW = 174, 6, 21
 local LABEL = { 0.72, 0.68, 0.58 }
 local AHEAD = { 0.25, 1, 0.35 }
 local BEHIND = { 1, 0.3, 0.25 }
@@ -370,7 +370,7 @@ function overlay:CreateChallengeCard(scorecard)
     divider:SetHeight(8)
     local best = row(card, first + 3.5 * ROW + 4, "Best")
     best:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
-    local target = row(card, first + 4.5 * ROW + 6, "Target", 18)
+    local target = row(card, first + 4.5 * ROW + 10, "Target", 18)
 
     self.hud.challenge = {
         card = card,
