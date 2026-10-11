@@ -6,12 +6,17 @@ local log, addon = app.logger, app.addon
 -- Only our minimap region's alpha changes once the model is ready.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\icon-gem-zoomed"
 local FOV, ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
+-- About one UI pixel lower within the 17/18-pixel viewport. Raising the camera
+-- offsets the visible model without depending on its native bounds or actor scale.
+local CAMERA_Z = 0.06
+local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
 ---@field button table  # LibDBIcon's button and retained static icon region
 ---@field gem table?  # one persistent ModelScene and actor
 ---@field modelEnabled boolean?
+---@field backdrop table  # opaque black disk and Blizzard's circular mask
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as AzerothSurfers.MinimapButton]]
 
@@ -44,6 +49,16 @@ function module:OnInitialize()
     local icon = LibStub("LibDBIcon-1.0")
     icon:Register(appName, self.ldb, app.db.profile.minimap)
     self.button = icon:GetMinimapButton(appName)
+    -- Follow the library's circular background footprint, including Classic offsets.
+    -- A separate opaque fill removes the stock art's translucent interior.
+    local backdrop = self.button:CreateTexture(nil, "BACKGROUND", nil, 1)
+    backdrop:SetAllPoints(self.button.background)
+    backdrop:SetColorTexture(0, 0, 0, 1)
+    local mask = self.button:CreateMaskTexture()
+    mask:SetAllPoints(backdrop)
+    mask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    backdrop:AddMaskTexture(mask)
+    self.backdrop = { texture = backdrop, mask = mask }
     log:debug("Minimap button registered")
 end
 
@@ -65,7 +80,7 @@ function module:CreateGem()
     scene:SetCameraFarClip(app.overlay.CLIP_FAR)
     scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
     scene:SetCameraFieldOfView(FOV)
-    scene:SetCameraPosition(-0.5 / math.tan(FOV / 2) * 1.15, 0, 0)
+    scene:SetCameraPosition(-0.5 / math.tan(FOV / 2) * 1.15, 0, CAMERA_Z)
     scene:SetLightAmbientColor(0.8, 0.8, 0.8)
     scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
     local actor = scene:CreateActor()

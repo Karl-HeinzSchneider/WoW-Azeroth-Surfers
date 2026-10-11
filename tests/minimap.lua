@@ -118,6 +118,9 @@ methods.GetHeight = methods.GetWidth
 function methods:CreateTexture()
     return frame("Texture", self)
 end
+function methods:CreateMaskTexture()
+    return frame("MaskTexture", self)
+end
 function methods:CreateAnimationGroup()
     return frame("AnimationGroup", self)
 end
