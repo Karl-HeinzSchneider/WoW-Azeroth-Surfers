@@ -34,7 +34,7 @@ the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev too
 | `npm run check:addons`             | TOC entries exist (a `[TextLocale]` entry for every client language), companions, no cycles.          |
 | `npm run check:lua`                | `luac -p` on every addon Lua file (needs Lua 5.1 `luac` on PATH).                                     |
 | `npm run check:xml`                | Every addon XML against Blizzard's `UI.xsd`; skipped without `../_data/BlizzardInterfaceCode`.        |
-| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua` (needs `lua`).                                  |
+| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua`, `leaderboard.lua` (needs `lua`).               |
 | `npm run bench:overlay`            | WoW API calls per frame, offline.                                                                     |
 | `npm run dev:link -- <AddOns dir>` | Links (junctions on Windows) every addon into a client; never replaces a path that isn't our link.    |
 | `npm run package:addons`           | Deterministic `dist/AzerothSurfers-<version>.zip` without development addons and `CLAUDE.md` files.   |

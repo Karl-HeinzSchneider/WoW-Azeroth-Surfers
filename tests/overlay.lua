@@ -12,6 +12,7 @@ dofile("tests/load.lua")(app, {
     "game/random",
     "game/simulation",
     "game/challenges",
+    "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -31,7 +32,7 @@ dofile("tests/load.lua")(app, {
     "game/controls",
 })
 app.db = {
-    global = { bestScore = 0, challenges = {} },
+    global = { bestScore = 0, challenges = {}, leaderboard = {} },
     profile = {
         biome = "elwynn",
         mode = "full",
@@ -842,7 +843,33 @@ for _, item in ipairs(daily.items) do
         assert(type(item.info(o)) == "string")
     end
 end
-assert(daily.items[#daily.items - 1].text(o) == "Play", "no best yet")
+assert(daily.items[#daily.items - 2].text(o) == "Play", "no best yet")
+-- Its leaderboard: nobody's yet, then a best shared in the guild.
+function UnitName()
+    return "Me"
+end
+daily.items[#daily.items - 1].run(o, main)
+local board = main:Page()
+assert(board.title == "Daily leaderboard" and board.extra, board.title)
+main:Show()
+assert(board.items[2].text(o) == "No bests shared yet" and board.items[2].info(o) == "")
+local period = app.challenges.Period("daily")
+app.leaderboard:Receive(
+    app.leaderboard.Encode(period.key, {
+        score = 4321,
+        distance = period.goal,
+        finished = true,
+        coins = 1,
+        coinTotal = 2,
+    }),
+    "GUILD",
+    "Ann"
+)
+main:Show()
+assert(board.items[2].text(o) == "1. Ann" and board.items[2].info(o) == "4321", board.items[2].text(o))
+assert(board.items[3].text(o) == "", "one player")
+press("Q", "STRAFELEFT")
+assert(main:Page() == daily, "back to the challenge")
 press("Q", "STRAFELEFT")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")

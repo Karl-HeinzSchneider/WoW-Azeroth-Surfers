@@ -42,8 +42,8 @@ function overlay:SaveBest()
 end
 
 -- A challenge's run (`s.challenge`, its period) once it is over, at the end or before: its
--- best, if it beats it (challenges.lua). A run left before its end saves
--- nothing.
+-- best, if it beats it (challenges.lua), shared with the guild and the group (leaderboard.lua).
+-- A run left before its end saves nothing.
 function overlay:SaveChallenge(s)
     if s.status ~= "over" then
         return
@@ -60,6 +60,7 @@ function overlay:SaveChallenge(s)
     }
     if app.challenges.Save(s.challenge, record) then
         s.newBest = true
+        app.leaderboard:Share(s.challenge, record)
     end
 end
 

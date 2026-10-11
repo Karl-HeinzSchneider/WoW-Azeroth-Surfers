@@ -164,8 +164,8 @@ function challenges.Best(period)
     end
 end
 
--- Whether `record` beats `best`: reaching the portal first, then the score.
-local function beats(record, best)
+-- Whether `record` beats `best` (nil: none yet): reaching the portal first, then the score.
+function challenges.Beats(record, best)
     if not best then
         return true
     elseif record.finished ~= best.finished then
@@ -177,7 +177,7 @@ end
 -- Keeps `record` (fields as in Best) if it beats the saved one; true then.
 function challenges.Save(period, record)
     local all = app.db.global.challenges
-    if not beats(record, challenges.Best(period)) then
+    if not challenges.Beats(record, challenges.Best(period)) then
         return false
     end
     all[period.key] = record

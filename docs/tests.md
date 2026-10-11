@@ -4,7 +4,7 @@ Plain Lua scripts in `tests/` that load the addon's files outside the client and
 them. No framework, no client, no build.
 
 ```sh
-npm run test:game       # simulation.lua, controls.lua, overlay.lua (stops at the first failure)
+npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua (stops at the first failure)
 npm run bench:overlay   # WoW API calls per frame; not part of test:game or check
 lua tests/simulation.lua  # one file on its own, from the repo root
 ```
@@ -19,6 +19,7 @@ Needs `lua` on PATH. Run from the repo root: paths are relative to it.
 | `simulation.lua`    | The pure game: physics, collisions, coins and streaks, scoring, difficulties, seeds. Every pattern keeps the track's rules and can be run through (a search over inputs). The autopilot. A new run's empty road; a run from the lobby: its gate in front, and its intro collects every coin at every difficulty.            |
 | `controls.lua`      | Input and movement sampling, coin sound, with the few WoW functions it needs defined as globals.                                                                                                                                                                                                                            |
 | `overlay.lua`       | The view with stubbed frames: projection, twin, ground, biomes, light, HUD texts. The title, the main menu and the way into a run from the lobby, the menus' keys (E, Q, R, every other key on to WoW), a new seed leaving the lobby's look alone, the pause and end menus. And that **a running frame allocates nothing**. |
+| `leaderboard.lua`   | The challenges' leaderboard: the messages a best and an ask make, what is kept and what ignored (malformed, out of period, other channels, oneself), how often it asks and answers, the ranking, the bound per period and dropping ended periods.                                                                           |
 | `bench-overlay.lua` | Counts API calls per frame on a generated track. Every frame method is an auto-stub returning nil.                                                                                                                                                                                                                          |
 
 ## How a test looks
@@ -75,6 +76,8 @@ end)
   The per-pattern tests check each pattern alone, so only a full run shows this.
 - **Seeds change.** Any new or changed pattern changes what every seed lays out. Tests compare
   a seed with itself, never with a stored layout; keep it that way.
+- **`app.addon` in tests.** `load.lua` gives a stand-in when a test has none: a module is its
+  prototype's instance, and its AceComm messages land in `module.sent`.
 - **Lua version.** The addon is Lua 5.1, but the `lua` on PATH may be newer and accept what 5.1
   does not (`//`, `goto`, integer formatting). Passing tests do not prove 5.1 syntax:
   `npm run check:lua` does, with a Lua 5.1 `luac`.

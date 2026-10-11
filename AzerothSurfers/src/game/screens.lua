@@ -102,6 +102,73 @@ PAGES.play = {
 -- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
 -- distance all its own), its best, and a run to beat it.
 local GRAY = { 0.7, 0.7, 0.7 }
+-- A challenge's best (challenges.lua's Best): its score, and how far it got if it did not reach
+-- the portal.
+local function scoreText(record)
+    return record.finished and tostring(record.score)
+        or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
+end
+-- Rows of a leaderboard; this player's place below them when it is further down.
+local RANKS = 8
+-- A challenge's leaderboard (leaderboard.lua): the bests of the guild and the group, asked for
+-- when it opens and again by its extra action, and shown as they arrive.
+local function leaderboardPage(period)
+    local board = app.leaderboard
+    board:Ask(period)
+    local function entry(i)
+        return board:Ranked(period)[i]
+    end
+    local function name(e, i)
+        local shown = string.format("%d. %s", i, e.name)
+        return e.me and "|cffffffff" .. shown .. "|r" or shown
+    end
+    local items = { { text = period.label, note = GRAY } }
+    for i = 1, RANKS do
+        items[#items + 1] = {
+            text = function()
+                local e = entry(i)
+                if e then
+                    return name(e, i)
+                end
+                return i == 1 and "No bests shared yet" or ""
+            end,
+            info = function()
+                local e = entry(i)
+                return e and scoreText(e.record) or ""
+            end,
+        }
+    end
+    -- This player's place, should it be below the rows.
+    local function own()
+        local ranked = board:Ranked(period)
+        for i = RANKS + 1, #ranked do
+            if ranked[i].me then
+                return ranked[i], i
+            end
+        end
+    end
+    items[#items + 1] = {
+        text = function()
+            local e, i = own()
+            return e and name(e, i) or ""
+        end,
+        info = function()
+            local e = own()
+            return e and scoreText(e.record) or ""
+        end,
+    }
+    items[#items + 1] = { text = "Back", back = true }
+    return {
+        title = period.kind.name .. " leaderboard",
+        items = items,
+        extra = {
+            text = "Ask again",
+            run = function()
+                board:Ask(period)
+            end,
+        },
+    }
+end
 local challengePage
 function challengePage(id)
     local challenges = app.challenges
@@ -141,12 +208,7 @@ function challengePage(id)
                 text = "Best",
                 info = function()
                     local record = best()
-                    if not record then
-                        return "0"
-                    end
-                    -- One that did not reach the portal: how far it got.
-                    return record.finished and tostring(record.score)
-                        or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
+                    return record and scoreText(record) or "0"
                 end,
             },
             {
@@ -168,6 +230,13 @@ function challengePage(id)
                     else
                         o:PlayChallenge(period)
                     end
+                end,
+            },
+            -- The guild's and the group's bests.
+            {
+                text = "Leaderboard",
+                run = function(_, menu)
+                    menu:Push(leaderboardPage(period))
                 end,
             },
             { text = "Back", back = true },

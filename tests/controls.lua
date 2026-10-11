@@ -3,6 +3,7 @@ dofile("tests/load.lua")(app, {
     "game/random",
     "game/simulation",
     "game/challenges",
+    "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -405,7 +406,7 @@ print("PASS the start point from the main menu, and for restarts only with a kep
 
 -- A challenge: its seed and difficulty through zones to its goal, whatever the profile's seed,
 -- difficulty and start; every restart the same; the best saved once over.
-app.db.global.challenges = {}
+app.db.global.challenges, app.db.global.leaderboard = {}, {}
 function GetServerTime()
     return 20736 * 86400 + 12 * 3600
 end

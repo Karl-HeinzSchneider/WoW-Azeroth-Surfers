@@ -12,8 +12,8 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it; one that
    derives from or borrows another's, as Teldrassil and Tirisfal do Elwynn's, after that one), the
    transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
-   `simulation` → `challenges` → `track` → `patterns\patterns.xml` → `autopilot`, then `light`
-   and `shapes`, then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin
+   `simulation` → `challenges` → `leaderboard` → `track` → `patterns\patterns.xml` →
+   `autopilot`, then `light` and `shapes`, then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin
    comes before the XML that names it.
 4. `AzerothSurfers.lua` last; it only logs.
 
@@ -25,7 +25,7 @@ and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, nev
 - `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,
   `log:chat(...)` is unfiltered user output, `log:dump(tbl)` at DEBUG.
 - `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
-  `bestScore`, `challenges`).
+  `bestScore`, `challenges`, `leaderboard`).
 - `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
@@ -66,6 +66,14 @@ default in `db.lua` and an entry in `options.lua`.
   portal and nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`).
   Its best per period is in `global.challenges` (`Best`, `Save`: reaching the portal first,
   then the score); it never counts as the endless best score.
+- `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
+  the guild and the group, no server. A new best goes out on GUILD and PARTY or RAID (`Share`);
+  opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel
+  every `ASK_EVERY`), and whoever has one answers on that channel (once every `ANSWER_EVERY`).
+  The message format is at the top of the file. Only the current periods' bests are kept, in
+  `global.leaderboard` by key then sender; anything malformed, from another period, another
+  channel or another protocol version is ignored. `Ranked(period)` sorts them with the player's
+  own as challenges.lua does (`Beats`).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
