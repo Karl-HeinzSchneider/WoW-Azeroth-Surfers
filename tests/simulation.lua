@@ -1103,3 +1103,14 @@ stopped.forward = false
 advance(stopped, 0.2, 60)
 assert(stopped.distance == distance)
 print("PASS track advances only with forward movement; jumps still land while stopped")
+
+-- The run's time: seconds past `start`, paused time not counted.
+local timed = fresh()
+timed.start = 1
+advance(timed, 2, 60)
+assert(math.abs(timed.time - (2 - 1 / timed.speed)) < 0.05, "time counts from `start`: " .. timed.time)
+g.Pause(timed)
+advance(timed, 1, 60)
+local paused = timed.time
+assert(math.abs(paused - (2 - 1 / timed.speed)) < 0.05, "paused time is not counted")
+print("PASS the run's time counts from its start, without pauses")

@@ -134,8 +134,10 @@ default in `db.lua` and an entry in `options.lua`.
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score; where it sits, `profile.hud`: beside the pause menu, a top corner or the top
-    centre; under it during a challenge the challenge card: its period, goal, difficulty, time
-    to the reset, best and the live target, ahead or behind the best at this distance),
+    centre; its extra info, `HUD_INFO` rows turned on in `profile.hudInfo`, a section under a
+    divider that makes the card taller, redrawn every `INFO_EVERY`; under it during a
+    challenge the challenge card: its period, goal, difficulty, time to the reset, best and the
+    live target, ahead or behind the best at this distance),
     `legend.lua` (the running keys, below the scorecard and the challenge card).
   - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
     difficulty; full screen, they hang from one top line); a challenge's own pause and end

@@ -121,6 +121,156 @@ local function show(c, value)
     end
 end
 
+-- A card's rows: ROW pixels apart, labels in LABEL.
+local ROW = 21
+local LABEL = { 0.72, 0.68, 0.58 }
+
+-- A label on the left and its value on the right, centred `y` pixels under the card's top.
+-- Returns the value and the label.
+local function row(card, y, name, size)
+    local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("LEFT", card, "TOPLEFT", INSET, -y)
+    label:SetText(name)
+    label:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
+    local value = text(card, size or 15)
+    value:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -y)
+    return value, label
+end
+
+-- Extra info for those who want it, each shown when its option is on (profile.hudInfo): a
+-- section of the scorecard under a divider, one row each in this order, none by default.
+-- `value(o, s)` is what the row shows, a number or a table or string kept as it is (nothing
+-- built), and `write(t, value)` writes it, only when it changed. Redrawn every INFO_EVERY
+-- seconds.
+local INFO_EVERY = 0.25
+-- The section's divider and its first row's centre, under the card's own height.
+local INFO_DIVIDER, INFO_FIRST, INFO_BOTTOM = 6, 14, 22
+local function number(t, value)
+    t:SetFormattedText("%d", value)
+end
+local function name(t, value)
+    t:SetText(value.name)
+end
+-- A number or -1 for none ("-").
+local function orNone(format)
+    return function(t, value)
+        if value < 0 then
+            t:SetText("-")
+        else
+            t:SetFormattedText(format, value)
+        end
+    end
+end
+overlay.HUD_INFO = {
+    {
+        id = "seed",
+        name = "Seed",
+        desc = "The run's seed: type it in the pause menu to run the same track again.",
+        value = function(_, s)
+            return s.seed
+        end,
+        write = function(t, value)
+            -- Seeds may pass what %d takes.
+            t:SetFormattedText("%.0f", value)
+        end,
+    },
+    {
+        id = "time",
+        name = "Time",
+        desc = "How long the run has lasted, paused time not counted.",
+        value = function(_, s)
+            return math.floor(s.time)
+        end,
+        write = function(t, value)
+            if value < 60 then
+                t:SetFormattedText("%ds", value)
+            elseif value < 3600 then
+                t:SetFormattedText("%dm %02ds", math.floor(value / 60), value % 60)
+            else
+                t:SetFormattedText("%dh %02dm", math.floor(value / 3600), math.floor(value % 3600 / 60))
+            end
+        end,
+    },
+    {
+        id = "fps",
+        name = "FPS",
+        desc = "Frames per second the game draws.",
+        value = function()
+            return math.floor(GetFramerate() + 0.5)
+        end,
+        write = number,
+    },
+    {
+        id = "speed",
+        name = "Speed",
+        desc = "How fast the runner runs, in yards per second. It rises the further a run goes, up to the difficulty's top speed.",
+        value = function(_, s)
+            return math.floor(s.speed * 10 + 0.5)
+        end,
+        write = function(t, value)
+            t:SetFormattedText("%.1f yd/s", value / 10)
+        end,
+    },
+    {
+        id = "biome",
+        name = "Biome",
+        desc = "The region the road runs through.",
+        value = function(o)
+            return o.biome
+        end,
+        write = name,
+    },
+    {
+        id = "portal",
+        name = "Next portal",
+        desc = "Yards to the next portal: into the next zone, or a challenge's last one.",
+        value = function(_, s)
+            local at = s.gates and s.gates[s.gatesPassed + 1]
+            return at and math.max(0, math.floor(at - s.distance)) or -1
+        end,
+        write = orNone("%d yd"),
+    },
+    {
+        id = "difficulty",
+        name = "Difficulty",
+        desc = "The run's difficulty.",
+        value = function(_, s)
+            return s.difficulty
+        end,
+        write = name,
+    },
+    {
+        id = "coinRate",
+        name = "Coins taken",
+        desc = "The share of the coins that came past that you collected.",
+        value = function(_, s)
+            return s.coinTotal > 0 and math.floor(100 * s.coins / s.coinTotal) or -1
+        end,
+        write = orNone("%d%%"),
+    },
+    {
+        id = "bestStreak",
+        name = "Best streak",
+        desc = "The run's longest streak of coins.",
+        value = function(_, s)
+            return s.bestStreak
+        end,
+        write = number,
+    },
+    {
+        id = "best",
+        name = "Best score",
+        desc = "The score to beat: your best, or during a challenge its best.",
+        value = function(_, s)
+            if s.challenge then
+                return s.target and s.target.score or -1
+            end
+            return app.db.global.bestScore
+        end,
+        write = orNone("%d"),
+    },
+}
+
 function overlay:CreateHud(f)
     local hud = CreateFrame("Frame", nil, f)
     self:Stack(hud, "hud")
@@ -152,10 +302,11 @@ function overlay:CreateHud(f)
 
     local coinPanel = panel(card)
     coinPanel:SetHeight(24)
-    coinPanel:SetPoint("BOTTOMLEFT", INSET - PAD, 13)
+    -- From the top: the extra info widens the card below them.
+    coinPanel:SetPoint("BOTTOMLEFT", card, "TOPLEFT", INSET - PAD, 13 - CARD_HEIGHT)
     local coin = gem(coinPanel)
     local distance = text(card, 15)
-    distance:SetPoint("BOTTOMRIGHT", -INSET, 18)
+    distance:SetPoint("BOTTOMRIGHT", card, "TOPRIGHT", -INSET, 18 - CARD_HEIGHT)
     distance:SetTextColor(0.78, 0.78, 0.78)
 
     -- Follows the twin's square, which follows the character on screen.
@@ -178,8 +329,80 @@ function overlay:CreateHud(f)
         gem = coin,
         streakPanel = streakPanel,
         streak = streak,
+        info = self:CreateHudInfo(card),
     }
     self:CreateChallengeCard(card)
+end
+
+-- Every row of HUD_INFO, hidden until LayoutHudInfo places the ones turned on.
+function overlay:CreateHudInfo(card)
+    local divider = card:CreateTexture(nil, "ARTWORK")
+    divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
+    divider:SetPoint("TOPLEFT", INSET - 4, INFO_DIVIDER - CARD_HEIGHT)
+    divider:SetPoint("TOPRIGHT", -INSET + 4, INFO_DIVIDER - CARD_HEIGHT)
+    divider:SetHeight(8)
+    divider:Hide()
+    local info = { divider = divider, rows = {}, count = 0, room = 0 }
+    for i, stat in ipairs(overlay.HUD_INFO) do
+        local value, label = row(card, CARD_HEIGHT, stat.name, 14)
+        value:Hide()
+        label:Hide()
+        info.rows[i] = { stat = stat, value = value, label = label }
+    end
+    -- The rows turned on, in order.
+    info.shown = {}
+    return info
+end
+
+-- Shows the rows turned on and makes the card tall enough for them, from PlaceHud.
+function overlay:LayoutHudInfo()
+    local info, card, on = self.hud.info, self.hud.card, app.db.profile.hudInfo or {}
+    local count = 0
+    for _, r in ipairs(info.rows) do
+        local shown = on[r.stat.id] == true
+        r.value:SetShown(shown)
+        r.label:SetShown(shown)
+        -- Written anew once shown.
+        r.written = nil
+        if shown then
+            count = count + 1
+            info.shown[count] = r
+            local y = CARD_HEIGHT + INFO_FIRST + (count - 1) * ROW
+            r.label:ClearAllPoints()
+            r.label:SetPoint("LEFT", card, "TOPLEFT", INSET, -y)
+            r.value:ClearAllPoints()
+            r.value:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -y)
+        end
+    end
+    for i = count + 1, #info.shown do
+        info.shown[i] = nil
+    end
+    info.count, info.at = count, nil
+    info.room = count > 0 and INFO_FIRST + (count - 1) * ROW + INFO_BOTTOM or 0
+    info.divider:SetShown(count > 0)
+    card:SetHeight(CARD_HEIGHT + info.room)
+end
+
+-- Room the extra info adds under the scorecard, at its scale. PlaceLegend keeps clear of it.
+function overlay:HudInfoRoom()
+    return self.hud.info.room
+end
+
+-- From ShowHud, every INFO_EVERY seconds: each row written only when its value changed.
+function overlay:ShowHudInfo(s, now)
+    local info = self.hud.info
+    if info.count == 0 or (info.at and now - info.at < INFO_EVERY) then
+        return
+    end
+    info.at = now
+    for i = 1, info.count do
+        local r = info.shown[i]
+        local value = r.stat.value(self, s)
+        if r.written ~= value then
+            r.written = value
+            r.stat.write(r.value, value)
+        end
+    end
 end
 
 -- Where the scorecard may sit (profile.hud.position), each by its corner that stays put as the
@@ -199,6 +422,7 @@ function overlay:PlaceHud(side, top)
         position = "topright"
     end
     self.hudPosition = position
+    self:LayoutHudInfo()
     local point, scale = POSITIONS[position], side and SIDE_SCALE or 1
     hud:SetScale(scale)
     hud:ClearAllPoints()
@@ -278,6 +502,7 @@ function overlay:ShowHud()
             hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
         end
     end
+    self:ShowHudInfo(s, now)
     self:ShowChallengeCard(shown, now)
     self:ShowHudCoin(shown, now)
 end
@@ -326,23 +551,11 @@ end
 -- it, CHALLENGE_GAP pixels below. Its period, goal, difficulty and time to the reset, its best
 -- and the live target: ahead or behind the best's score at the same distance
 -- (challenges.Target, from the checkpoints saved with the best).
-local CHALLENGE_HEIGHT, CHALLENGE_GAP, ROW = 174, 6, 21
-local LABEL = { 0.72, 0.68, 0.58 }
+local CHALLENGE_HEIGHT, CHALLENGE_GAP = 174, 6
 local AHEAD = { 0.25, 1, 0.35 }
 local BEHIND = { 1, 0.3, 0.25 }
 local QUIET = { 0.78, 0.78, 0.78 }
 local DAY = 86400
-
--- A label on the left and its value on the right, centred `y` pixels under the card's top.
-local function row(card, y, name, size)
-    local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    label:SetPoint("LEFT", card, "TOPLEFT", INSET, -y)
-    label:SetText(name)
-    label:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
-    local value = text(card, size or 15)
-    value:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -y)
-    return value
-end
 
 function overlay:CreateChallengeCard(scorecard)
     local card = CreateFrame("Frame", nil, self.hud.frame, "DialogBorderTemplate")

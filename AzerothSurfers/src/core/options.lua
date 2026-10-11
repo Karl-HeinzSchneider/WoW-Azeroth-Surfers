@@ -705,8 +705,31 @@ local options = {
     },
 }
 
+-- The scorecard's extra info under its position: a toggle per row of hud.lua's HUD_INFO. Built
+-- in OnInitialize: hud.lua loads after this file.
+local function addHudInfo(args)
+    args.hudInfoHeader = header(30, "Scorecard: extra info")
+    args.hudInfoHelp = text(31, "Shown in a section of their own under the score, in this order, while one is on.")
+    for i, stat in ipairs(app.overlay.HUD_INFO) do
+        args["hudInfo_" .. stat.id] = {
+            type = "toggle",
+            order = 31 + i,
+            name = stat.name,
+            desc = stat.desc,
+            get = function()
+                return app.db.profile.hudInfo[stat.id]
+            end,
+            set = function(_, value)
+                app.db.profile.hudInfo[stat.id] = value
+                placeHud()
+            end,
+        }
+    end
+end
+
 function module:OnInitialize()
     registerGamepadKey()
+    addHudInfo(display.args)
     options.args.keys = keysTab()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100
