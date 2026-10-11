@@ -8,6 +8,7 @@
 src\dev.lua
 src\diagnostics.lua
 src\preview.lua
+src\icon.lua
 src\animations.lua
 src\assets.lua
 src\playtest.lua
