@@ -11,6 +11,17 @@ const dependencies = new Map<string, string[]>();
 
 if (!names.has(core)) failures.push(`missing the main addon ${core}/${core}.toc (package-as in .pkgmeta)`);
 
+// A loader XML's <Script> and <Include> files are resolved from its own folder and must exist too.
+// Vendored libraries (lib/) are left as they ship: AceConfig includes a file it doesn't bundle.
+function checkXml(xml: string) {
+  if (/[\\/]lib[\\/]/.test(relative(ROOT, xml))) return;
+  for (const [, file = ""] of readFileSync(xml, "utf-8").matchAll(/<(?:Script|Include)\s+file="([^"]+)"/g)) {
+    const path = resolve(dirname(xml), file.replace(/\\/g, "/"));
+    if (!existsSync(path)) failures.push(`${relative(ROOT, xml)}: missing file ${file}`);
+    else if (path.endsWith(".xml")) checkXml(path);
+  }
+}
+
 for (const addon of addons) {
   const toc = readFileSync(addon.toc, "utf-8");
   const dependencyLine = /^## (?:Dependencies|RequiredDeps):\s*(.*)$/m.exec(toc)?.[1] ?? "";
@@ -36,8 +47,10 @@ for (const addon of addons) {
     // missing, so it has to exist for every client language.
     const locales: string[] = path.includes("[TextLocale]") ? [...CLIENT_LOCALES] : [""];
     for (const locale of locales) {
-      if (!existsSync(path.replaceAll("[TextLocale]", locale)))
+      const file = path.replaceAll("[TextLocale]", locale);
+      if (!existsSync(file))
         failures.push(`${relative(ROOT, addon.toc)}: missing load entry ${entry}${locale && ` for ${locale}`}`);
+      else if (file.endsWith(".xml")) checkXml(file);
     }
   }
 }

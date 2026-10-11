@@ -2,13 +2,7 @@
 local function fresh()
     local app = {}
     dofile("tests/load.lua")(app, {
-        "game/biomes",
-        "biomes/default",
-        "biomes/elwynn",
-        "biomes/durotar",
-        "biomes/teldrassil",
-        "biomes/tirisfal",
-        "biomes/transitions/dream",
+        "biomes/biomes.xml",
         "scenes/lobby",
     })
     return app

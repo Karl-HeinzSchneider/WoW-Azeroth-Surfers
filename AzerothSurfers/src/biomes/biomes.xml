@@ -1,0 +1,12 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- The biome registry (src/game/biomes.lua), then the biomes: default.lua first, new ones
+         after it, one that derives from or borrows another's after that one, then the
+         transitions. -->
+    <Script file="..\game\biomes.lua"/>
+    <Script file="default.lua"/>
+    <Script file="elwynn.lua"/>
+    <Script file="durotar.lua"/>
+    <Script file="teldrassil.lua"/>
+    <Script file="tirisfal.lua"/>
+    <Script file="transitions\dream.lua"/>
+</Ui>
