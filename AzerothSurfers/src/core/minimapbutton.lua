@@ -65,7 +65,8 @@ function module:PositionIcon()
     texture.UpdateCoord = fullIconCoords
     texture:UpdateCoord()
     texture:ClearAllPoints()
-    texture:SetAllPoints(self.backdrop.fill)
+    texture:SetPoint("TOPLEFT", self.backdrop.fill, "TOPLEFT", -2, 0)
+    texture:SetPoint("BOTTOMRIGHT", self.backdrop.fill, "BOTTOMRIGHT", -2, 0)
 end
 
 function module:PositionBackdrop(button)

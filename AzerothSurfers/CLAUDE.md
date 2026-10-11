@@ -67,7 +67,8 @@ display's existing voice wins. Other local constants in rendering/control code a
   and slightly overlaps the inner rim to cover fading alpha and background seams.
   The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
   `icon-gem.tga` retains the wider variant.
-  The minimap image fills and centers on the circular backing (at least 26 UI pixels).
+  The minimap image fills the circular backing's size (at least 26 UI pixels), shifted
+  two UI pixels left from its center.
   Its own UpdateCoord method keeps full 0–1 texture coordinates on reset, press, release
   and drag, preventing LibDBIcon's default 5% crop and pressed-state size change. Registration
   and profile refresh reapply the layout without changing the rim, hit area or input scripts.
