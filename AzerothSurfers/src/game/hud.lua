@@ -6,8 +6,6 @@ local sim = app.simulation
 -- counters steady and updates avoid allocating strings during a run.
 local overlay = app.overlay
 
-local STAR = "Interface\\TargetingFrame\\UI-RaidTargetingIcon_1"
-local COIN = "Interface\\MoneyFrame\\UI-GoldIcon"
 -- At scale 1 (full screen); the side window scales by SIDE_SCALE.
 local HEIGHT, PAD, ICON = 32, 10, 18
 local CARD_WIDTH, CARD_HEIGHT, INSET = 280, 116, 18
@@ -18,8 +16,13 @@ local MULTIPLIER_WIDTH = 70
 local SIDE_SCALE = 0.75
 -- Seconds between redraws of the running score.
 local SCORE_EVERY = 0.05
--- The star's pop when the multiplier goes up: seconds, and growth.
-local POP, POP_GROW = 0.3, 0.4
+-- The coin beside the coins: the run's coin model in a scene of its own, GEM pixels square,
+-- spinning as the coins on the road do. Its camera's field of view (radians) and the room around
+-- the model.
+local GEM, GEM_FOV, GEM_MARGIN = 32, 0.5, 1.15
+-- The gem fills a small part of its model's bounds (its glow reaches further): drawn this many
+-- times as big as the bounds fitted to the scene.
+local GEM_ZOOM = 2.5
 -- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
@@ -55,12 +58,26 @@ local function text(parent, size)
     return t
 end
 
-local function icon(parent, texture)
-    local t = parent:CreateTexture(nil, "ARTWORK")
-    t:SetTexture(texture)
-    t:SetSize(ICON, ICON)
-    t:SetPoint("CENTER", parent, "LEFT", PAD + ICON / 2, 0)
-    return t
+-- Its camera looks along +x at the model in the middle. Lit evenly, day or night. Set up as the
+-- twin's own scene was before it joined the world scene: its model on the scene's top layer, the
+-- road's clip planes.
+local function gem(parent)
+    local scene = CreateFrame("ModelScene", nil, parent)
+    scene:EnableMouse(false)
+    scene:SetDrawLayer("OVERLAY")
+    scene:SetCameraNearClip(overlay.CLIP_NEAR)
+    scene:SetCameraFarClip(overlay.CLIP_FAR)
+    scene:SetSize(GEM, GEM)
+    scene:SetPoint("CENTER", parent, "LEFT", PAD + ICON / 2, 0)
+    scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
+    scene:SetCameraFieldOfView(GEM_FOV)
+    scene:SetLightAmbientColor(0.8, 0.8, 0.8)
+    scene:SetLightDiffuseColor(0.8, 0.8, 0.8)
+    local actor = scene:CreateActor()
+    actor:SetUseCenterForOrigin(true, true, true)
+    actor:SetPosition(0, 0, 0)
+    actor:Hide()
+    return { scene = scene, actor = actor }
 end
 
 -- Right-aligned, one cell as wide as the widest digit per digit. `extra`: room left of the
@@ -111,8 +128,7 @@ function overlay:CreateHud(f)
     hud:Hide()
 
     local card = CreateFrame("Frame", nil, hud, "DialogBorderTemplate")
-    card:ClearAllPoints()
-    card:SetPoint("TOPRIGHT")
+    -- Anchored by its position's corner (PlaceHud).
     card:SetSize(CARD_WIDTH, CARD_HEIGHT)
     local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("TOPLEFT", INSET, -14)
@@ -125,9 +141,8 @@ function overlay:CreateHud(f)
     local multiplierPanel = panel(card)
     multiplierPanel:SetPoint("TOPRIGHT", -INSET, -31)
     multiplierPanel:SetWidth(MULTIPLIER_WIDTH)
-    local star = icon(multiplierPanel, STAR)
     local multiplier = text(multiplierPanel, MULTIPLIER_SIZE)
-    multiplier:SetPoint("LEFT", PAD + ICON + 4, 0)
+    multiplier:SetPoint("RIGHT", 0, 0)
 
     local divider = card:CreateTexture(nil, "ARTWORK")
     divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
@@ -138,7 +153,7 @@ function overlay:CreateHud(f)
     local coinPanel = panel(card)
     coinPanel:SetHeight(24)
     coinPanel:SetPoint("BOTTOMLEFT", INSET - PAD, 13)
-    icon(coinPanel, COIN)
+    local coin = gem(coinPanel)
     local distance = text(card, 15)
     distance:SetPoint("BOTTOMRIGHT", -INSET, 18)
     distance:SetTextColor(0.78, 0.78, 0.78)
@@ -158,33 +173,54 @@ function overlay:CreateHud(f)
         distance = distance,
         multiplierPanel = multiplierPanel,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
-        coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 8),
+        coins = counter(coinPanel, COINS_SIZE, COINS_DIGITS, ICON + 14),
         multiplier = multiplier,
-        star = star,
+        gem = coin,
         streakPanel = streakPanel,
         streak = streak,
     }
 end
 
--- `top`: where the view's free area starts, under a full-screen frame's title bar.
-function overlay:PlaceHud(side, w, h, top)
-    local hud = self.hud.frame
-    hud:ClearAllPoints()
-    if side then
-        hud:SetScale(SIDE_SCALE)
-        -- Under the buttons' row, if any; offsets count in the display's own scale.
-        local y = top - (self.framed and 8 or 40)
-        hud:SetPoint("TOPRIGHT", self.frame, "TOPRIGHT", -8 / SIDE_SCALE, y / SIDE_SCALE)
-    else
-        hud:SetScale(1)
-        -- Keep the score in the player's field of view, right of the road above the horizon.
-        local x = math.min(0.62 * h, w / 2 - 16)
-        local y = math.min(0.36 * h, h / 2 + top - 48)
-        hud:SetPoint("TOPRIGHT", self.frame, "CENTER", x, y)
+-- Where the scorecard may sit (profile.hud.position), each by its corner that stays put as the
+-- card widens. "menu" is full screen only: the card's top left beside the pause and end menus'
+-- top right, MENU_GAP pixels apart; in the side window it is "topright".
+local POSITIONS = { menu = "TOPLEFT", topright = "TOPRIGHT", top = "TOP", topleft = "TOPLEFT" }
+local MENU_GAP = 12
+-- From the view's edges; "top" under the buttons' row (window.lua's controls) at the centre.
+local EDGE, UNDER_BUTTONS = 16, 48
+
+-- `top`: where the view's free area starts, under a full-screen frame's title bar. Sets
+-- `hudPosition`, the position used (PlaceLegend keeps clear of it).
+function overlay:PlaceHud(side, top)
+    local hud, saved = self.hud.frame, app.db.profile.hud
+    local position = POSITIONS[saved.position] and saved.position or "menu"
+    if side and position == "menu" then
+        position = "topright"
     end
+    self.hudPosition = position
+    local point, scale = POSITIONS[position], side and SIDE_SCALE or 1
+    hud:SetScale(scale)
+    hud:ClearAllPoints()
+    self.hud.card:ClearAllPoints()
+    self.hud.card:SetPoint(point)
+    -- Offsets count in the display's own scale.
+    local x, y = saved.x / scale, saved.y / scale
+    if position == "menu" then
+        hud:SetPoint(point, self.statusMenu.panel, "TOPRIGHT", MENU_GAP + x, y)
+        return
+    end
+    -- Under the buttons' row, if any.
+    local edge = side and 8 or EDGE
+    local below = top - (side and (self.framed and 8 or 40) or (position == "top" and UNDER_BUTTONS or EDGE))
+    if position == "top" then
+        edge = 0
+    elseif position == "topright" then
+        edge = -edge
+    end
+    hud:SetPoint(point, self.frame, point, edge / scale + x, below / scale + y)
 end
 
--- Once a frame: numbers redrawn only when they change (no strings built), and the star's pop.
+-- Once a frame: numbers redrawn only when they change (no strings built), and the coin's spin.
 function overlay:ShowHud()
     local s, hud = self.state, self.hud
     local shown = self.hudShown or {}
@@ -208,10 +244,6 @@ function overlay:ShowHud()
         show(hud.coins, s.coins)
     end
     if shown.multiplier ~= s.multiplier then
-        -- A new run starts at x1 without a pop.
-        if shown.multiplier and s.multiplier > shown.multiplier then
-            shown.starPop = now
-        end
         shown.multiplier = s.multiplier
         hud.multiplier:SetFormattedText("x%d", s.multiplier)
         local color = s.multiplier > 1 and BOOST or GOLD
@@ -224,7 +256,7 @@ function overlay:ShowHud()
     end
     if shown.layoutScore ~= hud.score.shown or shown.layoutMultiplier ~= s.multiplier then
         shown.layoutScore, shown.layoutMultiplier = hud.score.shown, s.multiplier
-        local multiplierWidth = math.max(MULTIPLIER_WIDTH, (hud.multiplier:GetStringWidth() or 0) + PAD + ICON + 4)
+        local multiplierWidth = math.max(MULTIPLIER_WIDTH, (hud.multiplier:GetStringWidth() or 0) + PAD)
         hud.multiplierPanel:SetWidth(multiplierWidth)
         hud.card:SetWidth(math.max(CARD_WIDTH, hud.score.panel:GetWidth() + multiplierWidth + 2 * INSET + 12))
     end
@@ -240,14 +272,45 @@ function overlay:ShowHud()
             hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
         end
     end
-    local since = shown.starPop and now - shown.starPop
-    if since then
-        local size = ICON
-        if since < POP then
-            size = ICON * (1 + POP_GROW * math.sin(math.pi * since / POP))
-        else
-            shown.starPop = nil
+    self:ShowHudCoin(shown, now)
+end
+
+-- The run's coin model (overlay.lua's LoadCoinModel), measured in its own actor once loaded:
+-- scaled to GEM_ZOOM, the camera as far as a side of 1 fills the scene.
+function overlay:ShowHudCoin(shown, now)
+    local coin = self.hud.gem
+    local entry = self.coinReady and self.biome.coin.models[self.coinModel]
+    local model = entry and entry.model or false
+    local actor = coin.actor
+    if shown.coinModel ~= model then
+        shown.coinModel, shown.coinFitted, shown.coinSince = model, false, now
+        -- Actors have Show and Hide, no SetShown.
+        if not model then
+            actor:Hide()
+            return
         end
-        hud.star:SetSize(size, size)
+        actor:Show()
+        actor:SetScale(1)
+        actor:SetPitch(self.coinPitch or 0)
+        actor:SetModelByFileID(model)
+        local distance = 0.5 / math.tan(GEM_FOV / 2) * GEM_MARGIN
+        coin.scene:SetCameraPosition(-distance, 0, 0)
+        app.logger:debug("Scorecard coin: model %d", model)
     end
+    if not model then
+        return
+    end
+    if not shown.coinFitted then
+        local minX, minY, minZ, maxX, maxY, maxZ = overlay.Extents(actor)
+        local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0
+        if size > 0.001 then
+            shown.coinFitted = true
+            actor:SetScale(GEM_ZOOM / size)
+            app.logger:debug("Scorecard coin: loaded, size %.3f", size)
+        elseif now - shown.coinSince > 3 then
+            shown.coinFitted = true
+            app.logger:debug("Scorecard coin: model %d did not load", model)
+        end
+    end
+    actor:SetYaw(now * 3)
 end

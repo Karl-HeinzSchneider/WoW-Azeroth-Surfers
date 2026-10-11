@@ -98,9 +98,11 @@ default in `db.lua` and an entry in `options.lua`.
     two keys and two gamepad buttons each, `profile.keys` over their defaults; `KeyAction`,
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
-    (score), `legend.lua` (the running keys).
+    (score; where it sits, `profile.hud`: beside the pause menu, a top corner or the top
+    centre), `legend.lua` (the running keys).
   - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
-    difficulty), announcements, the gate's flash and vortex.
+    difficulty; full screen, they hang from one top line), announcements, the gate's flash and
+    vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action. `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's

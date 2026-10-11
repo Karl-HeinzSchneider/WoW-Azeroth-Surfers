@@ -36,6 +36,7 @@ app.db = {
         mode = "full",
         capture = false,
         frame = { full = false, side = true },
+        hud = { position = "menu", x = 0, y = 0 },
         side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
         overlay = {
             twinScale = 1,

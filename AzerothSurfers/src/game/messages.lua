@@ -12,6 +12,9 @@ local overlay = app.overlay
 local SIDE_SCALE = 0.8
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
+-- Full screen: the menus' top line (PlaceMessages). About half the pause menu's height, and the
+-- room left for the buttons' row above it.
+local MENU_RAISE, PAUSE_HALF, MENU_TOP = 0.12, 280, 48
 local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
 -- The pull, by the portal's distance from the camera (which goes through last): it builds from
 -- VORTEX_FROM yards and fades over VORTEX_THROUGH after; in the last VORTEX_AROUND yards the
@@ -241,7 +244,6 @@ function overlay:CreateMessages(f)
     holder:SetSize(1, 1)
     holder:Hide()
     self.statusMenu = self:CreateMenu(holder)
-    self.statusMenu.panel:SetPoint("CENTER", holder, "CENTER", 0, 0)
     self.statusHolder = holder
 
     local banner = CreateFrame("Frame", nil, f)
@@ -298,13 +300,24 @@ function overlay:CreateMessages(f)
     }
 end
 
-function overlay:PlaceMessages(side, h)
+-- Full screen, the pause and end menus hang from one top line (the scorecard's beside them):
+-- where the pause menu's top was when it was centred MENU_RAISE of the height above the
+-- middle, at most MENU_TOP under the top (the buttons' row). The side window centres them.
+function overlay:PlaceMessages(side, h, top)
     local panel, banner = self.statusHolder, self.banner.frame
+    local menu = self.statusMenu.panel
     -- Offsets count in the frame's own scale.
     local scale = side and SIDE_SCALE or 1
     panel:SetScale(scale)
     panel:ClearAllPoints()
-    panel:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.05 or 0.12) * h / scale)
+    panel:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.05 or MENU_RAISE) * h / scale)
+    menu:ClearAllPoints()
+    if side then
+        menu:SetPoint("CENTER", panel, "CENTER", 0, 0)
+    else
+        local y = math.min(MENU_RAISE * h + PAUSE_HALF, h / 2 + top - MENU_TOP)
+        menu:SetPoint("TOP", self.frame, "CENTER", 0, y)
+    end
     scale = side and BANNER_SIDE_SCALE or 1
     banner:SetScale(scale)
     banner:ClearAllPoints()
