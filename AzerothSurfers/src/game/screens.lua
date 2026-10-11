@@ -110,16 +110,15 @@ local function scoreText(record)
 end
 -- Rows of a leaderboard; this player's place below them when it is further down.
 local RANKS = 8
--- The most letters of a first name and of a surname (WoW Forever's; other clients have no
--- surname).
-local NAME_LETTERS = 12
--- A leaderboard is a table (menus.lua): its name column as wide as the longest name can be, a
--- place and a first name and surname of NAME_LETTERS each (a wide capital, then wide letters;
--- another realm's "-Realm" is cut), then score, distance and coins, as wide as the most
--- leaderboard.lua takes of each.
+-- A full name as long as names get: a first name and a surname of 12 letters each (WoW's
+-- limit; other clients have no surname), of letters as wide as names have on average.
+local LONG_NAME = "Zimtschnecke Zimtschnecke"
+-- A leaderboard is a table (menus.lua): its name column as wide as a place and LONG_NAME (a name
+-- of wider letters, or another realm's "-Realm", is cut), then score, distance and coins, as
+-- wide as the most leaderboard.lua takes of each.
 local BOARD = {
     size = 20,
-    label = "99. W" .. string.rep("w", NAME_LETTERS - 1) .. " W" .. string.rep("w", NAME_LETTERS - 1),
+    label = "99. " .. LONG_NAME,
     values = {
         tostring(app.leaderboard.MOST_SCORE),
         "9999 yd",
