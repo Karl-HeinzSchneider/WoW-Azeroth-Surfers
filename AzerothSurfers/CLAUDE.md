@@ -68,6 +68,8 @@ default in `db.lua` and an entry in `options.lua`.
   the fanfare with the portal sounds). Its best per period is in `global.challenges` (`Best`,
   `Save`: reaching the portal first, then the score); it never counts as the endless best score.
   The end menu says how much the run beat or missed the best before it by (`s.lastBest`).
+  A challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved
+  with its best, for the live target (`Target`: the best's score at a distance).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
@@ -111,7 +113,8 @@ default in `db.lua` and an entry in `options.lua`.
     `ActionKey`, `Chord`; what shows keys shows Key 1, or Gamepad 1 since a gamepad was used:
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score; where it sits, `profile.hud`: beside the pause menu, a top corner or the top
-    centre), `legend.lua` (the running keys).
+    centre; under it during a challenge the challenge card: its period, goal, difficulty, time
+    to the reset, best and the live target, ahead or behind the best at this distance), `legend.lua` (the running keys).
   - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
     difficulty; full screen, they hang from one top line), announcements, the gate's flash and
     vortex.

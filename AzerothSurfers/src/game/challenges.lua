@@ -155,7 +155,8 @@ end
 
 -- The saved best of `period`, or nil. In `global.challenges`, by the period's key:
 --   score, coins, coinTotal, distance (yards), finished (reached the last portal),
---   difficulty (its id), goal (yards), at (seconds since 1970, UTC)
+--   difficulty (its id), goal (yards), at (seconds since 1970, UTC),
+--   trace, traceEvery (the live target's checkpoints, challenges.Trace; none in older records)
 function challenges.Best(period)
     local record = app.db.global.challenges[period.key]
     -- Anything else under the key (an earlier version's records by difficulty) is no best.
@@ -182,4 +183,61 @@ function challenges.Save(period, record)
     end
     all[period.key] = record
     return true
+end
+
+-- The live target: a challenge's run keeps its score every TRACE_EVERY yards (`s.trace`, the
+-- score at TRACE_EVERY * i yards in `[i]`), saved with its record (`trace`, `traceEvery`), so
+-- a later run can tell how far ahead or behind the best it is at the same distance.
+challenges.TRACE_EVERY = 100
+
+-- Room for the whole run, made when it begins: a running frame adds nothing to a table.
+function challenges.NewTrace(s)
+    local trace = {}
+    for i = 1, math.ceil((s.finish - s.start) / challenges.TRACE_EVERY) do
+        trace[i] = 0
+    end
+    s.trace, s.traced = trace, 0
+end
+
+-- Once a step or a frame: the score at every checkpoint the run passed since.
+function challenges.Trace(s)
+    local trace = s.trace
+    if not trace then
+        return
+    end
+    local passed = math.min(#trace, math.floor(app.simulation.Run(s) / challenges.TRACE_EVERY))
+    while s.traced < passed do
+        s.traced = s.traced + 1
+        trace[s.traced] = app.simulation.Score(s)
+    end
+end
+
+-- The run's trace as saved: its checkpoints passed only.
+function challenges.SavedTrace(s)
+    local saved = {}
+    for i = 1, s.traced or 0 do
+        saved[i] = s.trace[i]
+    end
+    return saved
+end
+
+-- What `best` (a record of Best) had scored `yards` in: between its checkpoints, and from the
+-- last one to where it ended, in a straight line. Nil past where it ended, or without a trace
+-- (a record from before traces).
+function challenges.Target(best, yards)
+    local trace = best and best.trace
+    if not trace or yards > best.distance then
+        return nil
+    end
+    local every = best.traceEvery or challenges.TRACE_EVERY
+    local i = math.floor(yards / every)
+    local fromYards, from = i * every, trace[i] or 0
+    local toYards, to = (i + 1) * every, trace[i + 1]
+    if not to then
+        toYards, to = best.distance, best.score
+    end
+    if toYards <= fromYards then
+        return to
+    end
+    return math.floor(from + (to - from) * (yards - fromYards) / (toYards - fromYards))
 end
