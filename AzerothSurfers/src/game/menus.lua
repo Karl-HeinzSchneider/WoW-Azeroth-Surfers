@@ -205,6 +205,9 @@ function overlay:CreateMenu(parent)
     menu:PlaceWindow(0, 0)
     menu.title = text(window, TITLE_SIZE, GOLD)
     menu.title:SetPoint("TOP", 0, -TOP)
+    menu.version = window:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    menu.version:SetTextColor(GRAY[1], GRAY[2], GRAY[3])
+    menu.version:SetText(app.VERSION)
     menu.trims = {}
     for i = 1, 2 do
         menu.trims[i] = window:CreateTexture(nil, "ARTWORK")
@@ -486,6 +489,10 @@ function Menu:Layout()
     self:PlaceTrim(self.trims[2], y)
     y = y - TRIM_HEIGHT - 8
     y = self:LayoutHints(y, hasChoice, page.extra, width)
+    -- Inside the window so it follows dragged menus and appears on pause/end screenshots.
+    self.version:ClearAllPoints()
+    self.version:SetPoint("TOP", window, "TOP", 0, y - 6)
+    y = y - 6 - self.version:GetStringHeight()
     self.panel:SetHeight(-y + PAD - 6)
     self.shownSelected = nil
     self:Show()

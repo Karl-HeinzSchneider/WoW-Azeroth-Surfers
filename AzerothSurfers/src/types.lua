@@ -7,6 +7,7 @@
 
 ---@class AzerothSurfers
 ---@field TITLE string  # the name players see
+---@field VERSION string  # installed TOC version label, or Development build for unpackaged checkouts
 ---@field distance table  # client or configured distance units and display formatting
 ---@field lobby table  # where a run from the menu starts, and what the title and the menu show (src/scenes/lobby.lua)
 ---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
