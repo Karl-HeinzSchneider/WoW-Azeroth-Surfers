@@ -393,6 +393,50 @@ PAGES.challenges = {
         { text = "Back", back = true },
     },
 }
+-- Play's best run of each difficulty (stats.lua): a table of its score, distance and coins.
+local BESTS = {
+    size = 20,
+    label = "Difficulty",
+    values = { tostring(app.leaderboard.MOST_SCORE), "99999 yd", "99999" },
+    heads = { "Score", "Distance", "Coins" },
+}
+local function bestsPage()
+    local items = {
+        { text = "Play's best run of each", note = GRAY },
+        {
+            text = "Difficulty",
+            info = function()
+                return unpack(BESTS.heads)
+            end,
+        },
+    }
+    for _, d in ipairs(sim.DIFFICULTIES) do
+        items[#items + 1] = {
+            text = d.name,
+            info = function()
+                local best = app.stats.Saved().best[d.id]
+                if not best then
+                    return "-", "", ""
+                end
+                return tostring(best.score), string.format("%d yd", best.distance), tostring(best.coins)
+            end,
+        }
+    end
+    items[#items + 1] = { text = "Back", back = true }
+    return { title = "Best per difficulty", items = items, columns = BESTS }
+end
+-- An info line of global.stats (stats.lua): `format` its field, or a function of it.
+local function statItem(label, field, format)
+    return {
+        text = label,
+        info = function()
+            local value = app.stats.Saved()[field]
+            return type(format) == "function" and format(value) or string.format(format, value)
+        end,
+    }
+end
+-- Every run played (stats.lua): how many, what they add up to, the records, and the best run
+-- of each difficulty.
 PAGES.stats = {
     title = "Stats",
     items = {
@@ -400,6 +444,20 @@ PAGES.stats = {
             text = "Best score",
             info = function()
                 return tostring(app.db.global.bestScore)
+            end,
+        },
+        statItem("Runs played", "runs", "%d"),
+        statItem("Distance", "yards", "%d yd"),
+        statItem("Coins", "coins", "%d"),
+        statItem("Time running", "time", app.stats.TimeText),
+        statItem("Portals reached", "portals", "%d"),
+        statItem("Longest streak", "longestStreak", function(coins)
+            return coins == 1 and "1 coin" or string.format("%d coins", coins)
+        end),
+        {
+            text = "Best per difficulty",
+            run = function(_, menu)
+                menu:Push(bestsPage())
             end,
         },
         { text = "Back", back = true },
