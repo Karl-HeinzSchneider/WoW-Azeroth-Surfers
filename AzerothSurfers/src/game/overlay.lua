@@ -1145,7 +1145,7 @@ function overlay:AnimateTwin(elapsed)
         or variation ~= self.twinVariation
         or math.abs(rate - (self.twinRate or 1)) > 0.1
     then
-        actor:SetAnimation(animation, variation, rate, 0)
+        actor:SetAnimation(app.biomes.PlayerAnimation(animation), variation, rate, 0)
         self.twinVariation = variation
         self.twinAnimation, self.twinRate = animation, rate
     end

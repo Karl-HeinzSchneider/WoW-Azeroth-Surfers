@@ -95,6 +95,7 @@ end
 -- Copy the definitions: shared source tables remain the Forever baseline. Only asset fields
 -- change; numbers such as heights, weights, speeds and animation rates are never remapped.
 function biomes.ApplyAssetOverrides(overrides)
+    biomes.playerAnimations = overrides.playerAnimations
     local function mapped(kind, value)
         local map = overrides[kind]
         return map and map[value] or value
@@ -162,6 +163,10 @@ function biomes.ApplyAssetOverrides(overrides)
 end
 
 -- `profile.biome` for auto. Where a zone ends is the simulation's; which biome it is, here.
+function biomes.PlayerAnimation(id)
+    return biomes.playerAnimations and biomes.playerAnimations[id] or id
+end
+
 biomes.AUTO = "auto"
 -- How much likelier the next tier up is than staying or going back to a lower one.
 local CLIMB = 3

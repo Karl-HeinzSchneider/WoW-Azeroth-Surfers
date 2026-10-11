@@ -1,7 +1,8 @@
 # Azeroth Surfers
 
 A Subway Surfers-inspired, three-lane runner for WoW Forever (interface 16001),
-with initial retail support (interface 120100). Retail compatibility still needs in-client testing.
+with retail support (interface 120100) and initial Anniversary (2.5.6, interface 20506) support.
+Anniversary (2.5.6, interface 20506) compatibility still needs in-client testing.
 Built from the shared addon template with Ace3, checks, formatting, packaging and release workflows.
 
 ## Play
@@ -134,4 +135,8 @@ Release workflows are inherited from the template.
 Forever is the baseline for asset definitions. Retail replacements are centralized in
 `AzerothSurfers/src/overrides/retail.lua`; they apply to biome, transition and lobby assets
 before gameplay and the dev asset audit use them.
+Anniversary (2.5.6, interface 20506) uses its own `AzerothSurfers/src/overrides/anniversary.lua`, with independent
+asset and animation mappings. On Anniversary, enable the dev addon, run `/surfers assets`, wait for completion, then use
+`/surfers assets report` to identify any needed replacements. Also test gameplay in both
+display modes, controls, settings and combat entry.
 Configure project IDs and upload secrets only when publishing; none are required to play locally.

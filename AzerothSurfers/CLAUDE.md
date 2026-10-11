@@ -30,13 +30,17 @@ Forever (interface 16001, even if its project is Mainline) and Classic; on retai
 `biomes.ApplyAssetOverrides` with mappings from baseline IDs to replacement IDs. Add all retail
 replacements there, never conditionals inside individual biomes.
 
+`src/overrides/anniversary.lua` targets the 2.5.x Anniversary client family (manifest
+20506), separately from vanilla Era. It replaces the rabbit, ready stance and player roll.
+`playerAnimations` maps player animation IDs through `biomes.PlayerAnimation`, shared by
+rendering and the asset audit. New replacements still need in-client verification.
+
 Mappings cover `creatures`, `models`, `sounds`, `textures` and explicit biome `animations`.
 The application step copies definitions and clears merged caches, so the dev asset audit sees
 the same resolved data as gameplay. It handles asset lists, display-keyed enemy sounds,
 footsteps, transitions and lobby music; it preserves gameplay numbers and list lengths/weights.
 Targets are final IDs (no chained remapping). If creature sound keys collide, the target
-display's existing voice wins. Local constants in rendering/control code and player animations
-are not biome fields and are not remapped by this system. `npm run test:assets` also tests overrides.
+display's existing voice wins. Other local constants in rendering/control code are not remapped by this system. `npm run test:assets` also tests overrides.
 
 ## Core
 

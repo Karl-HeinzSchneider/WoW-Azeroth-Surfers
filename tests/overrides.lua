@@ -33,6 +33,28 @@ assert(app.biomes.Get("tirisfal").obstacles.enemy[2].items[1].creature == 418, "
 assert(app.biomes.Get("lobby").ambient.creatures[2].creature == 328, "retail resolves lobby rabbit")
 assert(app.biomes.Get("elwynn").ambient.creatures[2].creature == 328, "retail resolves Elwynn rabbit")
 
+-- Anniversary is selected by its reported 2.5.x interface family.
+local function anniversary(target, interface)
+    GetBuildInfo = function()
+        return "test", "test", "", interface
+    end
+    assert(loadfile("AzerothSurfers/src/overrides/anniversary.lua"))("AzerothSurfers", target)
+end
+local classic = fresh()
+local original = classic.biomes.list
+for _, interface in ipairs({ 16001, 11508, 120100, 50500 }) do
+    anniversary(classic, interface)
+    assert(classic.biomes.list == original, "unrelated clients unchanged")
+end
+anniversary(classic, 20506)
+assert(classic.biomes.Get("lobby").ambient.creatures[2].creature == 328, "Anniversary rabbit")
+assert(classic.biomes.Get("elwynn").obstacles.enemy[1].items[1].animation == 0, "Anniversary ready fallback")
+assert(classic.biomes.Get("teldrassil").obstacles.enemy[3].items[1].animation == 0, "Anniversary furbolg fallback")
+assert(classic.biomes.PlayerAnimation(666) == 119, "Anniversary crouch fallback")
+assert(classic.biomes.PlayerAnimation(5) == 5, "other player animations unchanged")
+assert(app.biomes.PlayerAnimation(666) == 666, "retail retains roll")
+assert(fresh().biomes.PlayerAnimation(666) == 666, "Forever retains roll")
+
 app = fresh()
 local item = {
     creature = { 1252, 1218 },

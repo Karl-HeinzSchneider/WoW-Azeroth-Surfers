@@ -31,6 +31,9 @@ local function catalog(scope)
         end
         row.sources[path] = true
         if animation then
+            if kind == "player" then
+                animation = app.biomes.PlayerAnimation(animation)
+            end
             row.animations[animation] = true
         end
         return row

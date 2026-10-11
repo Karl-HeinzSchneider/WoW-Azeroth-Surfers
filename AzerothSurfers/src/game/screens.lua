@@ -754,7 +754,7 @@ function overlay:PlaceSeat()
     end
     local lobby = app.lobby
     if self.seatAnimation ~= self.seatWant then
-        actor:SetAnimation(self.seatWant, 0, 1, 0)
+        actor:SetAnimation(app.biomes.PlayerAnimation(self.seatWant), 0, 1, 0)
         self.seatAnimation = self.seatWant
     end
     local scale = self:TwinScale()
