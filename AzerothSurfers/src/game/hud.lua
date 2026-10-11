@@ -237,7 +237,7 @@ overlay.HUD_INFO = {
     },
     {
         id = "coinRate",
-        name = "Coins taken",
+        name = "Coin percentage",
         desc = "The share of the coins that came past that you collected.",
         value = function(_, s)
             return s.coinTotal > 0 and math.floor(100 * s.coins / s.coinTotal) or -1
