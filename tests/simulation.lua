@@ -981,6 +981,15 @@ test("challenges change at the reset, the same for everyone", function()
     app.db.global.challenges[before.key] = { normal = record(300, true, "normal") }
     assert(c.Best(before) == nil, "an earlier version's records are no best")
     assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "and are replaced")
+
+    local now = after.starts
+    assert(c.Status("daily", now) == "beaten" and c.Status("weekly", now) == "new")
+    assert(c.StatusText("daily", now):find("beaten (450)", 1, true))
+    app.db.global.challenges[c.Period("monthly", now).key] = record(80, false, "easy")
+    assert(c.Status("monthly", now) == "tried")
+    local line = c.Reminder(now)
+    assert(line:find("Daily |cffffd100beaten (450)", 1, true) and line:find("Weekly |cff20ff20new", 1, true), line)
+    assert(line:find("Monthly |cffff8040not finished (80)", 1, true), line)
     app.db = nil
 end)
 

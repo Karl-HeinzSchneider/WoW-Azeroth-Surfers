@@ -241,3 +241,32 @@ function challenges.Target(best, yards)
     end
     return math.floor(from + (to - from) * (yards - fromYards) / (toYards - fromYards))
 end
+
+-- How this player stands in the current period of `id` (`now` as in Period): "new" (no run
+-- yet), "beaten" (a run reached its finish) or "tried" (none did yet); then its best (Best)
+-- and the period.
+function challenges.Status(id, now)
+    local period = challenges.Period(id, now)
+    local best = challenges.Best(period)
+    return (not best and "new") or (best.finished and "beaten") or "tried", best, period
+end
+
+-- The status as players read it: "new", "beaten (1234)", "not finished (800)", in its color.
+local STATUS = {
+    new = "|cff20ff20new|r",
+    beaten = "|cffffd100beaten (%d)|r",
+    tried = "|cffff8040not finished (%d)|r",
+}
+function challenges.StatusText(id, now)
+    local status, best = challenges.Status(id, now)
+    return string.format(STATUS[status], best and best.score or 0)
+end
+
+-- The login reminder: one chat line with every kind's status.
+function challenges.Reminder(now)
+    local parts = {}
+    for i, kind in ipairs(challenges.KINDS) do
+        parts[i] = kind.name .. " " .. challenges.StatusText(kind.id, now)
+    end
+    return "Challenges: " .. table.concat(parts, ", ")
+end
