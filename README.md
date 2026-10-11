@@ -51,14 +51,18 @@ and pauses when hidden. The addon never moves your character or changes WoW's ca
 The track is a grid: three lanes side by side and layers stacked 0.6 yards high. You run on
 layer 0; a jump (WoW's own arc) reaches a little past layer 2, and your body is three layers tall.
 
-- **Red obstacles**: one or two layers high can be jumped; four-layer walls must be dodged.
-- **Amber barriers** float on layer 3: run under them, a jump hits them. **Low barriers** on layer
-  2 are too low to run under and too high to jump: duck under them. Some guard a crawlway of
-  coins beside the open road.
-- **Blue platforms** are higher ground on layers 1 to 3: jump onto them or take their ramp (always
-  there for layer 3), run along the top with its coins and obstacles, jump across to a higher
-  platform beside it, and fall back down at its end. Running or changing lanes into a platform's
-  side ends the run.
+Each zone dresses the track in its own models; Elwynn Forest's are below, and every kind
+works the same everywhere.
+
+- **Obstacles** (crates, kegs and hay) one or two layers high can be jumped; four-layer walls of
+  stacked crates must be dodged.
+- **High bars** (a beam on two posts) float on layer 3: run under them, a jump hits them. **Low
+  bars** add a second beam on layer 2, too low to run under and too high to jump: duck under
+  them. Some guard a crawlway of coins beside the open road.
+- **Platforms** (long lumber piles) are higher ground on layers 1 to 3: jump onto them or take
+  their plank ramp (always there for layer 3), run along the top with its coins and obstacles,
+  jump across to a higher platform beside it, and fall back down at its end. Running or changing
+  lanes into a platform's side ends the run.
 - **Gold coins** sit on a layer and award 25 points; high arcs over hurdles need a jump.
 
 Distance adds points, speed increases gradually, and your best score is saved account-wide. A

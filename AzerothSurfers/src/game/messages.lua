@@ -312,6 +312,83 @@ local STOP = {
     end,
 }
 
+-- Share: the run's result as one chat line to the guild or the group (leaderboard.lua's
+-- channels; an instance group's chat on retail when that is the only group).
+local CHANNEL_NAMES = { GUILD = "Guild", PARTY = "Party", RAID = "Raid", INSTANCE_CHAT = "Instance" }
+
+-- 42310 as "42,310".
+local function thousands(n)
+    local text = tostring(math.floor(n))
+    local head, digits = text:match("^(-?)(%d+)$")
+    return head .. digits:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
+
+-- The line run `s` shares: plain text, chat takes no color codes from a message.
+function overlay.ShareText(s)
+    local what = s.challenge and string.format("%s %s challenge", app.TITLE, s.challenge.kind.name:lower())
+        or s.custom and string.format("%s (custom game)", app.TITLE)
+        or app.TITLE
+    local text = string.format(
+        "%s: %s points, %s yards, %s coins on %s",
+        what,
+        thousands(sim.Score(s)),
+        thousands(sim.Run(s)),
+        thousands(s.coins),
+        s.difficulty.name
+    )
+    if s.newBest then
+        return text .. ", a new best!"
+    elseif s.finished then
+        return text .. ", finished"
+    end
+    return text
+end
+
+local function shareChannels()
+    local channels = app.leaderboard.Channels()
+    for i, channel in ipairs(channels) do
+        if
+            channel == "PARTY"
+            and LE_PARTY_CATEGORY_INSTANCE
+            and not IsInGroup(LE_PARTY_CATEGORY_HOME)
+            and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)
+        then
+            channels[i] = "INSTANCE_CHAT"
+        end
+    end
+    return channels
+end
+
+local function send(text, channel)
+    local chat = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
+    -- Some content may refuse addon chat: says so rather than raising an error over the menu.
+    if not pcall(chat, text, channel) then
+        app.logger:chat("Could not share to %s right now.", CHANNEL_NAMES[channel]:lower())
+    end
+end
+
+-- A page of the channels the player is in now, built when Share is chosen.
+local SHARE = {
+    text = "Share",
+    run = function(o, menu)
+        local items = {}
+        for _, channel in ipairs(shareChannels()) do
+            items[#items + 1] = {
+                text = CHANNEL_NAMES[channel],
+                run = function(_, m)
+                    send(overlay.ShareText(o.state), channel)
+                    m:Back()
+                end,
+            }
+        end
+        if #items == 0 then
+            items[1] = { text = "Not in a guild or group", note = GRAY }
+        end
+        items[#items + 1] = { text = "Back", back = true }
+        menu:Push({ title = "Share", items = items })
+    end,
+}
+
 local function page(title, ...)
     local items = {}
     for _, list in ipairs({ ... }) do
@@ -362,7 +439,7 @@ local function challengePage(s)
         s.finished and "Challenge complete" or name,
         notes,
         NUMBERS,
-        { { text = "Try again", run = restart }, MENU }
+        { { text = "Try again", run = restart }, SHARE, MENU }
     )
     p.back = MENU.run
     p.extra = { text = "Try again", run = restart }
@@ -401,7 +478,7 @@ local function statusPage(o, s)
             "Run complete",
             best,
             NUMBERS,
-            { { text = "Run again", run = restart } },
+            { { text = "Run again", run = restart }, SHARE },
             s.custom and overlay.CUSTOM or {},
             { DIFFICULTY, AUTO, MENU }
         )

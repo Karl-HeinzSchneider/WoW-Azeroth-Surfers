@@ -28,6 +28,7 @@ local AUTO_RESTART = 3
 
 function overlay:SaveBest()
     local s = self.state
+    app.stats.Record(s)
     -- A custom run (screens.lua's Custom: its own seed, start and the like) is not comparable.
     if s.piloted or s.practice or s.custom then
         return

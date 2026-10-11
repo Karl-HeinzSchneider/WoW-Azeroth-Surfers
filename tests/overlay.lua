@@ -13,6 +13,7 @@ dofile("tests/load.lua")(app, {
     "game/scoring",
     "game/simulation",
     "game/challenges",
+    "game/stats",
     "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
@@ -28,6 +29,7 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/bestmarker",
     "game/menus",
     "game/screens",
     "game/controls",
@@ -1179,6 +1181,60 @@ assert(labels():find("Seed options", 1, true), "and its settings' pages")
 o.state.custom = nil
 ended()
 assert(not status:Page().items[1].note, "a plain run without a new best: no note")
+-- Share: one plain chat line on a channel the player is in, from a page of them.
+do
+    local said
+    app.TITLE = app.TITLE or "Azeroth Surfers"
+    local guild, group = false, false
+    IsInGuild = function()
+        return guild
+    end
+    IsInRaid = function()
+        return false
+    end
+    IsInGroup = function()
+        return group
+    end
+    SendChatMessage = function(text, channel)
+        said = { text = text, channel = channel }
+    end
+    local function share()
+        for i, it in ipairs(status:Page().items) do
+            if it.text == "Share" then
+                status:SelectRow(i)
+                status:Input("accept")
+                return
+            end
+        end
+        error("no Share on the end menu")
+    end
+    share()
+    assert(status:Page().title == "Share" and status:Page().items[1].text == "Not in a guild or group")
+    status:Back()
+    guild, group = true, true
+    share()
+    assert(labels() == "Guild,Party,Back", "the channels the player is in: " .. labels())
+    status:SelectRow(2)
+    status:Input("accept")
+    assert(said.channel == "PARTY" and status:Page().title == "Run complete", "sent, back at the end")
+    assert(said.text == o.ShareText(o.state) and not said.text:find("|", 1, true), "plain text")
+    assert(said.text:match("^Azeroth Surfers: [%d,]+ points, [%d,]+ yards, [%d,]+ coins on %a+$"), said.text)
+    local s = { score = 0, coins = 1234, difficulty = { name = "Hard" }, newBest = true }
+    s.challenge = { kind = { name = "Daily" } }
+    local score, run = g.Score, g.Run
+    g.Score, g.Run = function()
+        return 42310
+    end, function()
+        return 5200.7
+    end
+    local line = o.ShareText(s)
+    g.Score, g.Run = score, run
+    assert(
+        line == "Azeroth Surfers daily challenge: 42,310 points, 5,200 yards, 1,234 coins on Hard, a new best!",
+        line
+    )
+    IsInGuild, IsInGroup, SendChatMessage = nil, nil, nil
+end
 -- A challenge's end: how much it beat or missed the best before it by, when both reached the
 -- last portal or neither did.
 -- (The scorecard's challenge card shows its label, goal, difficulty and reset too.)
@@ -1219,6 +1275,30 @@ o.state.status = "over"
 o:Render()
 press("Q")
 assert(o.screen == "menu" and o.state.lobby, "Q goes to the main menu")
+-- The Stats page (stats.lua's numbers) and its best per difficulty, a table.
+app.db.global.stats = { runs = 3, yards = 4200, coins = 77, time = 3725, portals = 2, longestStreak = 1 }
+app.db.global.stats.best = { hard = { score = 9100, distance = 2300, coins = 40 } }
+local function info(page, label)
+    for _, it in ipairs(page.items) do
+        if it.text == label then
+            if it.info then
+                return it.info(o)
+            end
+            return it
+        end
+    end
+end
+info(main:Page(), "Stats").run(o, main)
+local stats = main:Page()
+assert(stats.title == "Stats" and info(stats, "Runs played") == "3" and info(stats, "Distance") == "4200 yd")
+assert(info(stats, "Time running") == "1h 2m" and info(stats, "Longest streak") == "1 coin")
+info(stats, "Best per difficulty").run(o, main)
+local bests = main:Page()
+assert(bests.columns and select(2, info(bests, "Hard")) == "2300 yd" and info(bests, "Easy") == "-")
+main:Back()
+main:Back()
+assert(main:Page().title == nil, "back on the main menu")
+app.db.global.stats = nil
 app.db.profile.difficulty = difficulty
 function GetTime()
     return 0
@@ -1450,6 +1530,67 @@ grown = collectgarbage("count") - before
 collectgarbage("restart")
 assert(grown < 0.5, string.format("300 challenge frames allocated %.2f KB", grown))
 print(string.format("PASS the challenge card's live target, and its frames allocate nothing (%.2f KB)", grown))
+
+-- A challenge's best on the track: a line across the road where it ended, unless it reached the
+-- finish, and one announcement once the runner is past it.
+do
+    local function mock()
+        local t = texture()
+        t.SetAlpha = function(self, alpha)
+            self.alphaSet = alpha
+        end
+        t.SetTextColor = function() end
+        t.SetFormattedText = function(self, format, ...)
+            self.text = format:format(...)
+        end
+        return t
+    end
+    local state = o.state
+    o:CreateBestMarker({ CreateTexture = mock, CreateFontString = mock })
+    local marker = o.bestMarker
+    local announced
+    local announce = o.Announce
+    o.Announce = function(_, text, _, small)
+        announced = { text, small }
+    end
+    local function bestRun(best, points)
+        local s = g.New(period.seed, period.difficulty, true, nil, period.goal)
+        s.challenge, s.target = period, best
+        s.nextRow, s.objects, s.points = math.huge, {}, points
+        g.Start(s)
+        -- Welcomed to its zone already: only the line's announcement is left.
+        o.state, o.screen, o.announced, announced = s, nil, s, nil
+        return s, s.start + (best.distance or 0)
+    end
+    local best = { score = 2000, distance = 300 }
+    local s, at = bestRun(best, 10)
+    s.distance = at - 20
+    o:Render()
+    assert(marker.line.shown and marker.label.shown, "the line and its label 20 yards ahead")
+    assert(marker.label.text == "Your best  2000", marker.label.text)
+    assert(not announced, "nothing before the line")
+    s.distance = at + 0.1
+    o:Render()
+    assert(announced and announced[1] == "Past your best run", "past the line, the score still behind")
+    announced = nil
+    s.distance = at + 5
+    o:Render()
+    assert(not announced, "announced once")
+    assert(not marker.line.shown, "the line behind the camera's road")
+    s, at = bestRun(best, 100000)
+    assert(g.Score(s) > best.score)
+    s.distance = at + 0.1
+    o:Render()
+    assert(announced and announced[1] == "New best!", "past the line with more points")
+    s = bestRun({ score = 2000, distance = period.goal, finished = true }, 10)
+    o:Render()
+    assert(not marker.line.shown and not marker.label.shown, "no line for a best that finished")
+    s.challenge = nil
+    o:Render()
+    assert(not marker.line.shown, "no line outside a challenge")
+    o.Announce, o.bestMarker, o.state, o.announced = announce, nil, state, state
+end
+print("PASS a challenge's best on the track, announced once past it")
 
 -- The scorecard's extra info: off by default; once on, a row each under the score, redrawn every
 -- INFO_EVERY seconds, written only when changed, and its frames allocate nothing either.
