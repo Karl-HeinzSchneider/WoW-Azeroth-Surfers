@@ -152,15 +152,44 @@ r:OnKey("R")
 assert(r.holding == 0 and propagates == false, "R starts the hold")
 r:OnKeyRelease("R")
 assert(r.holding == nil)
--- In auto mode every key goes on to WoW, the game's own too, and none steers.
-r.auto = true
+-- In side-window auto mode every key goes on to WoW, the game's own too, and none steers.
+r.auto, r.side, r.capture = true, true, true
 local lane = r.state.lane
 for _, k in ipairs({ "A", "Q", "R" }) do
     binding = k == "A" and "STRAFELEFT" or nil
     r:OnKey(k)
     assert(propagates and r.state.lane == lane and r.state.status == "running" and r.holding == nil, k)
 end
-r.auto = nil
+-- Full-screen auto mode captures movement even with the capture setting disabled.
+r.side, r.capture = false, false
+for _, k in ipairs({ "A", "SPACE", "S", "W" }) do
+    binding = k == "W" and "MOVEFORWARD" or nil
+    r:OnKey(k)
+    assert(not propagates and r.state.lane == lane and r.state.status == "running", k)
+end
+binding = "TURNLEFT"
+r:OnKey("Z")
+assert(not propagates, "full-screen auto captures WoW movement bindings too")
+binding = "TOGGLEMINIMAP"
+r:OnKey("M")
+assert(propagates, "unrelated keys still go to WoW in full-screen auto")
+binding = nil
+r:OnKey("Q")
+assert(r.state.status == "paused" and not propagates, "full-screen auto can pause")
+r:OnKey("PADFORWARD")
+assert(r.state.status == "running" and not propagates, "gamepad can resume auto mode")
+r:OnKey("R")
+assert(r.holding == 0 and not propagates, "full-screen auto can hold restart")
+r:OnKeyRelease("R")
+assert(r.holding == nil)
+r:OnStick("Left", -0.9, 0)
+assert(not propagates and r.state.lane == lane, "full-screen auto captures sticks without steering")
+r:OnStick("Left", 0, 0)
+assert(not propagates, "a centered stick keeps full-screen auto captured")
+r.side = true
+r:OnKey("Q")
+assert(propagates and r.state.status == "running", "minimizing auto restores key propagation")
+r.auto, r.side, r.capture = nil, nil, nil
 -- Keys set in the options take their place, slot by slot: Q and P go on to WoW, O pauses, the
 -- gamepad's Start still does; T starts over.
 app.db = { profile = { keys = { pause = { "O", false }, restart = { "T", false, false } } } }
