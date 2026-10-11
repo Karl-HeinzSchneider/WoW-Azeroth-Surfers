@@ -12,8 +12,13 @@ local now = 20736 * 86400 + 12 * 3600
 function GetServerTime()
     return now
 end
+-- WoW Forever: the first name alone, the surname where the realm would be; senders and
+-- GetUnitName have both.
 function UnitName()
-    return "Me"
+    return "Me", "Meier"
+end
+function GetUnitName()
+    return "Me Meier"
 end
 local guild, group = true, false
 function IsInGuild()
@@ -90,8 +95,10 @@ test("anything malformed, out of period, from elsewhere or from oneself is ignor
     local good = board.Encode(key, best(50, true))
     board:Receive(good, "WHISPER", "Bob")
     board:Receive(good, "SAY", "Bob")
-    board:Receive(good, "GUILD", "Me")
-    assert(app.db.global.leaderboard[key].Bob == nil and app.db.global.leaderboard[key].Me == nil)
+    board:Receive(good, "GUILD", "Me Meier")
+    assert(app.db.global.leaderboard[key].Bob == nil and app.db.global.leaderboard[key]["Me Meier"] == nil, "oneself")
+    board:Receive(good, "GUILD", "Me Schulz")
+    assert(app.db.global.leaderboard[key]["Me Schulz"].score == 50, "another player of the same first name")
     board:Receive(good, "RAID", "Bob-Firemaw")
     assert(app.db.global.leaderboard[key]["Bob-Firemaw"].score == 50, "another realm's player")
     assert(#sent() == 0, "nothing answered")
@@ -130,7 +137,7 @@ test("the ranking: the portal first, then the score, and oneself in it", functio
     for i, e in ipairs(ranked) do
         names[i] = e.name
     end
-    assert(table.concat(names, " ") == "Ann Me Bob-Firemaw Dan", table.concat(names, " "))
+    assert(table.concat(names, ", ") == "Ann, Me Meier, Bob-Firemaw, Me Schulz, Dan", table.concat(names, ", "))
     assert(ranked[2].me and ranked[2].record.score == 777)
     assert(board:Ranked(daily) == ranked, "built once while nothing changes")
     c.Save(daily, best(3000, true))

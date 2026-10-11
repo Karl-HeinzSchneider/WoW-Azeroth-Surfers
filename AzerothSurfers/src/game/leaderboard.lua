@@ -4,8 +4,9 @@ local _, app = ...
 -- current challenge (challenges.lua) as addon messages (AceComm), no server. A new best goes out
 -- when it is saved; opening a leaderboard asks the others for theirs, and every answer reaches
 -- everyone on that channel. What arrives is kept in `global.leaderboard`, by the period's key,
--- then by the sender's name (AceComm's: "Name" on this realm, "Name-Realm" from another), only
--- while its period lasts.
+-- then by the sender's name as AceComm gives it, only while its period lasts: "Name" on this
+-- realm, "Name-Realm" from another, and on clients with surnames (WoW Forever) the full
+-- "Name Surname", so two players of one first name stay apart.
 --
 -- A message is words split by spaces, the protocol's VERSION first (another version's are left
 -- alone):
@@ -84,6 +85,12 @@ function module.Encode(key, record)
     )
 end
 
+-- This player's name as the others receive it: with the surname where the client has them
+-- (WoW Forever's UnitName gives the first name alone, and the surname where the realm would be).
+function module.Me()
+    return GetUnitName and GetUnitName("player", true) or UnitName("player")
+end
+
 local function count(text, most)
     local n = tonumber(text)
     if n and n >= 0 and n <= most and n == math.floor(n) then
@@ -137,7 +144,7 @@ end
 -- A message from `sender` on `channel`: a best is kept, an ask answered with this player's
 -- bests of the periods it names, once per ANSWER_EVERY each.
 function module:Receive(message, channel, sender, now)
-    if not CHANNELS[channel] or sender == UnitName("player") then
+    if not CHANNELS[channel] or sender == self.Me() then
         return
     end
     local words = {}
@@ -218,7 +225,7 @@ function module:Ranked(period)
         return ranked
     end
     ranked = { changes = self.changes, own = own }
-    local me = UnitName("player")
+    local me = self.Me()
     for name, record in pairs(app.db.global.leaderboard[period.key] or {}) do
         if name ~= me then
             ranked[#ranked + 1] = { name = name, record = record }
