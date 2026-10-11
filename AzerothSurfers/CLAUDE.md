@@ -54,9 +54,11 @@ default in `db.lua` and an entry in `options.lua`.
   `Skip(s, yards)` begins a run from the lobby that far into its seed, past its portal at the
   least: the track is laid out step by step as running it from the menu lays it out, so from the
   first pattern past the empty road on it is the seed's own. Every restart is one, so a seed
-  lays out one track, from the menu or a restart. "Start at" (`profile.startAt`, in the main
-  menu, the pause and end menus and the options) begins a run from the menu that far in, and
-  with a fixed seed every restart.
+  lays out one track, from the menu or a restart. Play's runs draw a new seed each and begin
+  at the camp; a custom game (the main menu's Custom, `overlay.custom`, cleared by the menu or
+  the title; `s.custom`) takes `CUSTOM`'s settings (messages.lua: `profile.seed`, fixed or new
+  each run, and "Start at", `profile.startAt`, from the menu and every restart) and saves no
+  best score.
 - `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges.
   - Periods: one begins at `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted
     from the realm's clock (`Now`). `Period(id, now)` gives its `key` ("daily-20371", the key
@@ -144,8 +146,9 @@ default in `db.lua` and an entry in `options.lua`.
     challenge the challenge card: its period, goal, difficulty, time to the reset, best and the
     live target, ahead or behind the best at this distance),
     `legend.lua` (the running keys, below the scorecard and the challenge card).
-  - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
-    difficulty; full screen, they hang from one top line); a challenge's own pause and end
+  - `messages.lua` — the pause and end menus (difficulty, and in a custom game its settings,
+    `CUSTOM`: **a new custom setting is an item there** over a profile setting `NewState`
+    reads; full screen, they hang from one top line); a challenge's own pause and end
     pages (its best, the difference to the one before); announcements (the challenge's
     "Finish!", `Finish`), the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
@@ -154,9 +157,10 @@ default in `db.lua` and an entry in `options.lua`.
     samples of its longest label and values, as the leaderboard is).
     `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
-    the seated character, the way into a run, title music; the main menu's pages, among them
-    Challenges (each challenge's page, its leaderboard, the history and streak;
-    `PlayChallenge`); the keys of every screen and menu (`OnScreenKey`).
+    the seated character, the way into a run, title music; the main menu's pages: Play (a new
+    seed, difficulty, auto mode), Challenges (each challenge's page, its leaderboard, the
+    history and streak; `PlayChallenge`), Custom (Play's items and `CUSTOM`; `PlayCustom`);
+    the keys of every screen and menu (`OnScreenKey`).
   - `controls.lua` — input, per-frame `Step` (a challenge's finish and trace), best score (a
     challenge's: `SaveChallenge`, shared with `leaderboard:Share`), auto mode.
 

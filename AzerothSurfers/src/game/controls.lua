@@ -28,7 +28,8 @@ local AUTO_RESTART = 3
 
 function overlay:SaveBest()
     local s = self.state
-    if s.piloted or s.practice then
+    -- A custom run (screens.lua's Custom: its own seed, start and the like) is not comparable.
+    if s.piloted or s.practice or s.custom then
         return
     elseif s.challenge then
         self:SaveChallenge(s)
@@ -69,12 +70,14 @@ function overlay:SaveChallenge(s)
     end
 end
 
--- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of the profile's. Any other
+-- `lobby`: a run from the lobby (screens.lua); `seed`: kept instead of a new one. Any other
 -- run (a restart) is the lobby's run of its seed begun past the portal (simulation.Skip), or
--- `at` yards in: a seed lays out one track, from the menu or a restart. `at` when left out:
--- with a fixed seed the profile's `startAt`, else 0. While a challenge is on (`challenge`, its
--- period: screens.lua's PlayChallenge), its seed and difficulty through zones to its goal, never
--- further in.
+-- `at` yards in: a seed lays out one track, from the menu or a restart. A run from Play draws
+-- a new seed each time and begins at the portal. While a custom game is on (`custom`: the main
+-- menu's Custom), its settings (`CUSTOM` in messages.lua: the profile's fixed `seed`, else a new
+-- one, and `startAt`, `at` when left out) and `s.custom`, so it saves no best score. While a
+-- challenge is on (`challenge`, its period: screens.lua's PlayChallenge), its seed and
+-- difficulty through zones to its goal, never further in.
 function overlay:NewState(lobby, seed, at)
     local profile = app.db.profile
     local challenge = self.challenge
@@ -89,16 +92,18 @@ function overlay:NewState(lobby, seed, at)
         end
         return s
     end
+    local custom = self.custom
     local zones = profile.biome == app.biomes.AUTO
-    local s = sim.New(seed or profile.seed or nil, profile.difficulty, zones, lobby or app.lobby)
+    local s = sim.New(seed or (custom and profile.seed) or nil, profile.difficulty, zones, lobby or app.lobby)
+    s.custom = custom or nil
     if not lobby then
-        sim.Skip(s, at or (profile.seed and profile.startAt) or 0)
+        sim.Skip(s, at or (custom and profile.startAt) or 0)
     end
     return s
 end
 
--- The yards into a seed a run begins: one from the menu with its seed, and with a fixed seed
--- every restart. A run not started yet takes it at once.
+-- A custom game's start (`CUSTOM` in messages.lua): yards into the seed every run begins. A run
+-- not started yet takes it at once.
 function overlay:SetStartAt(yards)
     app.db.profile.startAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
     if app.options then
@@ -109,18 +114,14 @@ function overlay:SetStartAt(yards)
     end
 end
 
--- Whether a restart begins `startAt` yards in: only with a fixed seed.
-function overlay:StartsAt()
-    return app.db.profile.seed ~= false
-end
-
 function overlay:Restart()
     self:SaveBest()
     self.state = self:NewState()
     sim.Start(self.state)
 end
 
--- A whole number, or false: every run draws its own. A run not started yet takes it at once.
+-- A custom game's seed: a whole number, or false: every run draws its own. A run not started
+-- yet takes it at once.
 function overlay:SetSeed(seed)
     app.db.profile.seed = seed and app.random.Normalize(seed) or false
     if app.options then
@@ -159,7 +160,7 @@ function overlay:StepDifficulty(step)
     end
 end
 
--- On keeps the current run's seed for every run.
+-- On keeps the current run's seed for every custom run.
 function overlay:SetFixedSeed(on)
     if on then
         self:SetSeed(self.state and self.state.seed or app.random.Seed())

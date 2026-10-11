@@ -320,13 +320,13 @@ local game = {
                 end
             end,
         },
-        seedHeader = header(10, "Seed"),
+        seedHeader = header(10, "Custom game"),
         fixedSeed = {
             type = "toggle",
             order = 11,
             width = "full",
             name = "Fixed seed",
-            desc = "Every run lays out the same track, from the seed below. Off: a new seed every run.",
+            desc = "Every custom game run (the main menu's Custom) lays out the same track, from the seed below. Off: a new seed every run. Play always draws a new one.",
             get = function()
                 return app.db.profile.seed ~= false
             end,
@@ -338,7 +338,7 @@ local game = {
             type = "input",
             order = 12,
             name = "Seed",
-            desc = "The seed every run starts from: a whole number. Checked first: the current run's.",
+            desc = "The seed every custom game run starts from: a whole number. Checked first: the current run's.",
             hidden = function()
                 return app.db.profile.seed == false
             end,
@@ -356,7 +356,7 @@ local game = {
             type = "input",
             order = 13,
             name = "Start at (yards)",
-            desc = "Yards into the seed a run from the menu begins, and with a fixed seed every restart: on empty road up to its next obstacles, the same track the seed lays out from the camp. Such a run saves no best score. 0: from the camp, a restart just past the portal.",
+            desc = "Yards into the seed every custom game run begins: on empty road up to its next obstacles, the same track the seed lays out from the camp. 0: from the camp, a restart just past the portal. Custom game runs save no best score.",
             get = function()
                 return tostring(app.db.profile.startAt or 0)
             end,

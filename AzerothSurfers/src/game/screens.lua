@@ -55,7 +55,9 @@ local DIFFICULTY = {
         end,
     },
 }
+local GRAY = { 0.7, 0.7, 0.7 }
 local PAGES = {}
+-- The normal game: a new seed each run, from the camp; its best is the best score.
 PAGES.play = {
     title = "Play",
     items = {
@@ -66,24 +68,6 @@ PAGES.play = {
             end,
         },
         DIFFICULTY,
-        -- The run's seed: a new random one with each new run from the lobby, R for another, or
-        -- typed in.
-        {
-            text = "Seed",
-            input = {
-                get = function(o)
-                    return tostring(o.state.seed)
-                end,
-                set = function(o, typed)
-                    local seed = tonumber(typed)
-                    if seed then
-                        o:SetRunSeed(seed)
-                    end
-                end,
-            },
-        },
-        -- Yards into the seed the run begins, 0 at the camp (messages.lua).
-        overlay.START_AT,
         {
             text = "Auto mode",
             run = function(o)
@@ -92,14 +76,41 @@ PAGES.play = {
         },
         { text = "Cancel", back = true },
     },
-    extra = {
-        text = "New seed",
-        run = function(o)
-            o:SetRunSeed(app.random.Seed())
-        end,
-    },
 }
-local GRAY = { 0.7, 0.7, 0.7 }
+-- A custom game: Play's items and every setting of messages.lua's CUSTOM (seed, start at, ...);
+-- its runs save no best score.
+do
+    local items = {
+        { text = "Your own settings, no best score", note = GRAY },
+        {
+            text = "Play",
+            run = function(o)
+                o:PlayCustom(false)
+            end,
+        },
+        DIFFICULTY,
+    }
+    for _, item in ipairs(overlay.CUSTOM) do
+        items[#items + 1] = item
+    end
+    items[#items + 1] = {
+        text = "Auto mode",
+        run = function(o)
+            o:PlayCustom(true)
+        end,
+    }
+    items[#items + 1] = { text = "Cancel", back = true }
+    PAGES.custom = {
+        title = "Custom",
+        items = items,
+        extra = {
+            text = "New seed",
+            run = function(o)
+                o:SetSeed(app.random.Seed())
+            end,
+        },
+    }
+end
 -- A challenge's best (challenges.lua's Best): its score, and how far it got if it did not reach
 -- the portal.
 local function scoreText(record)
@@ -418,6 +429,12 @@ PAGES.main = {
             end,
         },
         {
+            text = "Custom",
+            run = function(_, menu)
+                menu:Push(PAGES.custom)
+            end,
+        },
+        {
             text = "Stats",
             run = function(_, menu)
                 menu:Push(PAGES.stats)
@@ -582,11 +599,12 @@ function overlay:StartGlide(seconds)
     self.glide = { from = from, start = GetTime(), seconds = seconds }
 end
 
--- The lobby's run, not started yet; a new one unless it is shown already. It ends a challenge.
+-- The lobby's run, not started yet; a new one unless it is shown already. It ends a challenge
+-- and a custom game.
 function overlay:EnterLobby()
     local s = self.state
-    self.challenge = nil
-    if s.status ~= "ready" or not s.lobby or s.challenge then
+    self.challenge, self.custom = nil, nil
+    if s.status ~= "ready" or not s.lobby or s.challenge or s.custom then
         self:SaveBest()
         self.state = self:NewState(app.lobby)
     end
@@ -612,17 +630,6 @@ function overlay:OpenMenu()
     self:PlayTitleMusic(true)
 end
 
--- The seed of the run about to start from the lobby. With a fixed seed (the options), it is the
--- fixed one too.
-function overlay:SetRunSeed(seed)
-    seed = app.random.Normalize(seed)
-    if app.db.profile.seed then
-        self:SetSeed(seed)
-    else
-        self.state = self:NewState(app.lobby, seed)
-    end
-end
-
 -- A challenge (challenges.lua's Period) from the menu: its run from the lobby, and every
 -- restart, until the menu or the title shows again.
 function overlay:PlayChallenge(period)
@@ -632,6 +639,17 @@ function overlay:PlayChallenge(period)
     self.challenge = period
     self.state = self:NewState(app.lobby)
     self:Play(false)
+end
+
+-- A custom game from the menu: its run from the lobby with the custom settings, and every
+-- restart, until the menu or the title shows again. `watch`: in auto mode.
+function overlay:PlayCustom(watch)
+    if self.screen ~= "menu" then
+        return
+    end
+    self.custom = true
+    self.state = self:NewState(app.lobby)
+    self:Play(watch)
 end
 
 -- Back from the main menu's first page: the camera glides to the title's shot.
@@ -808,9 +826,9 @@ function overlay:StepApproach(elapsed)
     end
     self.screen, self.startPhase = nil, nil
     self.legendState = nil
-    -- Begun further into the seed ("Start at"): there at once, as a restart is.
+    -- A custom game begun further into the seed ("Start at"): there at once, as a restart is.
     local at = app.db.profile.startAt or 0
-    if at > 0 and not s.challenge then
+    if at > 0 and s.custom then
         s = self:NewState(nil, s.seed, at)
         self.state = s
     end

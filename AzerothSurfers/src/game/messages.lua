@@ -2,8 +2,8 @@
 local _, app = ...
 local sim = app.simulation
 -- What the game shows in the middle of the view, over everything else:
--- * the status menu while a run is paused or over (menus.lua): the run's numbers, whether its
---   seed is kept, the next run's difficulty and what to do next (before a run: screens.lua's
+-- * the status menu while a run is paused or over (menus.lua): the run's numbers, a custom
+--   game's settings, the next run's difficulty and what to do next (before a run: screens.lua's
 --   main menu);
 -- * announcements in zone-text style (`Announce`);
 -- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
@@ -119,12 +119,15 @@ local DIFFICULTY = {
     },
 }
 
--- The seed: the kept one, else this run's. One typed in is kept for every run from now on.
+-- A custom game's settings (screens.lua's Custom page, and its pause and end menus): every run
+-- of it takes them, from the menu and every restart. A new one is an item here (menus.lua) over
+-- a profile setting NewState (controls.lua) reads while `custom` is on.
+-- The seed: the fixed one, or a new one each run. One typed in is fixed from now on.
 local SEED = {
     text = "Seed",
     input = {
-        get = function(o)
-            return tostring(app.db.profile.seed or o.state.seed)
+        get = function()
+            return app.db.profile.seed and tostring(app.db.profile.seed) or "Random"
         end,
         set = function(o, typed)
             local seed = tonumber(typed)
@@ -134,13 +137,12 @@ local SEED = {
         end,
     },
 }
--- Keeps the seed above for every run from now on (the options' fixed seed), or a random one
--- each run.
-local KEEP_SEED = {
+-- Fixes the seed (the one shown, else the current run's) or draws a new one each run.
+local SEED_MODE = {
     text = "Seed mode",
     choice = {
         get = function()
-            return app.db.profile.seed and "Keep" or "Random each run"
+            return app.db.profile.seed and "Fixed" or "Random each run"
         end,
         can = function(_, dir)
             return (dir > 0) ~= (app.db.profile.seed ~= false)
@@ -150,30 +152,22 @@ local KEEP_SEED = {
         end,
     },
 }
-
--- Yards into the seed a run begins: one from the main menu (screens.lua) with its seed, and
--- with a fixed seed every restart.
-local function startAt()
-    return tostring(app.db.profile.startAt or 0)
-end
-local function setStartAt(o, typed)
-    local yards = tonumber(typed)
-    if yards then
-        o:SetStartAt(yards)
-    end
-end
-overlay.START_AT = { text = "Start at", input = { get = startAt, set = setStartAt } }
--- Here grayed out while every run draws a new seed: a restart begins there only with a kept one.
+-- Yards into the seed every run begins (simulation.lua's Skip).
 local START_AT = {
     text = "Start at",
     input = {
-        get = startAt,
-        set = setStartAt,
-        can = function(o)
-            return o:StartsAt()
+        get = function()
+            return tostring(app.db.profile.startAt or 0)
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetStartAt(yards)
+            end
         end,
     },
 }
+overlay.CUSTOM = { SEED_MODE, SEED, START_AT }
 
 local function restart(o)
     if not InCombatLockdown() then
@@ -274,16 +268,18 @@ local function statusPage(o, s)
         local p = page(
             "Paused",
             NUMBERS,
-            { GO_ON, { text = "Start over", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { GO_ON, { text = "Start over", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
         )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
         p.extra = { text = "Start over", run = restart }
         return p
     elseif s.status == "over" then
-        -- A run begun further into its seed ("Start at") saves no best score: says so.
+        -- A custom run saves no best score: says so.
         local best = s.newBest and { { text = "New best!", note = GREEN } }
-            or s.practice and { { text = string.format("From %d yd: no best score", s.practice), note = GRAY } }
+            or s.custom and { { text = "Custom game: no best score", note = GRAY } }
             or {}
         if o.auto then
             return page("Run complete", best, NUMBERS, { STOP })
@@ -292,7 +288,9 @@ local function statusPage(o, s)
             "Run complete",
             best,
             NUMBERS,
-            { { text = "Run again", run = restart }, SEED, KEEP_SEED, START_AT, DIFFICULTY, AUTO, MENU }
+            { { text = "Run again", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
         )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }
