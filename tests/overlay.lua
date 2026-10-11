@@ -1139,3 +1139,59 @@ do
     PlaySoundFile, app.db.profile.enemySound = oldSound, enabled
 end
 print("PASS hostile sounds at the pass in the same or adjacent lane only")
+
+-- The challenge card under the scorecard: the live target against the best's checkpoints, and
+-- a running frame of a challenge allocates nothing either.
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+local period = app.challenges.Period("daily")
+local run = g.New(period.seed, period.difficulty, true, nil, period.goal)
+run.challenge = period
+run.target = { score = 2000, distance = 1000, trace = { 100, 300 }, traceEvery = 100 }
+app.challenges.NewTrace(run)
+run.nextRow, run.objects = math.huge, {}
+g.Start(run)
+run.forward = true
+o.state = run
+o.hudShown = nil
+local shown
+local function challengeFrame(yards, points)
+    run.distance, run.points = yards, points
+    app.challenges.Trace(run)
+    o:Render()
+    shown = o.hudShown
+end
+challengeFrame(150, 250)
+assert(shown.challenge == period, "the card shows the run's challenge")
+assert(shown.challengeTarget == 2 * 50 + 4, "ahead by 50 at 150 yards")
+function GetTime()
+    return 1
+end
+challengeFrame(150, 150)
+assert(shown.challengeTarget == 2 * 50 + 5, "behind by 50")
+function GetTime()
+    return 2
+end
+challengeFrame(1200, 5000)
+assert(shown.challengeTarget == -3, "past where the best ended")
+local t = 2
+local function later()
+    t = t + 1
+    return t
+end
+GetTime = later
+for i = 1, 50 do
+    challengeFrame(300 + i, 1000 + 3 * i)
+end
+collectgarbage("collect")
+collectgarbage("stop")
+before = collectgarbage("count")
+for i = 1, 300 do
+    challengeFrame(300 + i, 1000 + 3 * i)
+end
+assert(shown.challengeTarget > 0, "a gap to the best")
+grown = collectgarbage("count") - before
+collectgarbage("restart")
+assert(grown < 0.5, string.format("300 challenge frames allocated %.2f KB", grown))
+print(string.format("PASS the challenge card's live target, and its frames allocate nothing (%.2f KB)", grown))

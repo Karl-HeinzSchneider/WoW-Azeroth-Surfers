@@ -57,6 +57,8 @@ function overlay:SaveChallenge(s)
         difficulty = s.difficulty.id,
         goal = s.finish - s.start,
         at = app.challenges.Now(),
+        trace = app.challenges.SavedTrace(s),
+        traceEvery = app.challenges.TRACE_EVERY,
     }
     if app.challenges.Save(s.challenge, record) then
         s.newBest = true
@@ -75,6 +77,9 @@ function overlay:NewState(lobby, seed, at)
     if challenge then
         local s = sim.New(challenge.seed, challenge.difficulty, true, lobby or app.lobby, challenge.goal)
         s.challenge = challenge
+        -- The live target: the best when the run begins, and the run's own trace.
+        s.target = app.challenges.Best(challenge)
+        app.challenges.NewTrace(s)
         if not lobby then
             sim.Skip(s, 0)
         end
@@ -256,6 +261,7 @@ function overlay:Step(elapsed)
     else
         sim.Update(s, elapsed)
     end
+    app.challenges.Trace(s)
     if status == "running" and s.status == "over" then
         self:SaveBest()
     end

@@ -179,6 +179,7 @@ function overlay:CreateHud(f)
         streakPanel = streakPanel,
         streak = streak,
     }
+    self:CreateChallengeCard(card)
 end
 
 -- Where the scorecard may sit (profile.hud.position), each by its corner that stays put as the
@@ -277,6 +278,7 @@ function overlay:ShowHud()
             hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
         end
     end
+    self:ShowChallengeCard(shown, now)
     self:ShowHudCoin(shown, now)
 end
 
@@ -318,4 +320,169 @@ function overlay:ShowHudCoin(shown, now)
         end
     end
     actor:SetYaw(now * 3)
+end
+
+-- The challenge card: under the scorecard while a challenge runs (challenges.lua), as wide as
+-- it, CHALLENGE_GAP pixels below. Its period, goal, difficulty and time to the reset, its best
+-- and the live target: ahead or behind the best's score at the same distance
+-- (challenges.Target, from the checkpoints saved with the best).
+local CHALLENGE_HEIGHT, CHALLENGE_GAP, ROW = 158, 6, 21
+local LABEL = { 0.72, 0.68, 0.58 }
+local AHEAD = { 0.25, 1, 0.35 }
+local BEHIND = { 1, 0.3, 0.25 }
+local QUIET = { 0.78, 0.78, 0.78 }
+local DAY = 86400
+
+-- A label on the left and its value on the right, centred `y` pixels under the card's top.
+local function row(card, y, name, size)
+    local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("LEFT", card, "TOPLEFT", INSET, -y)
+    label:SetText(name)
+    label:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
+    local value = text(card, size or 15)
+    value:SetPoint("RIGHT", card, "TOPRIGHT", -INSET, -y)
+    return value
+end
+
+function overlay:CreateChallengeCard(scorecard)
+    local card = CreateFrame("Frame", nil, self.hud.frame, "DialogBorderTemplate")
+    card:SetHeight(CHALLENGE_HEIGHT)
+    card:SetPoint("TOPLEFT", scorecard, "BOTTOMLEFT", 0, -CHALLENGE_GAP)
+    card:SetPoint("TOPRIGHT", scorecard, "BOTTOMRIGHT", 0, -CHALLENGE_GAP)
+    card:Hide()
+    local title = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    title:SetPoint("TOPLEFT", INSET, -14)
+    title:SetTextColor(LABEL[1], LABEL[2], LABEL[3])
+    local period = card:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    period:SetPoint("TOPRIGHT", -INSET, -14)
+    period:SetTextColor(QUIET[1], QUIET[2], QUIET[3])
+
+    local first = 42
+    local goal = row(card, first, "Goal")
+    local difficulty = row(card, first + ROW, "Difficulty")
+    local resets = row(card, first + 2 * ROW, "Resets in")
+    local divider = card:CreateTexture(nil, "ARTWORK")
+    divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
+    divider:SetPoint("TOPLEFT", INSET - 4, -(first + 2.5 * ROW + 2))
+    divider:SetPoint("TOPRIGHT", -INSET + 4, -(first + 2.5 * ROW + 2))
+    divider:SetHeight(8)
+    local best = row(card, first + 3.5 * ROW + 4, "Best")
+    best:SetTextColor(GOLD[1], GOLD[2], GOLD[3])
+    local target = row(card, first + 4.5 * ROW + 6, "Target", 18)
+
+    self.hud.challenge = {
+        card = card,
+        title = title,
+        period = period,
+        goal = goal,
+        difficulty = difficulty,
+        resets = resets,
+        best = best,
+        target = target,
+    }
+end
+
+-- Room the challenge card takes under the scorecard, at the scorecard's scale: none without it.
+-- PlaceLegend keeps clear of it.
+function overlay:ChallengeCardRoom()
+    return self.hud.challenge.card:IsShown() and CHALLENGE_HEIGHT + CHALLENGE_GAP or 0
+end
+
+local function color(t, c)
+    t:SetTextColor(c[1], c[2], c[3])
+end
+
+-- Once a frame from ShowHud: what a run keeps written once when it begins, the time left once a
+-- minute, the target as often as the score.
+function overlay:ShowChallengeCard(shown, now)
+    local s, c = self.state, self.hud.challenge
+    local period = s.challenge
+    if shown.challenge ~= period then
+        shown.challenge, shown.challengeBest = period, nil
+        c.card:SetShown(period ~= nil)
+        -- The legend under the scorecard moves down or back up.
+        self:PlaceLegend()
+        if period then
+            c.title:SetText(string.upper(period.kind.name .. " challenge"))
+            c.period:SetText(period.label)
+            c.goal:SetFormattedText("%d yd", period.goal)
+            local difficulty = sim.DIFFICULTIES[period.difficulty]
+            c.difficulty:SetText(difficulty and difficulty.name or period.difficulty)
+            shown.challengeLeft, shown.challengeTarget, shown.challengeAt = nil, nil, nil
+        end
+    end
+    if not period then
+        return
+    end
+    -- Before the run begins: the best it chases; past it, no change until a restart.
+    if shown.challengeBest ~= s.target then
+        shown.challengeBest, shown.challengeTarget = s.target, nil
+        if s.target then
+            c.best:SetFormattedText("%d", s.target.score)
+        else
+            c.best:SetText("None yet")
+        end
+    end
+    local left = math.max(0, period.ends - app.challenges.Now())
+    local minutes = math.floor(left / 60)
+    if shown.challengeLeft ~= minutes then
+        shown.challengeLeft = minutes
+        local days, hours = math.floor(left / DAY), math.floor(left % DAY / 3600)
+        if left <= 0 then
+            c.resets:SetText("Now")
+        elseif days > 0 then
+            c.resets:SetFormattedText("%dd %dh", days, hours)
+        elseif hours > 0 then
+            c.resets:SetFormattedText("%dh %dm", hours, minutes % 60)
+        else
+            c.resets:SetFormattedText("%dm", math.max(1, minutes))
+        end
+    end
+    if shown.challengeAt and s.status == "running" and now - shown.challengeAt < SCORE_EVERY then
+        return
+    end
+    shown.challengeAt = now
+    self:ShowChallengeTarget(s, shown, c.target)
+end
+
+-- Ahead or behind the best's score at this distance; "+0" while even.
+function overlay:ShowChallengeTarget(s, shown, target)
+    local best = s.target
+    -- A number for each state, so nothing is written again while it holds: -1 none yet, -2 no
+    -- checkpoints saved with the best, -3 past where the best ended, else the gap's sign and
+    -- size (2 * |gap| + 4, + 1 behind).
+    local key, gap
+    if not best then
+        key = -1
+    elseif not best.trace then
+        key = -2
+    else
+        local at = app.challenges.Target(best, sim.Run(s))
+        if not at then
+            key = -3
+        else
+            gap = sim.Score(s) - at
+            key = 2 * math.abs(gap) + 4 + (gap < 0 and 1 or 0)
+        end
+    end
+    if shown.challengeTarget == key then
+        return
+    end
+    shown.challengeTarget = key
+    if key == -1 then
+        target:SetText("Set one")
+        color(target, QUIET)
+    elseif key == -2 then
+        target:SetFormattedText("Beat %d", best.score)
+        color(target, QUIET)
+    elseif key == -3 then
+        target:SetText("Past your best")
+        color(target, AHEAD)
+    elseif gap < 0 then
+        target:SetFormattedText("Behind %d", -gap)
+        color(target, BEHIND)
+    else
+        target:SetFormattedText("Ahead +%d", gap)
+        color(target, AHEAD)
+    end
 end

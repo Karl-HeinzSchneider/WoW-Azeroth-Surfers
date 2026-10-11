@@ -983,6 +983,28 @@ test("challenges change at the reset, the same for everyone", function()
     assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "and are replaced")
     app.db = nil
 end)
+
+test("a challenge's run keeps its score at checkpoints, the live target reads them", function()
+    local c = app.challenges
+    local s = g.New(5, "normal", true, nil, 450)
+    c.NewTrace(s)
+    assert(#s.trace == 5 and s.traced == 0, "room for the whole run")
+    s.distance, s.points = 250, 300
+    c.Trace(s)
+    assert(s.traced == 2 and s.trace[1] == 300 and s.trace[2] == 300 and s.trace[3] == 0)
+    s.distance, s.points = 1000, 900
+    c.Trace(s)
+    assert(s.traced == 4, "up to the finish")
+    local saved = c.SavedTrace(s)
+    assert(#saved == 4 and saved[4] == 900)
+
+    local best = { score = 500, distance = 250, trace = { 100, 300 }, traceEvery = 100 }
+    assert(c.Target(best, 0) == 0 and c.Target(best, 50) == 50 and c.Target(best, 100) == 100)
+    assert(c.Target(best, 150) == 200, "between checkpoints")
+    assert(c.Target(best, 225) == 400, "from the last checkpoint to where it ended")
+    assert(c.Target(best, 250) == 500 and c.Target(best, 251) == nil, "nothing past it")
+    assert(c.Target({ score = 500, distance = 250 }, 10) == nil, "an older record has no trace")
+end)
 print(string.format("%d simulation tests passed", count))
 
 -- Near misses use the same box dimensions the views draw.
