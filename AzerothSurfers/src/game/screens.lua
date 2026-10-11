@@ -108,22 +108,28 @@ local function scoreText(record)
     return record.finished and tostring(record.score)
         or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
 end
--- Rows of a leaderboard; this player's place below them when it is further down. Its window is
--- wider than the menu's (menus.lua's WIDTH), for a full name beside score, distance and coins.
-local RANKS, BOARD_WIDTH = 8, 620
--- A leaderboard's row: the score, how far a run got that did not reach the portal, the coins
--- and their share of the run's, in whole percent down.
-local function boardText(record)
-    local far = record.finished and "" or string.format("%d yd   ", record.distance)
+-- Rows of a leaderboard; this player's place below them when it is further down.
+local RANKS = 8
+-- The most letters of a first name and of a surname (WoW Forever's; other clients have no
+-- surname).
+local NAME_LETTERS = 12
+-- A leaderboard is a table (menus.lua): its name column as wide as the longest name can be, a
+-- place and a first name and surname of NAME_LETTERS each (a wide capital, then wide letters;
+-- another realm's "-Realm" is cut), then score, distance and coins.
+local BOARD = {
+    size = 20,
+    label = "99. W" .. string.rep("w", NAME_LETTERS - 1) .. " W" .. string.rep("w", NAME_LETTERS - 1),
+    values = { "9999999", "9999 yd", "9999/9999 (100%)" },
+}
+-- A leaderboard row's columns: the score, the distance (gray: the run did not reach the
+-- portal), the coins and their share of the run's, in whole percent down.
+local function boardColumns(record)
+    if not record then
+        return "", "", ""
+    end
+    local far = string.format(record.finished and "%d yd" or "|cffaaaaaa%d yd|r", record.distance)
     local share = record.coinTotal > 0 and math.floor(100 * record.coins / record.coinTotal) or 0
-    return string.format(
-        "%d   |cffaaaaaa%s%d/%d coins (%d%%)|r",
-        record.score,
-        far,
-        record.coins,
-        record.coinTotal,
-        share
-    )
+    return tostring(record.score), far, string.format("%d/%d (%d%%)", record.coins, record.coinTotal, share)
 end
 -- A challenge's leaderboard (leaderboard.lua): the bests of the guild and the group, asked for
 -- when it opens and again by its extra action, and shown as they arrive.
@@ -137,7 +143,15 @@ local function leaderboardPage(period)
         local shown = string.format("%d. %s", i, e.name)
         return e.me and "|cffffffff" .. shown .. "|r" or shown
     end
-    local items = { { text = period.label, note = GRAY } }
+    local items = {
+        { text = period.label, note = GRAY },
+        {
+            text = "Player",
+            info = function()
+                return "Score", "Distance", "Coins"
+            end,
+        },
+    }
     for i = 1, RANKS do
         items[#items + 1] = {
             text = function()
@@ -149,7 +163,7 @@ local function leaderboardPage(period)
             end,
             info = function()
                 local e = entry(i)
-                return e and boardText(e.record) or ""
+                return boardColumns(e and e.record)
             end,
         }
     end
@@ -169,14 +183,14 @@ local function leaderboardPage(period)
         end,
         info = function()
             local e = own()
-            return e and boardText(e.record) or ""
+            return boardColumns(e and e.record)
         end,
     }
     items[#items + 1] = { text = "Back", back = true }
     return {
         title = period.kind.name .. " leaderboard",
         items = items,
-        width = BOARD_WIDTH,
+        columns = BOARD,
         extra = {
             text = "Ask again",
             run = function()

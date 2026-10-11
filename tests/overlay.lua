@@ -852,12 +852,25 @@ local panelWidth
 main.panel.SetWidth = function(_, w)
     panelWidth = w
 end
+-- Every letter 10 pixels wide.
+local measured
+main.measure.SetText = function(_, t)
+    measured = t
+end
+main.measure.GetStringWidth = function()
+    return 10 * #measured
+end
 daily.items[#daily.items - 1].run(o, main)
 local board = main:Page()
 assert(board.title == "Daily leaderboard" and board.extra, board.title)
-assert(panelWidth == board.width and panelWidth > 400, "a wider window")
+-- The longest name, then the longest score, distance and coins, apart, inside the borders.
+local need = 10 * #board.columns.label
+for _, sample in ipairs(board.columns.values) do
+    need = need + 20 + 10 * #sample
+end
+assert(panelWidth > 400 and panelWidth >= need + 52, "as wide as the longest name and values need")
 main:Show()
-assert(board.items[2].text(o) == "No bests shared yet" and board.items[2].info(o) == "")
+assert(board.items[3].text(o) == "No bests shared yet" and board.items[3].info(o) == "")
 local period = app.challenges.Period("daily")
 app.leaderboard:Receive(
     app.leaderboard.Encode(period.key, {
@@ -871,9 +884,10 @@ app.leaderboard:Receive(
     "Ann"
 )
 main:Show()
-assert(board.items[2].text(o) == "1. Ann", board.items[2].text(o))
-assert(board.items[2].info(o) == "4321   |cffaaaaaa1/2 coins (50%)|r", board.items[2].info(o))
-assert(board.items[3].text(o) == "", "one player")
+assert(board.items[3].text(o) == "1. Ann", board.items[3].text(o))
+local score, distance, coins = board.items[3].info(o)
+assert(score == "4321" and distance == period.goal .. " yd" and coins == "1/2 (50%)", coins)
+assert(board.items[4].text(o) == "", "one player")
 press("Q", "STRAFELEFT")
 assert(main:Page() == daily, "back to the challenge")
 assert(panelWidth == 400, "the menu's own width again")
