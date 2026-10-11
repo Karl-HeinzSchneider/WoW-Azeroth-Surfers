@@ -232,12 +232,12 @@ function overlay:PlaceLegend(side, top)
         y = top - 40
     end
     if side then
-        -- Below the scorecard (and the challenge card), so all fit even in the narrowest side
-        -- window.
-        y = y - 100 - self:ChallengeCardRoom() * scale
+        -- Below the scorecard (its extra info and the challenge card), so all fit even in the
+        -- narrowest side window.
+        y = y - 100 - (self:HudInfoRoom() + self:ChallengeCardRoom()) * scale
     elseif self.hudPosition == "topleft" then
-        -- Below the scorecard (and the challenge card) in the same corner.
-        y = y - 130 - self:ChallengeCardRoom()
+        -- Below the scorecard (its extra info and the challenge card) in the same corner.
+        y = y - 130 - self:HudInfoRoom() - self:ChallengeCardRoom()
     end
     legend:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x / scale, y / scale)
 end

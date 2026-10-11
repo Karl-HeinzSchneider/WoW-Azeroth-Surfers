@@ -35,6 +35,19 @@ local profile = {
     -- the side window: top right), "topright", "top" or "topleft"; x and y move it that many
     -- pixels (right and up).
     hud = { position = "menu", x = 0, y = 0 },
+    hudCoinShare = true, -- the share of coins collected beside the scorecard's coin counter
+    -- The scorecard's extra info (hud.lua's HUD_INFO), each by its id: true to show it.
+    hudInfo = {
+        seed = false,
+        time = false,
+        fps = false,
+        speed = false,
+        biome = false,
+        portal = false,
+        coinRate = false,
+        bestStreak = false,
+        best = false,
+    },
     side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
     -- The game's independent follow camera and the twin.
     overlay = {

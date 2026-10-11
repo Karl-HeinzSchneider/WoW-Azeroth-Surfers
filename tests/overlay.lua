@@ -1349,3 +1349,68 @@ grown = collectgarbage("count") - before
 collectgarbage("restart")
 assert(grown < 0.5, string.format("300 challenge frames allocated %.2f KB", grown))
 print(string.format("PASS the challenge card's live target, and its frames allocate nothing (%.2f KB)", grown))
+
+-- The scorecard's extra info: off by default; once on, a row each under the score, redrawn every
+-- INFO_EVERY seconds, written only when changed, and its frames allocate nothing either.
+function GetFramerate()
+    return 59.6
+end
+o:LayoutHudInfo()
+assert(o:HudInfoRoom() == 0 and o.hud.info.count == 0, "no extra info by default")
+app.db.profile.hudInfo = {}
+for _, stat in ipairs(o.HUD_INFO) do
+    app.db.profile.hudInfo[stat.id] = true
+end
+o:LayoutHudInfo()
+local info = o.hud.info
+assert(info.count == #o.HUD_INFO and o:HudInfoRoom() > 0, "every row turned on is shown")
+-- What each row writes, read through a recorder.
+local written = {}
+local function row(id)
+    for i, r in ipairs(info.shown) do
+        if r.stat.id == id then
+            return written[i]
+        end
+    end
+end
+run.time = 125.4
+for i, r in ipairs(info.shown) do
+    r.stat.write({
+        SetText = function(_, value)
+            written[i] = value
+        end,
+        SetFormattedText = function(_, format, ...)
+            written[i] = string.format(format, ...)
+        end,
+    }, r.stat.value(o, run))
+end
+assert(row("time") == "2m 05s", "the run's time: " .. tostring(row("time")))
+assert(row("fps") == "60", "frames per second, rounded")
+assert(row("seed") == string.format("%.0f", run.seed), "the seed")
+assert(row("biome") == o.biome.name, "the biome")
+for i = 1, 50 do
+    run.time = i
+    challengeFrame(400 + i, 2000 + 3 * i)
+end
+local timeRow
+for _, r in ipairs(info.shown) do
+    if r.stat.id == "time" then
+        timeRow = r
+    end
+end
+assert(timeRow.written == 50, "the time row follows the run")
+collectgarbage("collect")
+collectgarbage("stop")
+before = collectgarbage("count")
+for i = 1, 300 do
+    run.time, run.speed = 50 + i, 30 + i / 10
+    challengeFrame(450 + i, 2200 + 3 * i)
+end
+grown = collectgarbage("count") - before
+collectgarbage("restart")
+assert(timeRow.written == 350, "the time row still follows the run")
+assert(grown < 0.5, string.format("300 frames with every extra info allocated %.2f KB", grown))
+app.db.profile.hudInfo = nil
+o:LayoutHudInfo()
+assert(o:HudInfoRoom() == 0, "turned off, the section goes")
+print(string.format("PASS the scorecard's extra info, and its frames allocate nothing (%.2f KB)", grown))

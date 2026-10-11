@@ -135,6 +135,7 @@ function game.New(seed, difficulty, zones, lobby, goal)
         -- Where the run starts counting: nothing before it scores (a run from the lobby: where
         -- the player takes over, track.Lobby). `Run` is how far from there.
         start = 0,
+        time = 0, -- seconds run past `start` (up to `finish`)
         coins = 0,
         coinTotal = 0, -- coins come past, collected or missed
         collected = 0, -- coins picked up, before `start` too (their sound)
@@ -309,6 +310,10 @@ local function tick(s)
     if s.finish and s.distance >= s.finish + game.FINISH_PAST then
         s.status, s.finished = "over", true
         return
+    end
+    -- Up to a challenge's last portal, as `Run` counts.
+    if s.distance > s.start and s.distance <= (s.finish or math.huge) then
+        s.time = s.time + STEP
     end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
