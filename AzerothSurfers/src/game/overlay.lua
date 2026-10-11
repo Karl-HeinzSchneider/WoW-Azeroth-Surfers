@@ -180,20 +180,32 @@ function overlay:Project(d, x, z)
     return project(d, x, z)
 end
 
--- The quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left and right.
+-- Ground piece `t`'s quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left
+-- and right; `onScreen` false, and nothing placed, past the horizon or outside the view's frame
+-- (it clips in the side window and fills the screen otherwise; the ground reaches GROUND_OVERLAP
+-- below it). SkinPiece shows it or not.
 local function face(t, left, right, d1, z1, d2, z2)
-    local bl, by = project(d1, left, z1)
+    local bl, by, scale = project(d1, left, z1)
     local tl, ty = project(d2, left, z2)
-    if not bl or not tl or ty <= by then
-        shapes.Hide(t)
+    if not bl or not tl or ty <= by or ty < -GROUND_OVERLAP or by > 2 * cam.cy then
+        t.onScreen = false
         return
     end
     local br, tr = project(d1, right, z1), project(d2, right, z2)
+    if br < 0 and tr < 0 or bl > 2 * cam.cx and tl > 2 * cam.cx then
+        t.onScreen = false
+        return
+    end
+    t.onScreen = true
     t:SetPoint("BOTTOMLEFT", bl, by)
-    t:SetSize(math.max(br - bl, 0.01), ty - by)
+    -- The same size while the camera only moves sideways, as it does changing lanes.
+    local w, h = math.max((right - left) * scale, 0.01), ty - by
+    if w ~= t.placedWidth or h ~= t.placedHeight then
+        t.placedWidth, t.placedHeight = w, h
+        t:SetSize(w, h)
+    end
     t:SetVertexOffset(1, tl - bl, 0)
     t:SetVertexOffset(3, tr - br, 0)
-    shapes.Show(t)
 end
 
 -- Ground piece `t`'s surface from `look` (one it lacks from `fallback`): the texture, or its
@@ -235,7 +247,9 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
             local a, b = (c - 1) / columns, c / columns
             t.kind, t.near, t.far = band.surface, near, segments[i + 1]
             t.foreground = i == 1
-            t.fullFar, t.cut = false, false
+            t.fullFar, t.cut, t.v1 = false, false, false
+            -- Placed by the next frame's camera (Render).
+            t.onScreen = false
             if t.seam then
                 shapes.Hide(t.seam)
             end
@@ -313,11 +327,20 @@ function overlay:ShadePiece(t)
     end
 end
 
+-- A hidden piece is shaded once it shows again (SkinPiece).
+local function shadeShown(self, t)
+    if t.surferShown then
+        self:ShadePiece(t)
+    else
+        t.fadeAlpha = false
+    end
+end
+
 function overlay:ShadeGround()
     for _, t in ipairs(self.ground) do
-        self:ShadePiece(t)
+        shadeShown(self, t)
         if t.seam then
-            self:ShadePiece(t.seam)
+            shadeShown(self, t.seam)
         end
     end
 end
@@ -355,24 +378,45 @@ function overlay:GroundLookAt(d)
     return self:BiomeIdAt(at)
 end
 
--- Gives ground piece (or seam) `t` the look `key` and its texture coordinates.
+-- Gives ground piece (or seam) `t` the look `key` and its texture coordinates, and shows it
+-- where there is something to see: on the screen (`face`) and not faded out. A hidden one costs
+-- no calls; it is shaded and its texture placed once it shows again.
 function overlay:SkinPiece(t, key, look)
     if t.skin ~= key then
         t.skin = key
         skin(t, look and look.ground or app.biomes.Get(key).ground, self.biome.ground)
-        if self.groundLight then
-            self:ShadePiece(t)
+        t.fadeAlpha, t.v1 = false, false
+    end
+    if not t.onScreen then
+        shapes.Hide(t)
+        if self.fade.moved then
+            t.fadeAlpha = false
         end
+        return
     end
     -- The view's end moves while a gate comes nearer: its rows fade anew.
-    if self.fade.moved and self.groundLight and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01 then
+    if
+        self.groundLight
+        and (self.fade.moved or not t.fadeAlpha)
+        and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01
+    then
         self:ShadePiece(t)
+    end
+    if t.fadeAlpha == 0 then
+        shapes.Hide(t)
+        return
     end
     local tile = t.tile
     if tile then
         local base = onGround.distance % tile
-        t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
+        local v1, v2 = -(t.far + base) / tile, -(t.near + base) / tile
+        -- Unchanged while the runner stands, as on the title screen during a glide.
+        if v1 ~= t.v1 or v2 ~= t.v2 then
+            t.v1, t.v2 = v1, v2
+            t:SetTexCoord(t.left / tile, t.right / tile, v1, v2)
+        end
     end
+    shapes.Show(t)
 end
 
 -- A second texture that takes over a piece from where the look changes in it, so the change
@@ -381,13 +425,16 @@ local function seamOf(t, parent)
     local seam = t.seam
     if not seam then
         seam = parent:CreateTexture(nil, "BACKGROUND", nil, t.groundLayer)
-        seam.groundLayer = t.groundLayer
+        seam.groundLayer, seam.onScreen = t.groundLayer, false
         t.seam = seam
     elseif seam.groundLayer ~= t.groundLayer then
         seam:SetDrawLayer("BACKGROUND", t.groundLayer)
         seam.groundLayer = t.groundLayer
     end
-    seam.kind, seam.left, seam.right = t.kind, t.left, t.right
+    if seam.left ~= t.left or seam.right ~= t.right then
+        seam.left, seam.right, seam.v1 = t.left, t.right, false
+    end
+    seam.kind = t.kind
     seam.alphaLeft, seam.alphaRight = t.alphaLeft, t.alphaRight
     return seam
 end

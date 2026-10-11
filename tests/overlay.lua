@@ -408,8 +408,9 @@ assert(math.abs(road.coords[4] - (bottom - 1 / road.tile)) < 1e-9, "running a ya
 o.state.distance = 1000 * road.tile + 0.25
 o:Render()
 assert(road.coords[4] > -2, "far runs keep the coordinates small")
+local farRoad = piece("road", 0, 133)
 assert(
-    road.alpha == settings.opacity and piece("road", 0, 133).alpha < 0.2 * settings.opacity,
+    road.alpha == settings.opacity and (not farRoad.shown or farRoad.alpha < 0.2 * settings.opacity),
     "the far road fades out"
 )
 local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -10.8, 5)
@@ -421,6 +422,26 @@ assert(
 )
 o.state.distance = 0
 print("PASS ground textures scroll toward the runner and fade out at their edges and far ahead")
+
+-- Pieces nobody sees cost no calls: behind a close camera, then shown again once it backs off.
+do
+    local distance = settings.distance
+    local behind = piece("road", 0, -4)
+    settings.distance = 2
+    o:Render()
+    assert(behind.shown == false, "a piece behind the camera is hidden")
+    local coords = behind.coords[4]
+    o.state.distance = 1.5
+    o:Render()
+    assert(behind.coords[4] == coords, "a hidden piece's texture does not scroll")
+    settings.distance = 24
+    o:Render()
+    assert(behind.shown, "it shows once the camera backs off")
+    assert(math.abs(behind.coords[4] + (behind.near + 1.5) / behind.tile) < 1e-9, "with the texture where it belongs")
+    settings.distance, o.state.distance = distance, 0
+    o:Render()
+end
+print("PASS ground pieces off the screen are hidden and not updated")
 
 -- The ground's light follows the game's clock: bright by day, dim and blue at night.
 local hour = 12
