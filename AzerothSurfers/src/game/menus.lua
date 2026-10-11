@@ -11,7 +11,8 @@ local _, app = ...
 -- extra = { text = its hint, run = function(o, menu) }, width = the window's in pixels, WIDTH
 -- when left out, columns = a table's (below) }.
 -- A table: columns = { size = its font's, label = the longest label, values = { the longest
--- value of each column } }. The window is as wide as those samples need at that size (at the
+-- value of each column }, heads = { each column's header, or nil } }; a column is as wide as
+-- its longest value or its header, whichever is wider. The window is as wide as those samples need at that size (at the
 -- least its width), every label is cut to its sample's width, and an info item's values (its
 -- function returns one per column) stand in columns on the right.
 -- An item:
@@ -374,7 +375,8 @@ function Menu:Layout()
         labelWidth = self:Measure(columns.label, size)
         local need = labelWidth
         for k, sample in ipairs(columns.values) do
-            widths[k] = self:Measure(sample, size)
+            local head = columns.heads and columns.heads[k]
+            widths[k] = math.max(self:Measure(sample, size), head and self:Measure(head, size) or 0)
             need = need + COLUMN_GAP + widths[k]
         end
         -- A row's label starts MARKER + 6 into it, MARKER / 2 left of PAD.

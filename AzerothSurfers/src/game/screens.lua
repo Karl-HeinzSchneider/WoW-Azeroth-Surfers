@@ -120,6 +120,7 @@ local BOARD = {
     size = 20,
     label = "99. W" .. string.rep("w", NAME_LETTERS - 1) .. " W" .. string.rep("w", NAME_LETTERS - 1),
     values = { "9999999", "9999 yd", "9999/9999 (100%)" },
+    heads = { "Score", "Distance", "Coins" },
 }
 -- A leaderboard row's columns: the score, the distance (gray: the run did not reach the
 -- portal), the coins and their share of the run's, in whole percent down.
@@ -148,7 +149,7 @@ local function leaderboardPage(period)
         {
             text = "Player",
             info = function()
-                return "Score", "Distance", "Coins"
+                return unpack(BOARD.heads)
             end,
         },
     }

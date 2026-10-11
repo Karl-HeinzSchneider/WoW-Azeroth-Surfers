@@ -865,11 +865,12 @@ local board = main:Page()
 assert(board.title == "Daily leaderboard" and board.extra, board.title)
 -- The longest name, then the longest score, distance and coins, apart, inside the borders.
 local need = 10 * #board.columns.label
-for _, sample in ipairs(board.columns.values) do
-    need = need + 20 + 10 * #sample
+for k, sample in ipairs(board.columns.values) do
+    need = need + 20 + 10 * math.max(#sample, #board.columns.heads[k])
 end
 assert(panelWidth > 400 and panelWidth >= need + 52, "as wide as the longest name and values need")
 main:Show()
+assert(select(2, board.items[2].info(o)) == "Distance", "the header")
 assert(board.items[3].text(o) == "No bests shared yet" and board.items[3].info(o) == "")
 local period = app.challenges.Period("daily")
 app.leaderboard:Receive(
