@@ -33,7 +33,8 @@ and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, nev
 - `options.lua` — `app.options`: **one** AceConfig table, in tabs (Game, Display, Sound, Keys,
   Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
   setting changed elsewhere.
-- `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon.
+- `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
+  status (`challenges.StatusText`).
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a
@@ -70,6 +71,8 @@ default in `db.lua` and an entry in `options.lua`.
   The end menu says how much the run beat or missed the best before it by (`s.lastBest`).
   A challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved
   with its best, for the live target (`Target`: the best's score at a distance).
+  `Status` (new, beaten or tried) and `Reminder`, the chat line `ace.lua` prints at login
+  (`profile.challengeReminder`).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
