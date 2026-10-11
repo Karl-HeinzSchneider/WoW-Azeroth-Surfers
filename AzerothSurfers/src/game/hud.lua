@@ -29,7 +29,7 @@ local GEM_ZOOM = 2.5
 -- The multiplier's gold, and its orange above 1.
 local GOLD = { 1, 0.82, 0 }
 local BOOST = { 1, 0.55, 0.1 }
--- The streak (sim.STREAK) beside the character: shown from STREAK_EARLY coins before it scores
+-- The streak (the run's `scoring.streak`) beside the character: shown from STREAK_EARLY coins before it scores
 -- more on, gold, orange once it does. Its bottom left corner STREAK_OFFSET pixels off the right
 -- of the twin's square on the screen (overlay.lua's twinAnchor), centred on the character and a
 -- little larger than it.
@@ -520,14 +520,14 @@ function overlay:ShowHud()
         hud.multiplierPanel:SetWidth(multiplierWidth)
         hud.card:SetWidth(math.max(CARD_WIDTH, hud.score.panel:GetWidth() + multiplierWidth + 2 * INSET + 12))
     end
-    local shownFrom = math.max(1, sim.STREAK.from - STREAK_EARLY)
+    local shownFrom = math.max(1, s.scoring.streak.from - STREAK_EARLY)
     local streak = s.status == "running" and s.streak >= shownFrom and s.streak or 0
     if shown.streak ~= streak then
         shown.streak = streak
         hud.streakPanel:SetShown(streak > 0)
         if streak > 0 then
             hud.streak:SetFormattedText("Streak %d", streak)
-            local color = streak >= sim.STREAK.from and BOOST or GOLD
+            local color = streak >= s.scoring.streak.from and BOOST or GOLD
             hud.streak:SetTextColor(color[1], color[2], color[3])
             local width = (hud.streak:GetStringWidth() or 0) + 2 * STREAK_PAD
             hud.streakPanel:SetWidth(math.max(2 * STREAK_CORNER, width))

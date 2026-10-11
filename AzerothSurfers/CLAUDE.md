@@ -12,7 +12,7 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it; one that
    derives from or borrows another's, as Teldrassil and Tirisfal do Elwynn's, after that one), the
    transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
-   `simulation` → `challenges` → `leaderboard` → `track` → `patterns\patterns.xml` →
+   `scoring` → `simulation` → `challenges` → `leaderboard` → `track` → `patterns\patterns.xml` →
    `autopilot`, then `light` and `shapes`, then `overlay.lua` and the files that extend
    `app.overlay` after it. A Lua mixin comes before the XML that names it.
 4. `AzerothSurfers.lua` last; it only logs.
@@ -45,12 +45,18 @@ default in `db.lua` and an entry in `options.lua`.
 - `random.lua` — seeded generators (`random.New(seed, stream)`, called like `math.random`).
   **Nothing in a run may use `math.random`**: everything a seed should replay draws from a
   generator of the run's seed, each system from its own stream.
+- `scoring.lua` — `app.scoring`: how a run scores, as data. `DEFAULTS` holds every value (points
+  per yard and per coin, the streak, the multiplier's start, step per gate and most, a factor per
+  difficulty the score is multiplied by); `Rules(overrides)` copies them with a game mode's
+  overrides over them, field by field. **Game code reads a run's rules (`s.scoring`), never a
+  scoring constant of its own**, so a mode can change any of it.
 - `simulation.lua` — the pure fixed-step simulation: every object is a box on a lane/layer grid.
-  `New(seed, difficulty, zones, lobby, goal)` (`goal`: a challenge's, see below); `DIFFICULTIES`; `VIEW` (how far the views show),
+  `New(seed, difficulty, zones, lobby, goal, scoring)` (`goal`: a challenge's, see below;
+  `scoring`: a mode's overrides of scoring.lua's rules); `DIFFICULTIES`; `VIEW` (how far the views show),
   `AHEAD` (how far the track is laid out), `CLEAR` (seconds of empty road at a run's start).
   Nothing scores before a run's `start` (a run from the lobby: where the player takes over past
-  the portal); `Run(s)` is the yards counted. Each gate past `start` adds `GATE_MULTIPLIER` to
-  the multiplier.
+  the portal); `Run(s)` is the yards counted. Each gate past `start` adds the rules'
+  `multiplier.perGate`; `Score(s)` is everything earned times the difficulty's factor.
   `Skip(s, yards)` begins a run from the lobby that far into its seed, past its portal at the
   least: the track is laid out step by step as running it from the menu lays it out, so from the
   first pattern past the empty road on it is the seed's own. Every restart is one, so a seed

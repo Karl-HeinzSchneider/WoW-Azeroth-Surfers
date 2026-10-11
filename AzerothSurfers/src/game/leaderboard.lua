@@ -10,8 +10,9 @@ local _, app = ...
 --
 -- A message is words split by spaces, the protocol's VERSION first (another version's are left
 -- alone):
---   "1 B <key> <score> <distance> <finished 0|1> <coins> <coinTotal>"   a best
---   "1 Q <key> ..."                                                       asking for bests
+--   "2 B <key> <score> <distance> <finished 0|1> <coins> <coinTotal>"   a best
+--   "2 Q <key> ..."                                                       asking for bests
+-- Version 2: scores are times the difficulty's factor (scoring.lua), so 1's do not compare.
 local challenges = app.challenges
 
 ---@class AzerothSurfers.Leaderboard : AceModule, AceComm-3.0
@@ -23,7 +24,7 @@ app.leaderboard = leaderboard
 leaderboard.asked, leaderboard.answered, leaderboard.ranked, leaderboard.changes = {}, {}, {}, 0
 
 local PREFIX = "AzSurfers"
-local VERSION = "1"
+local VERSION = "2"
 -- The channels it is shared on; any other's messages are ignored.
 local CHANNELS = { GUILD = true, PARTY = true, RAID = true }
 -- Seconds before asking a channel again, and before answering it again for a period.

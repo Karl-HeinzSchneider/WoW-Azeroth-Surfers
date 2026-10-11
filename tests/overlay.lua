@@ -10,6 +10,7 @@ dofile("tests/load.lua")(app, {
     "biomes/tirisfal",
     "biomes/transitions/dream",
     "game/random",
+    "game/scoring",
     "game/simulation",
     "game/challenges",
     "game/leaderboard",
