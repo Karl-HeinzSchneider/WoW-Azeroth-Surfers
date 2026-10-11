@@ -12,14 +12,15 @@ local now = 20736 * 86400 + 12 * 3600
 function GetServerTime()
     return now
 end
--- WoW Forever: the first name alone, the surname where the realm would be; senders and
--- GetUnitName have both.
+-- WoW Forever: the first name and the surname apart; senders and NameUtil have both.
 function UnitName()
     return "Me", "Meier"
 end
-function GetUnitName()
-    return "Me Meier"
-end
+NameUtil = {
+    GetUnmodifiedUnitFullName = function()
+        return "Me Meier"
+    end,
+}
 local guild, group = true, false
 function IsInGuild()
     return guild
@@ -143,6 +144,13 @@ test("the ranking: the portal first, then the score, and oneself in it", functio
     c.Save(daily, best(3000, true))
     assert(board:Ranked(daily)[1].me, "its own new best")
     assert(#board:Ranked(weekly) == 0, "nobody's weekly yet")
+end)
+
+test("without NameUtil, the first name", function()
+    local util = NameUtil
+    NameUtil = nil
+    assert(board.Me() == "Me", board.Me())
+    NameUtil = util
 end)
 
 test("a player's list per period is bounded, and ended periods are dropped", function()

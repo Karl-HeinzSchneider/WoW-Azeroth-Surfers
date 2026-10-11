@@ -85,10 +85,14 @@ function module.Encode(key, record)
     )
 end
 
--- This player's name as the others receive it: with the surname where the client has them
--- (WoW Forever's UnitName gives the first name alone, and the surname where the realm would be).
+-- This player's name as the others receive it. WoW Forever's UnitName gives the first name and
+-- the surname apart (where the realm would be); its NameUtil joins them as senders arrive, the
+-- other clients' gives the plain name. A client without NameUtil: UnitName's first.
 function module.Me()
-    return GetUnitName and GetUnitName("player", true) or UnitName("player")
+    if NameUtil and NameUtil.GetUnmodifiedUnitFullName then
+        return NameUtil.GetUnmodifiedUnitFullName("player")
+    end
+    return (UnitName("player"))
 end
 
 local function count(text, most)
