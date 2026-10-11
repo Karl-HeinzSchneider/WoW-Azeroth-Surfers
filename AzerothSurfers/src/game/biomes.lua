@@ -91,6 +91,76 @@ function biomes.Transition(id)
     return biomes.transitions[id] or biomes.transitions.dream
 end
 
+-- Apply a client's asset mappings once, after all biome/transition/lobby definitions load.
+-- Copy the definitions: shared source tables remain the Forever baseline. Only asset fields
+-- change; numbers such as heights, weights, speeds and animation rates are never remapped.
+function biomes.ApplyAssetOverrides(overrides)
+    local function mapped(kind, value)
+        local map = overrides[kind]
+        return map and map[value] or value
+    end
+    local function values(kind, value)
+        if type(value) ~= "table" then
+            return mapped(kind, value)
+        end
+        local copy = {}
+        for key, entry in pairs(value) do
+            copy[key] = values(kind, entry)
+        end
+        return copy
+    end
+    local function sounds(value, byCreature)
+        if type(value) ~= "table" then
+            return mapped("sounds", value)
+        end
+        local copy = {}
+        for key, entry in pairs(value) do
+            -- A creature's sound can be a list or a dictionary keyed by display ID.
+            local target = byCreature and not value[1] and mapped("creatures", key) or key
+            -- On collisions prefer the replacement display's own voice, deterministically.
+            if target == key or value[target] == nil then
+                copy[target] = sounds(entry, false)
+            end
+        end
+        return copy
+    end
+    local fields = {
+        creature = "creatures",
+        model = "models",
+        texture = "textures",
+        animation = "animations",
+        attack = "animations",
+    }
+    local function definition(source)
+        if type(source) ~= "table" then
+            return source
+        end
+        local copy = {}
+        for key, value in pairs(source) do
+            if fields[key] then
+                copy[key] = values(fields[key], value)
+            elseif key == "sound" then
+                copy[key] = sounds(value, source.creature ~= nil)
+            elseif key == "voice" or key == "finale" or key == "sounds" or key == "music" then
+                copy[key] = sounds(value, false)
+            elseif key == "footsteps" then
+                copy[key] = definition(value)
+                copy[key].ground = sounds(value.ground, false)
+                copy[key].wood = sounds(value.wood, false)
+            else
+                copy[key] = definition(value)
+            end
+        end
+        return copy
+    end
+    biomes.list = definition(biomes.list)
+    biomes.transitions = definition(biomes.transitions)
+    if app.lobby then
+        app.lobby = definition(app.lobby)
+    end
+    biomes.merged, biomes.zones = {}, nil
+end
+
 -- `profile.biome` for auto. Where a zone ends is the simulation's; which biome it is, here.
 biomes.AUTO = "auto"
 -- How much likelier the next tier up is than staying or going back to a lower one.

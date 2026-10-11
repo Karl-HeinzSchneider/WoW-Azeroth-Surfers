@@ -20,6 +20,22 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 `src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`)
 and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, never patch it.
 
+## Client asset overrides
+
+Biome, transition and lobby definitions are the Forever baseline. `src/overrides/retail.lua`
+loads immediately after the lobby and before game consumers. It returns without changes on
+Forever (interface 16001, even if its project is Mainline) and Classic; on retail it calls
+`biomes.ApplyAssetOverrides` with mappings from baseline IDs to replacement IDs. Add all retail
+replacements there, never conditionals inside individual biomes.
+
+Mappings cover `creatures`, `models`, `sounds`, `textures` and explicit biome `animations`.
+The application step copies definitions and clears merged caches, so the dev asset audit sees
+the same resolved data as gameplay. It handles asset lists, display-keyed enemy sounds,
+footsteps, transitions and lobby music; it preserves gameplay numbers and list lengths/weights.
+Targets are final IDs (no chained remapping). If creature sound keys collide, the target
+display's existing voice wins. Local constants in rendering/control code and player animations
+are not biome fields and are not remapped by this system. `npm run test:assets` also tests overrides.
+
 ## Core
 
 - `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,

@@ -131,4 +131,7 @@ inconclusive; even a loaded model needs visual verification with `/surfers previ
 - npm run package:addons produces a local distributable ZIP.
 
 Release workflows are inherited from the template.
+Forever is the baseline for asset definitions. Retail replacements are centralized in
+`AzerothSurfers/src/overrides/retail.lua`; they apply to biome, transition and lobby assets
+before gameplay and the dev asset audit use them.
 Configure project IDs and upload secrets only when publishing; none are required to play locally.

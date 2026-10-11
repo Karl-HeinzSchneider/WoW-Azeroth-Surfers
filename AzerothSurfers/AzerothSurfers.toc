@@ -24,6 +24,7 @@ src\biomes\teldrassil.lua
 src\biomes\tirisfal.lua
 src\biomes\transitions\dream.lua
 src\scenes\lobby.lua
+src\overrides\retail.lua
 src\game\random.lua
 src\game\scoring.lua
 src\game\simulation.lua
