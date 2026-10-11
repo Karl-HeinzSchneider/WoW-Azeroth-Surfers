@@ -29,6 +29,7 @@ dofile("tests/load.lua")(app, {
     "game/hud",
     "game/legend",
     "game/messages",
+    "game/bestmarker",
     "game/menus",
     "game/screens",
     "game/controls",
@@ -1514,6 +1515,67 @@ grown = collectgarbage("count") - before
 collectgarbage("restart")
 assert(grown < 0.5, string.format("300 challenge frames allocated %.2f KB", grown))
 print(string.format("PASS the challenge card's live target, and its frames allocate nothing (%.2f KB)", grown))
+
+-- A challenge's best on the track: a line across the road where it ended, unless it reached the
+-- finish, and one announcement once the runner is past it.
+do
+    local function mock()
+        local t = texture()
+        t.SetAlpha = function(self, alpha)
+            self.alphaSet = alpha
+        end
+        t.SetTextColor = function() end
+        t.SetFormattedText = function(self, format, ...)
+            self.text = format:format(...)
+        end
+        return t
+    end
+    local state = o.state
+    o:CreateBestMarker({ CreateTexture = mock, CreateFontString = mock })
+    local marker = o.bestMarker
+    local announced
+    local announce = o.Announce
+    o.Announce = function(_, text, _, small)
+        announced = { text, small }
+    end
+    local function bestRun(best, points)
+        local s = g.New(period.seed, period.difficulty, true, nil, period.goal)
+        s.challenge, s.target = period, best
+        s.nextRow, s.objects, s.points = math.huge, {}, points
+        g.Start(s)
+        -- Welcomed to its zone already: only the line's announcement is left.
+        o.state, o.screen, o.announced, announced = s, nil, s, nil
+        return s, s.start + (best.distance or 0)
+    end
+    local best = { score = 2000, distance = 300 }
+    local s, at = bestRun(best, 10)
+    s.distance = at - 20
+    o:Render()
+    assert(marker.line.shown and marker.label.shown, "the line and its label 20 yards ahead")
+    assert(marker.label.text == "Your best  2000", marker.label.text)
+    assert(not announced, "nothing before the line")
+    s.distance = at + 0.1
+    o:Render()
+    assert(announced and announced[1] == "Past your best run", "past the line, the score still behind")
+    announced = nil
+    s.distance = at + 5
+    o:Render()
+    assert(not announced, "announced once")
+    assert(not marker.line.shown, "the line behind the camera's road")
+    s, at = bestRun(best, 100000)
+    assert(g.Score(s) > best.score)
+    s.distance = at + 0.1
+    o:Render()
+    assert(announced and announced[1] == "New best!", "past the line with more points")
+    s = bestRun({ score = 2000, distance = period.goal, finished = true }, 10)
+    o:Render()
+    assert(not marker.line.shown and not marker.label.shown, "no line for a best that finished")
+    s.challenge = nil
+    o:Render()
+    assert(not marker.line.shown, "no line outside a challenge")
+    o.Announce, o.bestMarker, o.state, o.announced = announce, nil, state, state
+end
+print("PASS a challenge's best on the track, announced once past it")
 
 -- The scorecard's extra info: off by default; once on, a row each under the score, redrawn every
 -- INFO_EVERY seconds, written only when changed, and its frames allocate nothing either.

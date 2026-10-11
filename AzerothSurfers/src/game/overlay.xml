@@ -11,6 +11,7 @@
     <Script file="hud.lua"/>
     <Script file="legend.lua"/>
     <Script file="messages.lua"/>
+    <Script file="bestmarker.lua"/>
     <Script file="menus.lua"/>
     <Script file="screens.lua"/>
     <Script file="controls.lua"/>
