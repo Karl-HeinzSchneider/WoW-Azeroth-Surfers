@@ -5,7 +5,7 @@ local log = app.logger
 local addon = app.addon
 
 -- Same texture as the TOC's `## IconTexture`.
-local ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\icon-gem"
 
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
