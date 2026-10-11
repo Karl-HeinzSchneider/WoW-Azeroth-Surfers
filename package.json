@@ -19,7 +19,7 @@
     "package:addons": "tsx src/package-addons.ts",
     "package:local": "tsx src/package-local.ts",
     "bench:overlay": "lua tests/bench-overlay.lua",
-    "test:game": "lua tests/simulation.lua && lua tests/controls.lua && lua tests/overlay.lua"
+    "test:game": "lua tests/simulation.lua && lua tests/controls.lua && lua tests/overlay.lua && lua tests/leaderboard.lua"
   },
   "devDependencies": {
     "@johnnymorganz/stylua-bin": "^2.5.2",

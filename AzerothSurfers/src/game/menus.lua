@@ -8,7 +8,14 @@ local _, app = ...
 -- too: an item is chosen by pointing at it and run by a click.
 --
 -- A page: { title = text or nil, items = { ... }, back = function(o) for back on the first page,
--- extra = { text = its hint, run = function(o, menu) } }.
+-- extra = { text = its hint, run = function(o, menu) }, width = the window's in pixels, WIDTH
+-- when left out, columns = a table's (below) }.
+-- A table: columns = { size = its font's, label = the longest label, values = { the longest
+-- value of each column }, heads = { each column's header, or nil }, spare = a share of the
+-- label's width to add, for labels of wider letters than its sample }; a column is as wide as
+-- its longest value or its header, whichever is wider. The window is as wide as those samples need at that size (at the
+-- least its width), every label is cut to its sample's width, and an info item's values (its
+-- function returns one per column) stand in columns on the right.
 -- An item:
 --   text    its label, or function(o) returning it (shown anew when it changes)
 --   run     function(o, menu): run on accept
@@ -16,7 +23,8 @@ local _, app = ...
 --   choice  { get = function(o): the value's text, step = function(o, dir), can = function(o,
 --           dir): whether it can step that way }; left and right (or its arrows) step it,
 --           accept leaves it alone
---   info    function(o): a value shown on the right; the line cannot be chosen
+--   info    function(o): a value shown on the right (on a table, one per column); the line
+--           cannot be chosen
 --   note    a color { r, g, b }: the label alone, centered in it; cannot be chosen
 --   input   { get = function(o): the box's text, set = function(o, text), can = function(o):
 --           whether it can be typed in now, always when left out }: a number box; accept (or a
@@ -30,6 +38,8 @@ local TITLE_SIZE, ITEM_SIZE, VALUE_SIZE = 28, 24, 22
 local ROW, MARKER, VALUE_WIDTH, ARROW_SIZE = 38, 26, 110, 26
 local TRIM, TRIM_HEIGHT = "Interface\\Common\\UI-TooltipDivider", 8
 local HINT_HEIGHT, HINT_GAP, CAP_GAP, LABEL_GAP = 20, 18, 4, 6
+-- Pixels between a table's columns.
+local COLUMN_GAP = 20
 local GOLD = { 1, 0.82, 0 }
 local WHITE = { 1, 1, 1 }
 local GRAY = { 0.8, 0.8, 0.8 }
@@ -98,7 +108,7 @@ function Menu:Row(i)
     end
     row = CreateFrame("Button", nil, self.panel)
     row.index = i
-    row:SetSize(WIDTH - 2 * PAD + MARKER, ROW)
+    row:SetHeight(ROW)
     row.label = text(row, ITEM_SIZE, GOLD)
     row.label:SetPoint("LEFT", MARKER + 6, 0)
     row.easier = arrow(self, row, ARROWS[1], "left")
@@ -167,7 +177,7 @@ end
 
 -- A menu window in `parent`, placed by its owner (`menu.panel`); `o` is the overlay.
 function overlay:CreateMenu(parent)
-    local menu = setmetatable({ o = self, stack = {}, rows = {}, hints = {} }, Menu)
+    local menu = setmetatable({ o = self, stack = {}, rows = {}, hints = {}, columns = {} }, Menu)
     -- The template fills its parent (setAllPoints): the panel is anchored anew and sized by its
     -- page.
     local panel = CreateFrame("Frame", nil, parent, "DialogBorderTemplate")
@@ -188,7 +198,49 @@ function overlay:CreateMenu(parent)
     menu.marker = panel:CreateTexture(nil, "ARTWORK")
     menu.marker:SetTexture(MARKER_ART)
     menu.marker:SetSize(MARKER, MARKER)
+    -- Never shown: measures a table's samples.
+    menu.measure = text(panel, ITEM_SIZE, WHITE)
+    menu.measure:Hide()
     return menu
+end
+
+-- The width of `sample` at `size`.
+function Menu:Measure(sample, size)
+    self.measure:SetFont(FONT, size, "OUTLINE")
+    self.measure:SetText(sample)
+    return self.measure:GetStringWidth()
+end
+
+-- Row `i`'s columns of a table (`texts`) and what they show (`shown`).
+function Menu:Columns(i)
+    local columns = self.columns[i]
+    if not columns then
+        columns = { texts = {}, shown = {} }
+        self.columns[i] = columns
+    end
+    return columns
+end
+
+-- Column `k` of row `i`, right-aligned in its place.
+function Menu:Column(i, k)
+    local texts = self:Columns(i).texts
+    if not texts[k] then
+        texts[k] = text(self:Row(i), VALUE_SIZE, WHITE)
+        texts[k]:SetJustifyH("RIGHT")
+    end
+    return texts[k]
+end
+
+-- A table row's values (an info item's), shown where they changed.
+local function setColumns(columns, ...)
+    for k = 1, select("#", ...) do
+        local value = select(k, ...)
+        local col = columns.texts[k]
+        if col and columns.shown[k] ~= value then
+            columns.shown[k] = value
+            col:SetText(value)
+        end
+    end
 end
 
 local function selectable(item)
@@ -315,6 +367,23 @@ function Menu:Layout()
         return
     end
     local y = -TOP
+    -- The page's own width; the next page without one gets WIDTH back. A table's: what its
+    -- samples need, at the least.
+    local width, columns = page.width or WIDTH, page.columns
+    local size, labelWidth, widths = ITEM_SIZE, nil, nil
+    if columns then
+        size, widths = columns.size, {}
+        labelWidth = math.ceil(self:Measure(columns.label, size) * (1 + (columns.spare or 0)))
+        local need = labelWidth
+        for k, sample in ipairs(columns.values) do
+            local head = columns.heads and columns.heads[k]
+            widths[k] = math.max(self:Measure(sample, size), head and self:Measure(head, size) or 0)
+            need = need + COLUMN_GAP + widths[k]
+        end
+        -- A row's label starts MARKER + 6 into it, MARKER / 2 left of PAD.
+        width = math.max(width, math.ceil(need) + 2 * PAD + 6)
+    end
+    panel:SetWidth(width)
     self.title:SetShown(page.title ~= nil)
     if page.title then
         self.title:SetText(page.title)
@@ -328,10 +397,30 @@ function Menu:Layout()
     local hasChoice = false
     for i, item in ipairs(page.items) do
         local row = self:Row(i)
+        row:SetWidth(width - 2 * PAD + MARKER)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - MARKER / 2, y)
+        row.label:SetFont(FONT, size, "OUTLINE")
+        -- A table's labels are cut to the sample's width; 0: as wide as its text.
+        row.label:SetWidth(columns and not item.note and labelWidth or 0)
+        row.label:SetJustifyH("LEFT")
+        row.label:SetWordWrap(not columns)
         row.label:SetText(label(self.o, item))
         row.shownLabel = nil
+        -- A table's info: its columns, right to left from the row's end.
+        local right, cols = 0, self:Columns(i)
+        for k = #(columns and columns.values or {}), 1, -1 do
+            local col = self:Column(i, k)
+            col:SetFont(FONT, size, "OUTLINE")
+            col:SetWidth(widths[k])
+            col:ClearAllPoints()
+            col:SetPoint("RIGHT", -right, 0)
+            right = right + widths[k] + COLUMN_GAP
+        end
+        for k, col in ipairs(cols.texts) do
+            col:SetShown(item.info ~= nil and columns ~= nil and k <= #columns.values)
+            cols.shown[k] = nil
+        end
         row.label:ClearAllPoints()
         if item.note then
             row.label:SetPoint("CENTER", MARKER / 2, 0)
@@ -341,7 +430,7 @@ function Menu:Layout()
         row.easier:SetShown(item.choice ~= nil)
         row.harder:SetShown(item.choice ~= nil)
         row.value:SetShown(item.choice ~= nil)
-        row.info:SetShown(item.info ~= nil)
+        row.info:SetShown(item.info ~= nil and not columns)
         row.box:SetShown(item.input ~= nil)
         row.shownValue, row.locked = nil, nil
         row.box:EnableMouse(true)
@@ -357,7 +446,7 @@ function Menu:Layout()
     y = y - 6
     self:PlaceTrim(self.trims[2], y)
     y = y - TRIM_HEIGHT - 8
-    y = self:LayoutHints(y, hasChoice, page.extra)
+    y = self:LayoutHints(y, hasChoice, page.extra, width)
     panel:SetHeight(-y + PAD - 6)
     self.shownSelected = nil
     self:Show()
@@ -372,7 +461,7 @@ end
 
 -- The hints in a row, centered, wrapped onto a second row should they not fit. Returns where the
 -- next line would start.
-function Menu:LayoutHints(y, hasChoice, extra)
+function Menu:LayoutHints(y, hasChoice, extra, width)
     local shown, total = {}, 0
     for i, spec in ipairs(HINTS) do
         local hint = self:Hint(i)
@@ -384,22 +473,22 @@ function Menu:LayoutHints(y, hasChoice, extra)
             cap:Hide()
         end
         if on then
-            local width = 0
+            local capsWidth = 0
             for k, capText in ipairs(overlay.ShownKeys(hintTexts, spec.actions, self.o:ShownSlot())) do
                 local cap = hint.caps[k]
                 cap.width = overlay.SetKeyCap(cap, nil, capText)
                 cap:Show()
-                width = width + cap.width + (k > 1 and CAP_GAP or 0)
+                capsWidth = capsWidth + cap.width + (k > 1 and CAP_GAP or 0)
             end
             hint.label:SetText(spec.extra and extra.text or spec.text)
-            hint.width = width + LABEL_GAP + hint.label:GetStringWidth()
+            hint.width = capsWidth + LABEL_GAP + hint.label:GetStringWidth()
             shown[#shown + 1] = hint
             total = total + hint.width
         end
     end
     -- One line, or two halves.
     local lines = { shown }
-    if total + HINT_GAP * (#shown - 1) > WIDTH - 2 * PAD and #shown > 2 then
+    if total + HINT_GAP * (#shown - 1) > width - 2 * PAD and #shown > 2 then
         local half = math.ceil(#shown / 2)
         lines = { {}, {} }
         for i, hint in ipairs(shown) do
@@ -407,11 +496,11 @@ function Menu:LayoutHints(y, hasChoice, extra)
         end
     end
     for _, line in ipairs(lines) do
-        local width = 0
+        local lineWidth = 0
         for i, hint in ipairs(line) do
-            width = width + hint.width + (i > 1 and HINT_GAP or 0)
+            lineWidth = lineWidth + hint.width + (i > 1 and HINT_GAP or 0)
         end
-        local x = (WIDTH - width) / 2
+        local x = (width - lineWidth) / 2
         for _, hint in ipairs(line) do
             for _, cap in ipairs(hint.caps) do
                 if cap:IsShown() then
@@ -472,8 +561,11 @@ function Menu:Show()
                 row.box:ClearFocus()
             end
         end
+        if item.info and entry.page.columns then
+            setColumns(self.columns[i], item.info(o))
+        end
         local value = item.choice and item.choice.get(o)
-            or item.info and item.info(o)
+            or item.info and not entry.page.columns and item.info(o)
             or item.input and item.input.get(o)
         -- Not while typing in it.
         if value and row.shownValue ~= value and not (item.input and row.box:HasFocus()) then

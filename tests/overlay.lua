@@ -12,6 +12,7 @@ dofile("tests/load.lua")(app, {
     "game/random",
     "game/simulation",
     "game/challenges",
+    "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -31,7 +32,7 @@ dofile("tests/load.lua")(app, {
     "game/controls",
 })
 app.db = {
-    global = { bestScore = 0, challenges = {} },
+    global = { bestScore = 0, challenges = {}, leaderboard = {} },
     profile = {
         biome = "elwynn",
         mode = "full",
@@ -887,7 +888,55 @@ for _, item in ipairs(daily.items) do
         assert(type(item.info(o)) == "string")
     end
 end
-assert(daily.items[#daily.items - 1].text(o) == "Play", "no best yet")
+assert(daily.items[#daily.items - 2].text(o) == "Play", "no best yet")
+-- Its leaderboard: nobody's yet, then a best shared in the guild.
+function UnitName()
+    return "Me"
+end
+local panelWidth
+main.panel.SetWidth = function(_, w)
+    panelWidth = w
+end
+-- Every letter 10 pixels wide.
+local measured
+main.measure.SetText = function(_, t)
+    measured = t
+end
+main.measure.GetStringWidth = function()
+    return 10 * #measured
+end
+daily.items[#daily.items - 1].run(o, main)
+local board = main:Page()
+assert(board.title == "Daily leaderboard" and board.extra, board.title)
+-- The longest name, then the longest score, distance and coins, apart, inside the borders.
+local need = 10 * #board.columns.label * (1 + board.columns.spare)
+for k, sample in ipairs(board.columns.values) do
+    need = need + 20 + 10 * math.max(#sample, #board.columns.heads[k])
+end
+assert(panelWidth > 400 and panelWidth >= need + 52, "as wide as the longest name and values need")
+main:Show()
+assert(select(2, board.items[2].info(o)) == "Distance", "the header")
+assert(board.items[3].text(o) == "No bests shared yet" and board.items[3].info(o) == "")
+local period = app.challenges.Period("daily")
+app.leaderboard:Receive(
+    app.leaderboard.Encode(period.key, {
+        score = 4321,
+        distance = period.goal,
+        finished = true,
+        coins = 1,
+        coinTotal = 2,
+    }),
+    "GUILD",
+    "Ann"
+)
+main:Show()
+assert(board.items[3].text(o) == "1. Ann", board.items[3].text(o))
+local score, distance, coins = board.items[3].info(o)
+assert(score == "4321" and distance == period.goal .. " yd" and coins == "1/2 (50%)", coins)
+assert(board.items[4].text(o) == "", "one player")
+press("Q", "STRAFELEFT")
+assert(main:Page() == daily, "back to the challenge")
+assert(panelWidth == 400, "the menu's own width again")
 press("Q", "STRAFELEFT")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
