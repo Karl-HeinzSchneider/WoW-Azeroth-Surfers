@@ -65,7 +65,7 @@ display's existing voice wins. Other local constants in rendering/control code a
   `icon-gem.tga` retains the wider variant. One mouse-disabled ModelScene shows the resolved
   default gem whenever the minimap button is visible, including while pressed or dragged.
   Its camera is raised slightly to put the gem about one UI pixel lower. An opaque black
-  disk behind it follows the library background region, rounded with Blizzard's
+  disk behind it follows the library background region, shifted two UI pixels down and rounded with Blizzard's
   `Interface/CharacterFrame/TempPortraitAlphaMask`; no custom texture is needed.
   The button's icon region retains its texture with alpha zero once the model is ready;
   the LDB icon and addon-list icon stay static and available to other addons.

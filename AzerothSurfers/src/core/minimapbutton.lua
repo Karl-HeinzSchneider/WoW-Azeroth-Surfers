@@ -52,7 +52,9 @@ function module:OnInitialize()
     -- Follow the library's circular background footprint, including Classic offsets.
     -- A separate opaque fill removes the stock art's translucent interior.
     local backdrop = self.button:CreateTexture(nil, "BACKGROUND", nil, 1)
-    backdrop:SetAllPoints(self.button.background)
+    -- Lower the fill within the rim; the stock footprint leaves a bottom gap.
+    backdrop:SetPoint("TOPLEFT", self.button.background, "TOPLEFT", 0, -2)
+    backdrop:SetPoint("BOTTOMRIGHT", self.button.background, "BOTTOMRIGHT", 0, -2)
     backdrop:SetColorTexture(0, 0, 0, 1)
     local mask = self.button:CreateMaskTexture()
     mask:SetAllPoints(backdrop)
