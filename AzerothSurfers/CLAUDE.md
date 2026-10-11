@@ -108,8 +108,9 @@ default in `db.lua` and an entry in `options.lua`.
   grass, hidden), the camp's models, the title's and the menu's camera shots, the seated
   character and the title music. Up to its portal the title and the menu look the same whatever
   the run's seed. A restart during play is that run skipped past its portal.
-- `autopilot.lua` — `app.autopilot`: auto mode's player (a search on copies of the run), and
-  `Intro`, which plays a run from the lobby up to its portal.
+- `autopilot.lua` — `app.autopilot`: auto mode's player (a search on copies of the run, each
+  replan worked out over the frames before it is due), and `Intro`, which plays a run from the
+  lobby up to its portal.
 - `light.lua` — `app.light`: day and night by the game's clock, for the ground and every scene.
 - `shapes.lua` — `app.shapes`: the boxes' and flat coins' faces, their texture pool, the
   ground's curve (`Ground`).

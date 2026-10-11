@@ -830,17 +830,52 @@ test("a run skipped ahead keeps its seed's track from the menu", function()
     assert(not restart.practice and restart.distance == 0)
 end)
 -- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
--- rate, collecting coins on the way; its runs save no best score.
+-- rate, collecting coins on the way; its runs save no best score. Its replans are spread over the
+-- frames before them: no frame after the first steps copies of the run more than a few hundred
+-- times (one replan in a frame took up to 1100), and the narrower crates and enemies its search
+-- uses never stay on for the run.
 test("the autopilot plays generated tracks", function()
+    local update, calls = g.Update, 0
+    g.Update = function(...)
+        calls = calls + 1
+        return update(...)
+    end
+    local widths = g.geometry.halfWidth
+    local crate, enemy = widths.obstacle, widths.enemy
     for _, difficulty in ipairs(g.DIFFICULTIES) do
-        local s, frame = g.New(7, difficulty.id), 0
+        local s, frame, most = g.New(7, difficulty.id), 0, 0
         while s.status ~= "over" and s.distance < 1000 do
             s.forward = s.status == "running"
             frame = frame + 1
+            calls = 0
             app.autopilot.Play(s, frame % 3 == 0 and 1 / 30 or 1 / 90)
+            most = frame > 1 and math.max(most, calls) or 0
+            assert(widths.obstacle == crate and widths.enemy == enemy, difficulty.id .. ": real widths")
         end
         assert(s.status == "running", difficulty.id .. ": the autopilot got through")
         assert(s.coins > 0 and s.piloted, difficulty.id .. ": collects coins, marks the run")
+        assert(most < 500, difficulty.id .. ": replans spread over frames, " .. most)
+    end
+    g.Update = update
+end)
+-- A run left mid-replan (a restart) leaves nothing behind: the next one plays as it would have,
+-- frame by frame.
+test("the autopilot starts afresh with each run", function()
+    -- `frames` at an uneven frame rate, then `slow` at 1000 a second, over which a replan is
+    -- worked out a little at a time.
+    local function play(seed, frames, slow)
+        local s, trace = g.New(seed, "hard"), {}
+        for frame = 1, frames + slow do
+            s.forward = s.status == "running"
+            app.autopilot.Play(s, frame > frames and 1 / 1000 or frame % 3 == 0 and 1 / 30 or 1 / 90)
+            trace[frame] = s.lane .. " " .. s.height
+        end
+        return table.concat(trace, ",")
+    end
+    local first = play(7, 300, 0)
+    for _, left in ipairs({ 1, 2, 3, 5, 8, 13, 21, 34 }) do
+        play(99, 300, left)
+        assert(play(7, 300, 0) == first, "after " .. left)
     end
 end)
 -- A run with a goal ends through its last portal: the track up to there is the seed's own, the
