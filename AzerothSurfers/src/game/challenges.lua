@@ -241,3 +241,92 @@ function challenges.Target(best, yards)
     end
     return math.floor(from + (to - from) * (yards - fromYards) / (toYards - fromYards))
 end
+
+-- History: every period's best stays in `global.challenges`; past ones without their trace
+-- (only the current periods' live targets read it), so the saved variables stay small.
+
+-- Period `index` of `kind` (an id), as Period gives it.
+function challenges.ByIndex(id, index)
+    local day
+    if id == "daily" then
+        day = index
+    elseif id == "weekly" then
+        day = index * 7 - 3
+    else
+        day = challenges.Days(1970 + math.floor(index / 12), index % 12 + 1, 1)
+    end
+    return challenges.Period(id, day * DAY + challenges.RESET_HOUR * 3600)
+end
+
+-- A saved record's kind and index from its key ("daily-20371"), or nil for any other key.
+local function parseKey(key)
+    local id, index = string.match(key, "^(%a+)%-(%-?%d+)$")
+    if id and challenges.KINDS[id] then
+        return id, tonumber(index)
+    end
+end
+
+-- The saved bests of `kind` (an id), newest first: { index, record } each, skipping what Best
+-- would (an earlier version's records).
+function challenges.History(id)
+    local list = {}
+    for key, record in pairs(app.db.global.challenges) do
+        local kind, index = parseKey(key)
+        if kind == id and type(record) == "table" and type(record.score) == "number" then
+            list[#list + 1] = { index = index, record = record }
+        end
+    end
+    table.sort(list, function(a, b)
+        return a.index > b.index
+    end)
+    return list
+end
+
+-- Days played in a row: consecutive days with a daily challenge run, up to today (or yesterday,
+-- while today's is still to play), and the longest such row ever.
+function challenges.Streak(now)
+    local today = challenges.Period("daily", now).index
+    local played = {}
+    local list = challenges.History("daily")
+    for _, entry in ipairs(list) do
+        played[entry.index] = true
+    end
+    local current = 0
+    local day = played[today] and today or today - 1
+    while played[day] do
+        current, day = current + 1, day - 1
+    end
+    local longest, row = 0, 0
+    -- Newest first: a row goes on while each index is one less than the one before.
+    for i, entry in ipairs(list) do
+        row = (i > 1 and list[i - 1].index == entry.index + 1) and row + 1 or 1
+        longest = math.max(longest, row)
+    end
+    return current, longest
+end
+
+-- Drops the trace of every period that is over. At login.
+function challenges.Compact(now)
+    local currents = {}
+    for _, kind in ipairs(challenges.KINDS) do
+        currents[kind.id] = challenges.Period(kind.id, now).index
+    end
+    for key, record in pairs(app.db.global.challenges) do
+        local id, index = parseKey(key)
+        if id and index < currents[id] and type(record) == "table" then
+            record.trace, record.traceEvery = nil, nil
+        end
+    end
+end
+
+-- Short date of a period for a list of them: "6 Oct" (the period's first day), "Oct 2026" for a
+-- month; another year than `now`'s is added to a day.
+function challenges.ShortLabel(period, now)
+    local y, m, d = challenges.Date(math.floor(period.starts / DAY))
+    local month = string.sub(MONTHS[m], 1, 3)
+    if period.kind.id == "monthly" then
+        return month .. " " .. y
+    end
+    local thisYear = challenges.Date(math.floor((now or challenges.Now()) / DAY))
+    return y == thisYear and string.format("%d %s", d, month) or string.format("%d %s %d", d, month, y)
+end

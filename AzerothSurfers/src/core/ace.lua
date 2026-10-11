@@ -20,6 +20,8 @@ function addon:OnInitialize()
     local db = LibStub("AceDB-3.0"):New("AzerothSurfersDB", app.dbDefaults, true) --[[@as AzerothSurfers.DB]]
     self.db = db
     app.db = db
+    -- Past challenges keep their best without its trace (challenges.lua's history).
+    app.challenges.Compact()
 
     db.RegisterCallback(self, "OnProfileChanged", "OnProfileRefresh")
     db.RegisterCallback(self, "OnProfileCopied", "OnProfileRefresh")

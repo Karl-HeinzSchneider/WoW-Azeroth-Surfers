@@ -182,6 +182,94 @@ local function challengeItem(id)
         end,
     }
 end
+-- Past challenges of a kind (challenges.lua's History), newest first, HISTORY_ROWS a page: the
+-- date, the best's score, how far it got if it did not reach the portal, and its coins.
+local HISTORY_ROWS = 7
+local function historyPage(id)
+    local challenges = app.challenges
+    local list = challenges.History(id)
+    local pages = math.max(1, math.ceil(#list / HISTORY_ROWS))
+    local shown = 1
+    local function entry(row)
+        return list[(shown - 1) * HISTORY_ROWS + row]
+    end
+    local items = {
+        {
+            text = "Page",
+            choice = {
+                get = function()
+                    return string.format("%d / %d", shown, pages)
+                end,
+                can = function(_, dir)
+                    return shown + dir >= 1 and shown + dir <= pages
+                end,
+                step = function(_, dir)
+                    shown = shown + dir
+                end,
+            },
+        },
+    }
+    for row = 1, HISTORY_ROWS do
+        items[#items + 1] = {
+            text = function()
+                local e = entry(row)
+                if e then
+                    return challenges.ShortLabel(challenges.ByIndex(id, e.index))
+                end
+                return row == 1 and "None played yet" or ""
+            end,
+            info = function()
+                local e = entry(row)
+                if not e then
+                    return ""
+                end
+                local record = e.record
+                local far = record.finished and "" or string.format("|cffaaaaaa%d yd|r  ", record.distance)
+                return string.format("%d  %s%d/%d", record.score, far, record.coins, record.coinTotal)
+            end,
+        }
+    end
+    items[#items + 1] = { text = "Back", back = true }
+    return { title = challenges.KINDS[id].name .. " history", items = items }
+end
+local function historyItem(id)
+    return {
+        text = app.challenges.KINDS[id].name,
+        run = function(_, menu)
+            menu:Push(historyPage(id))
+        end,
+    }
+end
+-- The streak of days played (a daily challenge each) and the lists of past challenges; counted
+-- when opened.
+local function streakText(days)
+    return days == 1 and "1 day" or string.format("%d days", days)
+end
+local function historyOverview()
+    local current, longest = app.challenges.Streak()
+    return {
+        title = "History",
+        items = {
+            {
+                text = "Streak",
+                info = function()
+                    return streakText(current)
+                end,
+            },
+            {
+                text = "Longest",
+                info = function()
+                    return streakText(longest)
+                end,
+            },
+            { text = "Days with a daily challenge run", note = GRAY },
+            historyItem("daily"),
+            historyItem("weekly"),
+            historyItem("monthly"),
+            { text = "Back", back = true },
+        },
+    }
+end
 PAGES.challenges = {
     title = "Challenges",
     items = {
@@ -189,6 +277,12 @@ PAGES.challenges = {
         challengeItem("daily"),
         challengeItem("weekly"),
         challengeItem("monthly"),
+        {
+            text = "History",
+            run = function(_, menu)
+                menu:Push(historyOverview())
+            end,
+        },
         { text = "Back", back = true },
     },
 }
