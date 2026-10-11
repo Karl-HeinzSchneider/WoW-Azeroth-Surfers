@@ -866,9 +866,9 @@ test("a run skipped ahead keeps its seed's track from the menu", function()
 end)
 -- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
 -- rate, collecting coins on the way; its runs save no best score. Its replans are spread over the
--- frames before them: no frame after the first steps copies of the run more than a few hundred
--- times (one replan in a frame took up to 1100), and the narrower crates and enemies its search
--- uses never stay on for the run.
+-- frames before them: no frame after the one the run first moves in (its first replan) steps
+-- copies of the run more than a few hundred times (one replan in a frame takes over 1000), and
+-- the narrower crates and enemies its search uses never stay on for the run.
 test("the autopilot plays generated tracks", function()
     local update, calls = g.Update, 0
     g.Update = function(...)
@@ -883,8 +883,9 @@ test("the autopilot plays generated tracks", function()
             s.forward = s.status == "running"
             frame = frame + 1
             calls = 0
+            local moving = s.distance > 0
             app.autopilot.Play(s, frame % 3 == 0 and 1 / 30 or 1 / 90)
-            most = frame > 1 and math.max(most, calls) or 0
+            most = moving and math.max(most, calls) or 0
             assert(widths.obstacle == crate and widths.enemy == enemy, difficulty.id .. ": real widths")
         end
         assert(s.status == "running", difficulty.id .. ": the autopilot got through")
