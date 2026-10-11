@@ -210,7 +210,16 @@ function overlay:LayoutLegend(group)
     end
 end
 
+-- Without arguments: again where it was last placed (the challenge card under the scorecard came
+-- or went).
 function overlay:PlaceLegend(side, top)
+    if top == nil then
+        if self.legendTop == nil then
+            return
+        end
+        side, top = self.legendSide, self.legendTop
+    end
+    self.legendSide, self.legendTop = side, top
     local legend, scale = self.legend, side and SIDE_SCALE or 1
     legend:ClearAllPoints()
     legend:SetScale(scale)
@@ -223,8 +232,12 @@ function overlay:PlaceLegend(side, top)
         y = top - 40
     end
     if side then
-        -- Below the scorecard, so both panels fit even in the narrowest side window.
-        y = y - 100
+        -- Below the scorecard (its extra info and the challenge card), so all fit even in the
+        -- narrowest side window.
+        y = y - 100 - (self:HudInfoRoom() + self:ChallengeCardRoom()) * scale
+    elseif self.hudPosition == "topleft" then
+        -- Below the scorecard (its extra info and the challenge card) in the same corner.
+        y = y - 130 - self:HudInfoRoom() - self:ChallengeCardRoom()
     end
     legend:SetPoint("TOPLEFT", self.frame, "TOPLEFT", x / scale, y / scale)
 end

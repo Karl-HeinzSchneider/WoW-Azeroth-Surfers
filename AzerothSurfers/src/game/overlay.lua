@@ -38,6 +38,8 @@ local ORDER = {
 -- compare as in one scene (the world scene with the twin, and the occluder's, occluder.lua).
 local CLIP_NEAR, CLIP_FAR = 0.2, 250
 local COIN_SIZE = 0.5 -- a coin model's largest side
+-- Flat boxes are cut this far ahead of the camera: a face with a corner nearer is not drawn.
+local BOX_NEAR = 1
 -- The twin's animations, and the speeds walking, running and backpedalling are animated for. A
 -- normal jump (about 0.83 seconds) plays JUMP_START throughout; JUMP loops after AIR_LOOP.
 local STAND, WALK, RUN, BACKWARDS, JUMP_START, JUMP, JUMP_END = 0, 4, 5, 13, 37, 38, 39
@@ -178,20 +180,32 @@ function overlay:Project(d, x, z)
     return project(d, x, z)
 end
 
--- The quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left and right.
+-- Ground piece `t`'s quad from a bottom edge at (d1, z1) to a top edge at (d2, z2), between left
+-- and right; `onScreen` false, and nothing placed, past the horizon or outside the view's frame
+-- (it clips in the side window and fills the screen otherwise; the ground reaches GROUND_OVERLAP
+-- below it). SkinPiece shows it or not.
 local function face(t, left, right, d1, z1, d2, z2)
-    local bl, by = project(d1, left, z1)
+    local bl, by, scale = project(d1, left, z1)
     local tl, ty = project(d2, left, z2)
-    if not bl or not tl or ty <= by then
-        shapes.Hide(t)
+    if not bl or not tl or ty <= by or ty < -GROUND_OVERLAP or by > 2 * cam.cy then
+        t.onScreen = false
         return
     end
     local br, tr = project(d1, right, z1), project(d2, right, z2)
+    if br < 0 and tr < 0 or bl > 2 * cam.cx and tl > 2 * cam.cx then
+        t.onScreen = false
+        return
+    end
+    t.onScreen = true
     t:SetPoint("BOTTOMLEFT", bl, by)
-    t:SetSize(math.max(br - bl, 0.01), ty - by)
+    -- The same size while the camera only moves sideways, as it does changing lanes.
+    local w, h = math.max((right - left) * scale, 0.01), ty - by
+    if w ~= t.placedWidth or h ~= t.placedHeight then
+        t.placedWidth, t.placedHeight = w, h
+        t:SetSize(w, h)
+    end
     t:SetVertexOffset(1, tl - bl, 0)
     t:SetVertexOffset(3, tr - br, 0)
-    shapes.Show(t)
 end
 
 -- Ground piece `t`'s surface from `look` (one it lacks from `fallback`): the texture, or its
@@ -233,7 +247,9 @@ function overlay:AddGroundPieces(band, left, right, alphaLeft, alphaRight)
             local a, b = (c - 1) / columns, c / columns
             t.kind, t.near, t.far = band.surface, near, segments[i + 1]
             t.foreground = i == 1
-            t.fullFar, t.cut = false, false
+            t.fullFar, t.cut, t.v1 = false, false, false
+            -- Placed by the next frame's camera (Render).
+            t.onScreen = false
             if t.seam then
                 shapes.Hide(t.seam)
             end
@@ -311,11 +327,20 @@ function overlay:ShadePiece(t)
     end
 end
 
+-- A hidden piece is shaded once it shows again (SkinPiece).
+local function shadeShown(self, t)
+    if t.surferShown then
+        self:ShadePiece(t)
+    else
+        t.fadeAlpha = false
+    end
+end
+
 function overlay:ShadeGround()
     for _, t in ipairs(self.ground) do
-        self:ShadePiece(t)
+        shadeShown(self, t)
         if t.seam then
-            self:ShadePiece(t.seam)
+            shadeShown(self, t.seam)
         end
     end
 end
@@ -353,24 +378,45 @@ function overlay:GroundLookAt(d)
     return self:BiomeIdAt(at)
 end
 
--- Gives ground piece (or seam) `t` the look `key` and its texture coordinates.
+-- Gives ground piece (or seam) `t` the look `key` and its texture coordinates, and shows it
+-- where there is something to see: on the screen (`face`) and not faded out. A hidden one costs
+-- no calls; it is shaded and its texture placed once it shows again.
 function overlay:SkinPiece(t, key, look)
     if t.skin ~= key then
         t.skin = key
         skin(t, look and look.ground or app.biomes.Get(key).ground, self.biome.ground)
-        if self.groundLight then
-            self:ShadePiece(t)
+        t.fadeAlpha, t.v1 = false, false
+    end
+    if not t.onScreen then
+        shapes.Hide(t)
+        if self.fade.moved then
+            t.fadeAlpha = false
         end
+        return
     end
     -- The view's end moves while a gate comes nearer: its rows fade anew.
-    if self.fade.moved and self.groundLight and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01 then
+    if
+        self.groundLight
+        and (self.fade.moved or not t.fadeAlpha)
+        and math.abs(self:FadeAlpha(t.near) - (t.fadeAlpha or -1)) > 0.01
+    then
         self:ShadePiece(t)
+    end
+    if t.fadeAlpha == 0 then
+        shapes.Hide(t)
+        return
     end
     local tile = t.tile
     if tile then
         local base = onGround.distance % tile
-        t:SetTexCoord(t.left / tile, t.right / tile, -(t.far + base) / tile, -(t.near + base) / tile)
+        local v1, v2 = -(t.far + base) / tile, -(t.near + base) / tile
+        -- Unchanged while the runner stands, as on the title screen during a glide.
+        if v1 ~= t.v1 or v2 ~= t.v2 then
+            t.v1, t.v2 = v1, v2
+            t:SetTexCoord(t.left / tile, t.right / tile, v1, v2)
+        end
     end
+    shapes.Show(t)
 end
 
 -- A second texture that takes over a piece from where the look changes in it, so the change
@@ -379,13 +425,16 @@ local function seamOf(t, parent)
     local seam = t.seam
     if not seam then
         seam = parent:CreateTexture(nil, "BACKGROUND", nil, t.groundLayer)
-        seam.groundLayer = t.groundLayer
+        seam.groundLayer, seam.onScreen = t.groundLayer, false
         t.seam = seam
     elseif seam.groundLayer ~= t.groundLayer then
         seam:SetDrawLayer("BACKGROUND", t.groundLayer)
         seam.groundLayer = t.groundLayer
     end
-    seam.kind, seam.left, seam.right = t.kind, t.left, t.right
+    if seam.left ~= t.left or seam.right ~= t.right then
+        seam.left, seam.right, seam.v1 = t.left, t.right, false
+    end
+    seam.kind = t.kind
     seam.alphaLeft, seam.alphaRight = t.alphaLeft, t.alphaRight
     return seam
 end
@@ -563,7 +612,7 @@ function overlay:Route()
     if self.routeState ~= s then
         -- A run without zones (begun before auto was picked) stays in its first one, or the
         -- first past the lobby's gate.
-        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby)
+        self.routeState, self.route = s, app.biomes.Route(s.seed, s.gates or {}, s.lobby or s.fromLobby)
     end
     return self.route
 end
@@ -671,9 +720,11 @@ end
 function overlay:UpdateZone()
     if self:BiomeId() ~= self.biomeId then
         self:ApplyBiome(true)
-        -- Through a gate, not a new run's first zone.
+        -- Through a gate, not a new run's first zone: a restart begins past its lobby's portal.
         local s = self.state
-        local through = s.gates and app.biomes.Zone(self:Route(), s.distance).from > -math.huge
+        local from = s.gates and app.biomes.Zone(self:Route(), s.distance).from
+        -- Not through a challenge's last portal: its run ends there.
+        local through = from and from > -math.huge and (s.lobby ~= nil or from > s.start) and from ~= s.finish
         if s.status == "running" and through then
             self:WelcomeBiome()
             local flash = app.biomes.Transition(self.biome.entrance).flash
@@ -824,6 +875,7 @@ function overlay:Create()
     self.twinActor = self.worldScene:CreateActor()
     self.twinActor:SetUseCenterForOrigin(true, true, false)
     self.twinActor:SetYaw(0)
+
     self:LoadPlayer()
     -- Under the view's frame: it needs a level above the lowest.
     self:CreateOccluder()
@@ -985,7 +1037,12 @@ function overlay:PlaceTwin()
     -- The scene's y points left; its position counts in its scale.
     local scale = self:TwinScale()
     actor:SetScale(scale)
-    actor:SetPosition((self.sceneRunner or 0) / scale, -runner / scale, cam.feet / scale - self.twinLow)
+    local offsets = app.biomes.playerAnimationOffsets
+    local visualZ = 0
+    if offsets and not self.screen and s.status == "running" and s.duck > 0 and self.twinAnimation == ROLL then
+        visualZ = (offsets[app.biomes.PlayerAnimation(self.twinAnimation)] or 0) * self.bodyScale
+    end
+    actor:SetPosition((self.sceneRunner or 0) / scale, -runner / scale, (cam.feet + visualZ) / scale - self.twinLow)
     actor:SetAlpha((s.status == "running" or self.side or self.screen == "start") and 1 or 0.5)
     actor:Show()
     local x, y, size = project(0, runner, cam.feet + self.body / 2)
@@ -1094,7 +1151,7 @@ function overlay:AnimateTwin(elapsed)
         or variation ~= self.twinVariation
         or math.abs(rate - (self.twinRate or 1)) > 0.1
     then
-        actor:SetAnimation(animation, variation, rate, 0)
+        actor:SetAnimation(app.biomes.PlayerAnimation(animation), variation, rate, 0)
         self.twinVariation = variation
         self.twinAnimation, self.twinRate = animation, rate
     end
@@ -1164,7 +1221,7 @@ function overlay:Render(lap)
     lap = self:Lap("twin", lap)
     -- Boxes and flat coins from the shared faces; coins are 3D models in the world scene once
     -- their model has loaded, flat until then.
-    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to, cam.x - COIN_SIZE)
+    local faces, count = shapes.Collect(s, -cam.offset, self.fade.to, cam.x + BOX_NEAR, cam.x - COIN_SIZE)
     local coins = 0
     local real = self.worldScene and self.coinReady
     for i = 1, count do

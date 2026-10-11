@@ -8,12 +8,19 @@ local app, log = dev.app, dev.log
 local TIMEOUT = 3
 -- Display ids, or "player".
 local queue, current, waited = {}, nil, 0
+local loaded = false
+local function label()
+    return current == "player" and "your character" or "creature " .. current
+end
 
 local model = CreateFrame("PlayerModel", nil, UIParent)
 model:SetSize(1, 1)
 model:SetPoint("BOTTOMLEFT")
 model:SetAlpha(0)
 model:Hide()
+model:SetScript("OnModelLoaded", function()
+    loaded = true
+end)
 
 local function nextCreature()
     current, waited = table.remove(queue, 1), 0
@@ -22,6 +29,8 @@ local function nextCreature()
         return
     end
     model:Show()
+    model:ClearModel()
+    loaded = false
     if current == "player" then
         model:SetUnit("player")
     else
@@ -34,10 +43,9 @@ model:SetScript("OnUpdate", function(_, elapsed)
         return
     end
     waited = waited + elapsed
-    -- Every creature has a stand animation once its model has loaded.
-    if not model:HasAnimation(0) then
+    if not loaded then
         if waited > TIMEOUT then
-            log:chat("%s: did not load", current == "player" and "your character" or "creature " .. current)
+            log:chat("%s: did not load within %ds; retry to rule out slow loading", label(), TIMEOUT)
             nextCreature()
         end
         return
@@ -47,7 +55,7 @@ model:SetScript("OnUpdate", function(_, elapsed)
         local list = model:HasAnimation(animation[1]) and has or lacks
         list[#list + 1] = animation[1] .. " " .. animation[2]
     end
-    log:chat("%s has: %s", current == "player" and "your character" or "creature " .. current, table.concat(has, ", "))
+    log:chat("%s has: %s", label(), #has > 0 and table.concat(has, ", ") or "none")
     log:chat("    lacks: %s", #lacks > 0 and table.concat(lacks, ", ") or "none")
     nextCreature()
 end)

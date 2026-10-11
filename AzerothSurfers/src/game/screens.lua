@@ -41,7 +41,23 @@ local FIELDS = { "at", "side", "height", "pitch", "fov" }
 local function difficulty()
     return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
 end
+local DIFFICULTY = {
+    text = "Difficulty",
+    choice = {
+        get = function()
+            return difficulty().name
+        end,
+        can = function(_, dir)
+            return sim.DIFFICULTIES[difficulty().level + dir] ~= nil
+        end,
+        step = function(o, dir)
+            o:StepDifficulty(dir)
+        end,
+    },
+}
+local GRAY = { 0.7, 0.7, 0.7 }
 local PAGES = {}
+-- The normal game: a new seed each run, from the camp; its best is the best score.
 PAGES.play = {
     title = "Play",
     items = {
@@ -51,36 +67,7 @@ PAGES.play = {
                 o:Play(false)
             end,
         },
-        {
-            text = "Difficulty",
-            choice = {
-                get = function()
-                    return difficulty().name
-                end,
-                can = function(_, dir)
-                    return sim.DIFFICULTIES[difficulty().level + dir] ~= nil
-                end,
-                step = function(o, dir)
-                    o:StepDifficulty(dir)
-                end,
-            },
-        },
-        -- The run's seed: a new random one with each new run from the lobby, R for another, or
-        -- typed in.
-        {
-            text = "Seed",
-            input = {
-                get = function(o)
-                    return tostring(o.state.seed)
-                end,
-                set = function(o, typed)
-                    local seed = tonumber(typed)
-                    if seed then
-                        o:SetRunSeed(seed)
-                    end
-                end,
-            },
-        },
+        DIFFICULTY,
         {
             text = "Auto mode",
             run = function(o)
@@ -89,11 +76,321 @@ PAGES.play = {
         },
         { text = "Cancel", back = true },
     },
-    extra = {
-        text = "New seed",
+}
+-- A custom game: Play's items and messages.lua's CUSTOM (a page of settings per category, the
+-- seed's among them); its runs save no best score.
+do
+    local items = {
+        { text = "Your own settings, no best score", note = GRAY },
+        {
+            text = "Play",
+            run = function(o)
+                o:PlayCustom(false)
+            end,
+        },
+        DIFFICULTY,
+    }
+    for _, item in ipairs(overlay.CUSTOM) do
+        items[#items + 1] = item
+    end
+    items[#items + 1] = {
+        text = "Auto mode",
         run = function(o)
-            o:SetRunSeed(app.random.Seed())
+            o:PlayCustom(true)
         end,
+    }
+    items[#items + 1] = { text = "Cancel", back = true }
+    PAGES.custom = { title = "Custom", items = items }
+end
+-- A challenge's best (challenges.lua's Best): its score, and how far it got if it did not reach
+-- the portal.
+local function scoreText(record)
+    return record.finished and tostring(record.score)
+        or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
+end
+-- Rows of a leaderboard; this player's place below them when it is further down.
+local RANKS = 8
+-- A full name as long as names get: a first name and a surname of 12 letters each (WoW's
+-- limit; other clients have no surname), of letters as wide as names have on average.
+local LONG_NAME = "Zimtschnecke Zimtschnecke"
+-- A leaderboard is a table (menus.lua): its name column as wide as a place and LONG_NAME and a
+-- quarter more, for wider letters (a name wider still, or another realm's "-Realm", is cut),
+-- then score, distance and coins, as wide as the most leaderboard.lua takes of each.
+local BOARD = {
+    size = 20,
+    label = "99. " .. LONG_NAME,
+    spare = 0.25,
+    values = {
+        tostring(app.leaderboard.MOST_SCORE),
+        "9999 yd",
+        string.format("%d/%d (100%%)", app.leaderboard.MOST_COINS, app.leaderboard.MOST_COINS),
+    },
+    heads = { "Score", "Distance", "Coins" },
+}
+-- A leaderboard row's columns: the score, the distance (gray: the run did not reach the
+-- portal), the coins and their share of the run's, in whole percent down.
+local function boardColumns(record)
+    if not record then
+        return "", "", ""
+    end
+    local far = string.format(record.finished and "%d yd" or "|cffaaaaaa%d yd|r", record.distance)
+    local share = record.coinTotal > 0 and math.floor(100 * record.coins / record.coinTotal) or 0
+    return tostring(record.score), far, string.format("%d/%d (%d%%)", record.coins, record.coinTotal, share)
+end
+-- A challenge's leaderboard (leaderboard.lua): the bests of the guild and the group, asked for
+-- when it opens and again by its extra action, and shown as they arrive.
+local function leaderboardPage(period)
+    local board = app.leaderboard
+    board:Ask(period)
+    local function entry(i)
+        return board:Ranked(period)[i]
+    end
+    local function name(e, i)
+        local shown = string.format("%d. %s", i, e.name)
+        return e.me and "|cffffffff" .. shown .. "|r" or shown
+    end
+    local items = {
+        { text = period.label, note = GRAY },
+        {
+            text = "Player",
+            info = function()
+                return unpack(BOARD.heads)
+            end,
+        },
+    }
+    for i = 1, RANKS do
+        items[#items + 1] = {
+            text = function()
+                local e = entry(i)
+                if e then
+                    return name(e, i)
+                end
+                return i == 1 and "No bests shared yet" or ""
+            end,
+            info = function()
+                local e = entry(i)
+                return boardColumns(e and e.record)
+            end,
+        }
+    end
+    -- This player's place, should it be below the rows.
+    local function own()
+        local ranked = board:Ranked(period)
+        for i = RANKS + 1, #ranked do
+            if ranked[i].me then
+                return ranked[i], i
+            end
+        end
+    end
+    items[#items + 1] = {
+        text = function()
+            local e, i = own()
+            return e and name(e, i) or ""
+        end,
+        info = function()
+            local e = own()
+            return boardColumns(e and e.record)
+        end,
+    }
+    items[#items + 1] = { text = "Back", back = true }
+    return {
+        title = period.kind.name .. " leaderboard",
+        items = items,
+        columns = BOARD,
+        extra = {
+            text = "Ask again",
+            run = function()
+                board:Ask(period)
+            end,
+        },
+    }
+end
+-- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
+-- distance all its own), its best, and a run to beat it.
+local challengePage
+function challengePage(id)
+    local challenges = app.challenges
+    local period = challenges.Period(id)
+    local function best()
+        return challenges.Best(period)
+    end
+    return {
+        title = period.kind.name .. " challenge",
+        items = {
+            { text = period.label, note = GRAY },
+            {
+                text = "Distance",
+                info = function()
+                    return string.format("%d yd", period.goal)
+                end,
+            },
+            {
+                text = "Difficulty",
+                info = function()
+                    return sim.DIFFICULTIES[period.difficulty].name
+                end,
+            },
+            {
+                text = "Seed",
+                info = function()
+                    return tostring(period.seed)
+                end,
+            },
+            {
+                text = "New one in",
+                info = function()
+                    return challenges.Left(period)
+                end,
+            },
+            {
+                text = "Best",
+                info = function()
+                    local record = best()
+                    return record and scoreText(record) or "0"
+                end,
+            },
+            {
+                text = "Coins",
+                info = function()
+                    local record = best()
+                    return record and string.format("%d / %d", record.coins, record.coinTotal) or "0"
+                end,
+            },
+            {
+                text = function()
+                    return best() and "Beat it" or "Play"
+                end,
+                -- Left open past its end: the new one's page instead.
+                run = function(o, menu)
+                    if challenges.Now() >= period.ends then
+                        menu:Back()
+                        menu:Push(challengePage(id))
+                    else
+                        o:PlayChallenge(period)
+                    end
+                end,
+            },
+            -- The guild's and the group's bests.
+            {
+                text = "Leaderboard",
+                run = function(_, menu)
+                    menu:Push(leaderboardPage(period))
+                end,
+            },
+            { text = "Back", back = true },
+        },
+    }
+end
+local function challengeItem(id)
+    return {
+        text = app.challenges.KINDS[id].name,
+        run = function(_, menu)
+            menu:Push(challengePage(id))
+        end,
+    }
+end
+-- Past challenges of a kind (challenges.lua's History), newest first, HISTORY_ROWS a page: the
+-- date, the best's score, how far it got if it did not reach the portal, and its coins.
+local HISTORY_ROWS = 7
+local function historyPage(id)
+    local challenges = app.challenges
+    local list = challenges.History(id)
+    local pages = math.max(1, math.ceil(#list / HISTORY_ROWS))
+    local shown = 1
+    local function entry(row)
+        return list[(shown - 1) * HISTORY_ROWS + row]
+    end
+    local items = {
+        {
+            text = "Page",
+            choice = {
+                get = function()
+                    return string.format("%d / %d", shown, pages)
+                end,
+                can = function(_, dir)
+                    return shown + dir >= 1 and shown + dir <= pages
+                end,
+                step = function(_, dir)
+                    shown = shown + dir
+                end,
+            },
+        },
+    }
+    for row = 1, HISTORY_ROWS do
+        items[#items + 1] = {
+            text = function()
+                local e = entry(row)
+                if e then
+                    return challenges.ShortLabel(challenges.ByIndex(id, e.index))
+                end
+                return row == 1 and "None played yet" or ""
+            end,
+            info = function()
+                local e = entry(row)
+                if not e then
+                    return ""
+                end
+                local record = e.record
+                local far = record.finished and "" or string.format("|cffaaaaaa%d yd|r  ", record.distance)
+                return string.format("%d  %s%d/%d", record.score, far, record.coins, record.coinTotal)
+            end,
+        }
+    end
+    items[#items + 1] = { text = "Back", back = true }
+    return { title = challenges.KINDS[id].name .. " history", items = items }
+end
+local function historyItem(id)
+    return {
+        text = app.challenges.KINDS[id].name,
+        run = function(_, menu)
+            menu:Push(historyPage(id))
+        end,
+    }
+end
+-- The streak of days played (a daily challenge each) and the lists of past challenges; counted
+-- when opened.
+local function streakText(days)
+    return days == 1 and "1 day" or string.format("%d days", days)
+end
+local function historyOverview()
+    local current, longest = app.challenges.Streak()
+    return {
+        title = "History",
+        items = {
+            {
+                text = "Streak",
+                info = function()
+                    return streakText(current)
+                end,
+            },
+            {
+                text = "Longest",
+                info = function()
+                    return streakText(longest)
+                end,
+            },
+            { text = "Days with a daily challenge run", note = GRAY },
+            historyItem("daily"),
+            historyItem("weekly"),
+            historyItem("monthly"),
+            { text = "Back", back = true },
+        },
+    }
+end
+PAGES.challenges = {
+    title = "Challenges",
+    items = {
+        { text = "The same seed for everyone", note = GRAY },
+        challengeItem("daily"),
+        challengeItem("weekly"),
+        challengeItem("monthly"),
+        {
+            text = "History",
+            run = function(_, menu)
+                menu:Push(historyOverview())
+            end,
+        },
+        { text = "Back", back = true },
     },
 }
 PAGES.stats = {
@@ -114,6 +411,18 @@ PAGES.main = {
             text = "Play",
             run = function(_, menu)
                 menu:Push(PAGES.play)
+            end,
+        },
+        {
+            text = "Challenges",
+            run = function(_, menu)
+                menu:Push(PAGES.challenges)
+            end,
+        },
+        {
+            text = "Custom",
+            run = function(_, menu)
+                menu:Push(PAGES.custom)
             end,
         },
         {
@@ -281,10 +590,12 @@ function overlay:StartGlide(seconds)
     self.glide = { from = from, start = GetTime(), seconds = seconds }
 end
 
--- The lobby's run, not started yet; a new one unless it is shown already.
+-- The lobby's run, not started yet; a new one unless it is shown already. It ends a challenge
+-- and a custom game.
 function overlay:EnterLobby()
     local s = self.state
-    if s.status ~= "ready" or not s.lobby then
+    self.challenge, self.custom = nil, nil
+    if s.status ~= "ready" or not s.lobby or s.challenge or s.custom then
         self:SaveBest()
         self.state = self:NewState(app.lobby)
     end
@@ -310,15 +621,26 @@ function overlay:OpenMenu()
     self:PlayTitleMusic(true)
 end
 
--- The seed of the run about to start from the lobby. With a fixed seed (the options), it is the
--- fixed one too.
-function overlay:SetRunSeed(seed)
-    seed = app.random.Normalize(seed)
-    if app.db.profile.seed then
-        self:SetSeed(seed)
-    else
-        self.state = self:NewState(app.lobby, seed)
+-- A challenge (challenges.lua's Period) from the menu: its run from the lobby, and every
+-- restart, until the menu or the title shows again.
+function overlay:PlayChallenge(period)
+    if self.screen ~= "menu" then
+        return
     end
+    self.challenge = period
+    self.state = self:NewState(app.lobby)
+    self:Play(false)
+end
+
+-- A custom game from the menu: its run from the lobby with the custom settings, and every
+-- restart, until the menu or the title shows again. `watch`: in auto mode.
+function overlay:PlayCustom(watch)
+    if self.screen ~= "menu" then
+        return
+    end
+    self.custom = true
+    self.state = self:NewState(app.lobby)
+    self:Play(watch)
 end
 
 -- Back from the main menu's first page: the camera glides to the title's shot.
@@ -432,7 +754,7 @@ function overlay:PlaceSeat()
     end
     local lobby = app.lobby
     if self.seatAnimation ~= self.seatWant then
-        actor:SetAnimation(self.seatWant, 0, 1, 0)
+        actor:SetAnimation(app.biomes.PlayerAnimation(self.seatWant), 0, 1, 0)
         self.seatAnimation = self.seatWant
     end
     local scale = self:TwinScale()
@@ -495,6 +817,12 @@ function overlay:StepApproach(elapsed)
     end
     self.screen, self.startPhase = nil, nil
     self.legendState = nil
+    -- A custom game begun further into the seed ("Start at"): there at once, as a restart is.
+    local at = app.db.profile.startAt or 0
+    if at > 0 and s.custom then
+        s = self:NewState(nil, s.seed, at)
+        self.state = s
+    end
     sim.Start(s)
     if self.watching then
         self.watching = nil

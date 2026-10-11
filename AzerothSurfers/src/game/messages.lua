@@ -2,8 +2,9 @@
 local _, app = ...
 local sim = app.simulation
 -- What the game shows in the middle of the view, over everything else:
--- * the status menu while a run is paused or over (menus.lua): the run's numbers, the next run's
---   difficulty and what to do next (before a run: screens.lua's main menu);
+-- * the status menu while a run is paused or over (menus.lua): the run's numbers, a custom
+--   game's settings, the next run's difficulty and what to do next (before a run: screens.lua's
+--   main menu);
 -- * announcements in zone-text style (`Announce`);
 -- * a gate's flash and its portal's pull (the vortex: wind into the portal, edges closing in).
 local overlay = app.overlay
@@ -11,6 +12,9 @@ local overlay = app.overlay
 local SIDE_SCALE = 0.8
 local ANNOUNCE_SECONDS, FADE_IN, FADE_OUT = 2, 0.3, 0.7
 local BANNER_SIDE_SCALE = 0.5
+-- Full screen: the menus' top line (PlaceMessages). About half the pause menu's height, and the
+-- room left for the buttons' row above it.
+local MENU_RAISE, PAUSE_HALF, MENU_TOP = 0.12, 280, 48
 local FLASH_ALPHA, FLASH_SECONDS = 0.85, 0.7
 -- The pull, by the portal's distance from the camera (which goes through last): it builds from
 -- VORTEX_FROM yards and fades over VORTEX_THROUGH after; in the last VORTEX_AROUND yards the
@@ -33,10 +37,14 @@ local windTail, windHead
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
+-- A challenge's last portal: its banner's seconds and the level-up fanfare
+-- (Sound/Interface/LevelUp.ogg).
+local FINISH_SECONDS, FINISH_SOUND = 1.5, 567431
 
 -- The status menu's pages (menus.lua describes pages and items), built anew for each pause and
 -- each end of a run.
 local GREEN = { 0.1, 1, 0.1 }
+local GRAY = { 0.7, 0.7, 0.7 }
 
 local function chosen()
     return sim.DIFFICULTIES[app.db.profile.difficulty] or sim.DIFFICULTIES.normal
@@ -72,12 +80,22 @@ local NUMBERS = {
     {
         text = "Distance",
         info = function(o)
-            return string.format("%d yd", math.floor(sim.Run(o.state)))
+            local s = o.state
+            if s.finish then
+                return string.format("%d / %d yd", math.floor(sim.Run(s)), s.finish - s.start)
+            end
+            return string.format("%d yd", math.floor(sim.Run(s)))
         end,
     },
+    -- A challenge's: its own best.
     {
         text = "Best",
-        info = function()
+        info = function(o)
+            local s = o.state
+            if s.challenge then
+                local best = app.challenges.Best(s.challenge)
+                return best and tostring(best.score) or "0"
+            end
             return tostring(app.db.global.bestScore)
         end,
     },
@@ -100,6 +118,169 @@ local DIFFICULTY = {
         end,
     },
 }
+
+-- A custom game's settings (screens.lua's Custom page, and its pause and end menus): every run
+-- of it takes them, from the menu and every restart. A new one is an item on its category's
+-- page here (menus.lua; a new category is a page and an item in CUSTOM) over a profile setting
+-- NewState (controls.lua) reads while `custom` is on.
+-- The seed: the fixed one, or a new one each run. One typed in is fixed from now on.
+local SEED = {
+    text = "Seed",
+    input = {
+        get = function()
+            return app.db.profile.seed and tostring(app.db.profile.seed) or "Random"
+        end,
+        set = function(o, typed)
+            local seed = tonumber(typed)
+            if seed then
+                o:SetSeed(seed)
+            end
+        end,
+    },
+}
+-- Fixes the seed (the one shown, else the current run's) or draws a new one each run.
+local SEED_MODE = {
+    text = "Seed mode",
+    choice = {
+        get = function()
+            return app.db.profile.seed and "Fixed" or "Random each run"
+        end,
+        can = function(_, dir)
+            return (dir > 0) ~= (app.db.profile.seed ~= false)
+        end,
+        step = function(o, dir)
+            o:SetFixedSeed(dir > 0)
+        end,
+    },
+}
+-- Yards into the seed every run begins (simulation.lua's Skip).
+local START_AT = {
+    text = "Start at",
+    input = {
+        get = function()
+            return tostring(app.db.profile.startAt or 0)
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetStartAt(yards)
+            end
+        end,
+    },
+}
+-- Yards into the seed every run ends, at a last portal as a challenge's does; 0: never.
+local END_AT = {
+    text = "Ends at",
+    input = {
+        get = function()
+            local yards = app.db.profile.endAt or 0
+            return yards > 0 and tostring(yards) or "Never"
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetEndAt(yards)
+            end
+        end,
+    },
+}
+-- The settings by category, a page each: the custom game's page, its pause and end menus show
+-- one item per category that opens its page.
+local SEED_PAGE = {
+    title = "Seed options",
+    items = { SEED_MODE, SEED, START_AT, END_AT, { text = "Back", back = true } },
+    extra = {
+        text = "New seed",
+        run = function(o)
+            o:SetSeed(app.random.Seed())
+        end,
+    },
+}
+local function category(page)
+    return {
+        text = page.title,
+        run = function(_, menu)
+            menu:Push(page)
+        end,
+    }
+end
+-- A scoring rule (scoring.lua's DEFAULTS) at `path` (its keys), the custom game's own while it
+-- differs: a choice stepping by `step` from `least` to `most`; `huge`: past `most` it has no
+-- limit (math.huge).
+local function rule(text, path, step, least, most, huge)
+    local function get()
+        return overlay:CustomRule(path)
+    end
+    return {
+        text = text,
+        choice = {
+            get = function()
+                local value = get()
+                if value == math.huge then
+                    return "No limit"
+                end
+                local shown = string.format("%g", value)
+                return value == overlay:CustomRule(path, true) and shown or "|cffffffff" .. shown .. "|r"
+            end,
+            can = function(_, dir)
+                local value = get()
+                if dir < 0 then
+                    return value > least
+                end
+                return value < most or (huge and value ~= math.huge)
+            end,
+            step = function(o, dir)
+                local value = get()
+                if value == math.huge then
+                    value = most
+                elseif huge and dir > 0 and value >= most then
+                    value = math.huge
+                else
+                    -- Whole steps: no 0.35000001.
+                    value = math.floor((value + dir * step) / step + 0.5) * step
+                    value = math.max(least, math.min(most, value))
+                end
+                o:SetCustomRule(path, value)
+            end,
+        },
+    }
+end
+local function rulesPage(title, items)
+    items[#items + 1] = { text = "Back", back = true }
+    return {
+        title = title,
+        items = items,
+        extra = {
+            text = "Defaults",
+            run = function(o)
+                o:ResetCustomRules()
+            end,
+        },
+    }
+end
+local DIFFICULTY_FACTORS = {}
+for _, difficulty in ipairs(sim.DIFFICULTIES) do
+    DIFFICULTY_FACTORS[#DIFFICULTY_FACTORS + 1] = rule(difficulty.name, { "difficulty", difficulty.id }, 0.25, 0, 5)
+end
+-- How a custom game's runs score: changed values in white, Defaults (its extra action) undoes
+-- every change.
+local SCORING_PAGE = rulesPage("Scoring", {
+    rule("Yard points", { "yardPoints" }, 1, 0, 10),
+    rule("Coin points", { "coinPoints" }, 5, 0, 200),
+    category(rulesPage("Streak", {
+        rule("Bonus from", { "streak", "from" }, 1, 1, 30),
+        rule("Bonus points", { "streak", "points" }, 5, 0, 200),
+        rule("Gap (yards)", { "streak", "gap" }, 1, 1, 20),
+        rule("Gap (seconds)", { "streak", "seconds" }, 0.05, 0, 2),
+    })),
+    category(rulesPage("Multiplier", {
+        rule("Start", { "multiplier", "start" }, 1, 1, 10),
+        rule("Per gate", { "multiplier", "perGate" }, 1, 0, 5),
+        rule("Most", { "multiplier", "most" }, 1, 1, 20, true),
+    })),
+    category(rulesPage("Difficulty factor", DIFFICULTY_FACTORS)),
+})
+overlay.CUSTOM = { category(SEED_PAGE), category(SCORING_PAGE) }
 
 local function restart(o)
     if not InCombatLockdown() then
@@ -141,24 +322,89 @@ local function page(title, ...)
     return { title = title, items = items }
 end
 
+-- How much the run beat or missed the best before it by (controls.lua's SaveChallenge), as a
+-- note; nil without one, or when only one of them reached the last portal (that decides).
+local function bestDifference(s)
+    local last = s.lastBest
+    if not last or last.finished ~= (s.finished or false) then
+        return nil
+    end
+    local difference = sim.Score(s) - last.score
+    if difference > 0 then
+        return { text = string.format("%d more than your best", difference), note = GREEN }
+    elseif difference < 0 then
+        return { text = string.format("%d short of your best", -difference), note = GRAY }
+    end
+    return { text = "Level with your best", note = GRAY }
+end
+
+-- A challenge's run (screens.lua's PlayChallenge): its seed, difficulty and where it begins are
+-- the challenge's own; it ends at its last portal (or before).
+local function challengePage(s)
+    local name = s.challenge.kind.name .. " challenge"
+    if s.status == "paused" then
+        local p = page(name, NUMBERS, { GO_ON, { text = "Start over", run = restart }, MENU })
+        p.back = GO_ON.run
+        p.extra = { text = "Start over", run = restart }
+        return p
+    end
+    local notes = {}
+    if s.newBest then
+        notes[1] = { text = "New best!", note = GREEN }
+    elseif not s.finished then
+        notes[1] = { text = "The last portal not reached", note = GRAY }
+    end
+    local difference = bestDifference(s)
+    if difference then
+        notes[#notes + 1] = difference
+    end
+    local p = page(
+        s.finished and "Challenge complete" or name,
+        notes,
+        NUMBERS,
+        { { text = "Try again", run = restart }, MENU }
+    )
+    p.back = MENU.run
+    p.extra = { text = "Try again", run = restart }
+    return p
+end
+
 -- The page for run `s`, or nil while it runs or is ready. In auto mode no key does anything:
 -- only clicks.
 local function statusPage(o, s)
-    if s.status == "paused" then
+    if s.challenge and not o.auto and (s.status == "paused" or s.status == "over") then
+        return challengePage(s)
+    elseif s.status == "paused" then
         if o.auto then
             return page("Paused", NUMBERS, { GO_ON, STOP })
         end
-        local p = page("Paused", NUMBERS, { GO_ON, { text = "Start over", run = restart }, DIFFICULTY, AUTO, MENU })
+        local p = page(
+            "Paused",
+            NUMBERS,
+            { GO_ON, { text = "Start over", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
+        )
         -- Q pauses and goes on in a run: here too.
         p.back = GO_ON.run
         p.extra = { text = "Start over", run = restart }
         return p
     elseif s.status == "over" then
-        local best = s.newBest and { { text = "New best!", note = GREEN } } or {}
+        -- A custom run saves no best score: says so.
+        local best = s.newBest and { { text = "New best!", note = GREEN } }
+            or s.custom and { { text = "Custom game: no best score", note = GRAY } }
+            or {}
         if o.auto then
             return page("Run complete", best, NUMBERS, { STOP })
         end
-        local p = page("Run complete", best, NUMBERS, { { text = "Run again", run = restart }, DIFFICULTY, AUTO, MENU })
+        local p = page(
+            "Run complete",
+            best,
+            NUMBERS,
+            { { text = "Run again", run = restart } },
+            s.custom and overlay.CUSTOM or {},
+            { DIFFICULTY, AUTO, MENU }
+        )
         p.back = MENU.run
         p.extra = { text = "Run again", run = restart }
         return p
@@ -171,7 +417,6 @@ function overlay:CreateMessages(f)
     holder:SetSize(1, 1)
     holder:Hide()
     self.statusMenu = self:CreateMenu(holder)
-    self.statusMenu.panel:SetPoint("CENTER", holder, "CENTER", 0, 0)
     self.statusHolder = holder
 
     local banner = CreateFrame("Frame", nil, f)
@@ -228,13 +473,24 @@ function overlay:CreateMessages(f)
     }
 end
 
-function overlay:PlaceMessages(side, h)
+-- Full screen, the pause and end menus hang from one top line (the scorecard's beside them):
+-- where the pause menu's top was when it was centred MENU_RAISE of the height above the
+-- middle, at most MENU_TOP under the top (the buttons' row). The side window centres them.
+function overlay:PlaceMessages(side, h, top)
     local panel, banner = self.statusHolder, self.banner.frame
+    local menu = self.statusMenu.panel
     -- Offsets count in the frame's own scale.
     local scale = side and SIDE_SCALE or 1
     panel:SetScale(scale)
     panel:ClearAllPoints()
-    panel:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.05 or 0.12) * h / scale)
+    panel:SetPoint("CENTER", self.frame, "CENTER", 0, (side and 0.05 or MENU_RAISE) * h / scale)
+    menu:ClearAllPoints()
+    if side then
+        menu:SetPoint("CENTER", panel, "CENTER", 0, 0)
+    else
+        local y = math.min(MENU_RAISE * h + PAUSE_HALF, h / 2 + top - MENU_TOP)
+        menu:SetPoint("TOP", self.frame, "CENTER", 0, y)
+    end
     scale = side and BANNER_SIDE_SCALE or 1
     banner:SetScale(scale)
     banner:ClearAllPoints()
@@ -268,6 +524,8 @@ function overlay:ShowStatus()
     self.statusOpen = page ~= nil
     if page then
         self.statusMenu:Open(page)
+        -- An announcement fades out from under it.
+        self:EndAnnouncement()
     end
     self.statusHolder:SetShown(page ~= nil)
 end
@@ -283,6 +541,31 @@ function overlay:Announce(text, seconds, small)
     b.start, b.hold = GetTime(), seconds or ANNOUNCE_SECONDS
     b.frame:SetAlpha(0)
     b.frame:Show()
+end
+
+-- Fades out an announcement still showing from now on.
+function overlay:EndAnnouncement()
+    local b = self.banner
+    if not b or not b.start then
+        return
+    end
+    local t = GetTime() - b.start
+    if t > FADE_IN and t < FADE_IN + b.hold then
+        b.hold = t - FADE_IN
+    elseif t <= FADE_IN then
+        -- From where its fade in got to.
+        b.start, b.hold = GetTime() - FADE_IN - (1 - t / FADE_IN) * FADE_OUT, 0
+    end
+end
+
+-- A challenge's or a custom game's last portal (`s.finish`), gone through: its banner and
+-- fanfare (with the portal sounds).
+function overlay:Finish(s)
+    local small = s.challenge and s.challenge.kind.name .. " challenge" or s.custom and "Custom game" or nil
+    self:Announce("Finish!", FINISH_SECONDS, small)
+    if app.db.profile.portalSound then
+        PlaySoundFile(FINISH_SOUND, "SFX")
+    end
 end
 
 -- White when `color` is nil.

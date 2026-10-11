@@ -67,7 +67,7 @@ app.biomes.Register("durotar", {
             { layers = 4, items = { { model = 199141, height = 2.3, yaw = { 0, 360 } } } },
         },
         -- Durotar's creatures facing the runner; all attack (16) when the runner comes close,
-        -- the tall ones from their ready stance (25).
+        -- the orcs from their ready stance (25), the others from standing (0).
         enemy = {
             -- Low enough to jump: a Mottled Boar (503), a Venomtail, Armored or Clattering
             -- Scorpid (2732, 2487, 2486), or a Durotar Tiger (598), each with its kind's attack.
@@ -84,7 +84,7 @@ app.biomes.Register("durotar", {
                         creature = { 1218, 1252, 6088, 1964 },
                         height = 2,
                         yaw = 180,
-                        animation = 25,
+                        animation = 0, -- These displays lack ReadyUnarmed (25) on Forever.
                         attack = 16,
                         sound = QUILBOAR,
                     },
@@ -104,11 +104,11 @@ app.biomes.Register("durotar", {
                     },
                 },
             },
-            -- A Kolkar Drudge (9442), a centaur: bigger and rarer.
+            -- A Kolkar Drudge (9442), a centaur: bigger and rarer; lacks ReadyUnarmed on Forever.
             {
                 layers = 4,
                 weight = 0.5,
-                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 25, attack = 16, sound = CENTAUR } },
+                items = { { creature = 9442, height = 2.5, yaw = 180, animation = 0, attack = 16, sound = CENTAUR } },
             },
         },
         -- deadminelumberpilesmall across two orcfence/orcfencepost posts.

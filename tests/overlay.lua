@@ -10,7 +10,10 @@ dofile("tests/load.lua")(app, {
     "biomes/tirisfal",
     "biomes/transitions/dream",
     "game/random",
+    "game/scoring",
     "game/simulation",
+    "game/challenges",
+    "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -30,12 +33,13 @@ dofile("tests/load.lua")(app, {
     "game/controls",
 })
 app.db = {
-    global = { bestScore = 0 },
+    global = { bestScore = 0, challenges = {}, leaderboard = {} },
     profile = {
         biome = "elwynn",
         mode = "full",
         capture = false,
         frame = { full = false, side = true },
+        hud = { position = "menu", x = 0, y = 0 },
         side = { point = "RIGHT", relative = "RIGHT", x = -40, y = 0, width = 400, height = 480 },
         overlay = {
             twinScale = 1,
@@ -308,6 +312,20 @@ do
 end
 print("PASS missed coins remain visible behind the runner until past the camera")
 
+do
+    local objects, distance, zoom = o.state.objects, o.state.distance, settings.distance
+    local passed = obstacle(1, -6)
+    o.state.objects, o.state.distance, settings.distance = { passed }, 0, 24
+    o:Render()
+    assert(o.faceCount > 0, "a passed obstacle behind the runner still renders at wide zoom")
+    passed.at = -30
+    o:Render()
+    assert(o.faceCount == 0, "obstacles behind the camera are culled")
+    o.state.objects, o.state.distance, settings.distance = objects, distance, zoom
+    o:Render()
+end
+print("PASS passed obstacles remain visible behind the runner until past the camera")
+
 -- A tall character (2.5 yards) is drawn at a human's height in the track's world, the camera
 -- nearer by as much: on the screen it covers the real one just as before, and the track around
 -- it is bigger.
@@ -391,8 +409,9 @@ assert(math.abs(road.coords[4] - (bottom - 1 / road.tile)) < 1e-9, "running a ya
 o.state.distance = 1000 * road.tile + 0.25
 o:Render()
 assert(road.coords[4] > -2, "far runs keep the coordinates small")
+local farRoad = piece("road", 0, 133)
 assert(
-    road.alpha == settings.opacity and piece("road", 0, 133).alpha < 0.2 * settings.opacity,
+    road.alpha == settings.opacity and (not farRoad.shown or farRoad.alpha < 0.2 * settings.opacity),
     "the far road fades out"
 )
 local cobbleEdge, grassLeft = piece("road", 4, 5), piece("grass", -10.8, 5)
@@ -404,6 +423,26 @@ assert(
 )
 o.state.distance = 0
 print("PASS ground textures scroll toward the runner and fade out at their edges and far ahead")
+
+-- Pieces nobody sees cost no calls: behind a close camera, then shown again once it backs off.
+do
+    local distance = settings.distance
+    local behind = piece("road", 0, -4)
+    settings.distance = 2
+    o:Render()
+    assert(behind.shown == false, "a piece behind the camera is hidden")
+    local coords = behind.coords[4]
+    o.state.distance = 1.5
+    o:Render()
+    assert(behind.coords[4] == coords, "a hidden piece's texture does not scroll")
+    settings.distance = 24
+    o:Render()
+    assert(behind.shown, "it shows once the camera backs off")
+    assert(math.abs(behind.coords[4] + (behind.near + 1.5) / behind.tile) < 1e-9, "with the texture where it belongs")
+    settings.distance, o.state.distance = distance, 0
+    o:Render()
+end
+print("PASS ground pieces off the screen are hidden and not updated")
 
 -- The ground's light follows the game's clock: bright by day, dim and blue at night.
 local hour = 12
@@ -760,6 +799,53 @@ assert(o.banner.start, "still fading out")
 now = 100 + 0.3 + 2 + 0.7
 o:ShowBanner()
 assert(not o.banner.start, "gone after its fade out")
+-- A challenge's last portal: its banner, and the fanfare unless portal sounds are off.
+local fanfares, said = 0, {}
+local banner = o.banner
+local setText, setSmall, setAlpha = banner.text.SetText, banner.small.SetText, banner.frame.SetAlpha
+function banner.text:SetText(text)
+    said.text = text
+end
+function banner.small:SetText(text)
+    said.small = text
+end
+function banner.frame:SetAlpha(alpha)
+    said.alpha = alpha
+end
+local playSound = PlaySoundFile
+function PlaySoundFile(file, channel)
+    assert(file == 567431 and channel == "SFX")
+    fanfares = fanfares + 1
+end
+local portalSound = app.db.profile.portalSound
+app.db.profile.portalSound = true
+o:Finish({ challenge = { kind = { name = "Daily" } } })
+assert(said.text == "Finish!" and said.small == "Daily challenge" and fanfares == 1)
+app.db.profile.portalSound = false
+o:Finish({})
+assert(said.small == "" and fanfares == 1, "silent without portal sounds")
+o:Finish({ custom = true })
+assert(said.small == "Custom game", "a custom game's end")
+app.db.profile.portalSound, PlaySoundFile = portalSound, playSound
+-- Ended early (a menu over it): it fades out from then on, from where its fade in got to.
+now = 200
+o:Announce("Finish!", 1.5)
+now = 201
+o:EndAnnouncement()
+o:ShowBanner()
+assert(o.banner.start and said.alpha == 1, "fading out from full")
+now = 201 + 0.71
+o:ShowBanner()
+assert(not o.banner.start, "gone after its fade out")
+o:Announce("Finish!", 1.5)
+now = now + 0.15
+o:EndAnnouncement()
+o:ShowBanner()
+assert(math.abs(said.alpha - 0.5) < 1e-6, "from halfway in")
+now = now + 0.36
+o:ShowBanner()
+assert(not o.banner.start)
+banner.text.SetText, banner.small.SetText, banner.frame.SetAlpha = setText, setSmall, setAlpha
 function GetTime()
     return 0
 end
@@ -825,19 +911,156 @@ end
 local main = o.mainMenu
 assert(press("ENTER") and press("SPACE", "JUMP"), "Enter and jump go on to WoW")
 assert(main:Page().title == nil and main.stack[1].selected == 1, "on the main page, at Play")
-assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Stats")
-assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Stats", "E accepts, whatever E is bound to")
+assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Challenges")
+assert(press("E", "STRAFERIGHT") == false and main:Page().title == "Challenges", "E accepts, whatever E is bound to")
+-- A challenge's page: its period at the realm's time, no best yet, a run to play.
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+assert(main.stack[2].selected == 2, "the note above Daily cannot be chosen")
+press("E")
+local daily = main:Page()
+assert(daily.title == "Daily challenge" and daily.items[1].text == "10 October 2026", daily.items[1].text)
+for _, item in ipairs(daily.items) do
+    if item.info then
+        assert(type(item.info(o)) == "string")
+    end
+end
+assert(daily.items[#daily.items - 2].text(o) == "Play", "no best yet")
+-- Its leaderboard: nobody's yet, then a best shared in the guild.
+function UnitName()
+    return "Me"
+end
+local panelWidth
+main.panel.SetWidth = function(_, w)
+    panelWidth = w
+end
+-- Every letter 10 pixels wide.
+local measured
+main.measure.SetText = function(_, t)
+    measured = t
+end
+main.measure.GetStringWidth = function()
+    return 10 * #measured
+end
+daily.items[#daily.items - 1].run(o, main)
+local board = main:Page()
+assert(board.title == "Daily leaderboard" and board.extra, board.title)
+-- The longest name, then the longest score, distance and coins, apart, inside the borders.
+local need = 10 * #board.columns.label * (1 + board.columns.spare)
+for k, sample in ipairs(board.columns.values) do
+    need = need + 20 + 10 * math.max(#sample, #board.columns.heads[k])
+end
+assert(panelWidth > 400 and panelWidth >= need + 52, "as wide as the longest name and values need")
+main:Show()
+assert(select(2, board.items[2].info(o)) == "Distance", "the header")
+assert(board.items[3].text(o) == "No bests shared yet" and board.items[3].info(o) == "")
+local period = app.challenges.Period("daily")
+app.leaderboard:Receive(
+    app.leaderboard.Encode(period.key, {
+        score = 4321,
+        distance = period.goal,
+        finished = true,
+        coins = 1,
+        coinTotal = 2,
+    }),
+    "GUILD",
+    "Ann"
+)
+main:Show()
+assert(board.items[3].text(o) == "1. Ann", board.items[3].text(o))
+local score, distance, coins = board.items[3].info(o)
+assert(score == "4321" and distance == period.goal .. " yd" and coins == "1/2 (50%)", coins)
+assert(board.items[4].text(o) == "", "one player")
 press("Q", "STRAFELEFT")
+assert(main:Page() == daily, "back to the challenge")
+assert(panelWidth == 400, "the menu's own width again")
+-- The history under the challenges: the streak, and a kind's past bests a page at a time.
+press("Q", "STRAFELEFT")
+press("S")
+press("S")
+press("S")
+press("E")
+local history = main:Page()
+assert(history.title == "History" and history.items[1].info(o) == "0 days", "no streak yet")
+assert(main.stack[3].selected == 4, "the streak's lines cannot be chosen")
+local past = app.challenges.Period("daily").index - 1
+app.db.global.challenges["daily-" .. past] =
+    { score = 1200, coins = 30, coinTotal = 80, distance = 2500, finished = false, at = 0 }
+press("E")
+local list = main:Page()
+assert(list.title == "Daily history" and list.items[1].choice.get(o) == "1 / 1", "one page")
+assert(list.items[2].text(o) == "9 Oct", list.items[2].text(o))
+assert(list.items[2].info(o) == "1200  |cffaaaaaa2500 yd|r  30/80", list.items[2].info(o))
+assert(list.items[3].text(o) == "" and list.items[3].info(o) == "", "the rows below it empty")
+press("Q", "STRAFELEFT")
+press("Q", "STRAFELEFT")
+press("Q", "STRAFELEFT")
+app.db.global.challenges["daily-" .. past] = nil
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
 assert(press("R") == true, "R goes on to WoW on a page without an extra action")
 press("Q", "STRAFELEFT")
 assert(o.screen == "title" and o.glide, "Q on the main page goes back to the title")
 press("E")
 assert(o.screen == "menu" and main:Page().title == nil and main.stack[1].selected == 1, "and on to the menu again")
+-- Custom: Play's items and its own settings, the seed among them.
+press("S")
+press("S")
+press("E")
+local custom = main:Page()
+assert(custom.title == "Custom" and main.stack[2].selected == 2, "Custom opens its page, at Play past its note")
+assert(custom.items[3].text == "Difficulty" and custom.items[4].text == "Seed options")
+press("S")
+press("S")
+press("E")
+local seedPage = main:Page()
+assert(seedPage.title == "Seed options", "its seed options on a page of their own")
+assert(press("R") == false and app.db.profile.seed, "R fixes a new seed")
+local function item(page, label)
+    for _, it in ipairs(page.items) do
+        if it.text == label then
+            return it
+        end
+    end
+end
+item(seedPage, "Seed").input.set(o, "12345")
+assert(app.db.profile.seed == 12345 and item(seedPage, "Seed").input.get(o) == "12345", "a seed typed in")
+assert(item(seedPage, "Ends at").input.get(o) == "Never", "no end at first")
+item(seedPage, "Ends at").input.set(o, "3000")
+assert(app.db.profile.endAt == 3000 and item(seedPage, "Ends at").input.get(o) == "3000", "an end typed in")
+app.db.profile.endAt = 0
+press("Q", "STRAFELEFT")
+assert(main:Page() == custom, "back to Custom")
+-- Its scoring: a rule steps left and right, Defaults undoes it.
+press("S")
+press("E")
+local scoringPage = main:Page()
+assert(scoringPage.title == "Scoring" and item(scoringPage, "Coin points").choice.get(o) == "25")
+press("D", "TURNRIGHT")
+press("S")
+press("D", "TURNRIGHT")
+assert(app.db.profile.customScoring.coinPoints == 30, "five more a coin")
+assert(item(scoringPage, "Coin points").choice.get(o) == "|cffffffff30|r", "changed: in white")
+press("S")
+press("S")
+press("E")
+local most = item(main:Page(), "Most")
+assert(main:Page().title == "Multiplier" and most.choice.get(o) == "No limit")
+assert(not most.choice.can(o, 1) and most.choice.can(o, -1))
+most.choice.step(o, -1)
+assert(app.db.profile.customScoring.multiplier.most == 20 and most.choice.get(o) == "|cffffffff20|r")
+most.choice.step(o, 1)
+assert(app.db.profile.customScoring.multiplier.most == nil, "no limit again")
+press("Q", "STRAFELEFT")
+assert(press("R") == false and next(app.db.profile.customScoring) == nil, "Defaults")
+press("Q", "STRAFELEFT")
+press("Q", "STRAFELEFT")
+assert(main:Page().title == nil and main.stack[1].selected == 3, "back at Custom")
+press("UP")
+press("UP")
 press("E")
 assert(main:Page().title == "Play", "Play opens its page")
-local seed = o.state.seed
-assert(press("R") == false and o.state.seed ~= seed and o.state.lobby, "R rolls a new seed for the lobby's run")
+assert(press("R") == true and o.state.seed ~= 12345, "Play has no seed of its own: R goes on to WoW")
 -- Whatever the seed, and so the first zone: the same ground, the same look behind the portal,
 -- the same boxes.
 app.db.profile.biome = "auto"
@@ -846,7 +1069,7 @@ for i, box in ipairs(o.state.objects) do
     looks[i] = box.seed
 end
 for _ = 1, 8 do
-    press("R")
+    o.state = o:NewState(lobby, app.random.Seed())
     assert(o:GroundCurve() == curve, "the same ground curve with a new seed")
     assert(o:BiomeIdAt(lobby.rim + 5) == lobby.biome, "the lobby's ground behind the portal until the run")
     for i, box in ipairs(o.state.objects) do
@@ -854,8 +1077,6 @@ for _ = 1, 8 do
     end
 end
 app.db.profile.biome = "elwynn"
-main:Page().items[3].input.set(o, "12345")
-assert(o.state.seed == 12345 and o.state.lobby and o.state.status == "ready", "a seed typed in")
 press("DOWN")
 press("D", "TURNRIGHT")
 assert(
@@ -898,6 +1119,7 @@ for _ = 1, 20 do
     o:StepApproach(0.1)
 end
 assert(o.screen == nil and o.state.status == "running", "in the lane the run starts")
+assert(not o.state.custom and o.state.seed ~= 12345, "Play's run: a new seed, not Custom's")
 assert(o.state.lateral == lobby.lane and o.state.distance == lobby.seat.walk, "in the lane, its walk ahead")
 assert(o.state.speed == lobby.launch.speed, "slow at first")
 o:OnScreenKey("A", "STRAFELEFT")
@@ -920,6 +1142,54 @@ assert(not o.statusOpen, "no menu while running")
 o.state.status, o.state.newBest = "over", true
 o:Render()
 assert(status:Page().title == "Run complete" and status:Page().items[1].note, "the end, with a new best")
+-- The page is built at each end: a run that ended again.
+local function ended()
+    o.state.status = "running"
+    o:Render()
+    o.state.status = "over"
+    o:Render()
+end
+local function labels()
+    local list = {}
+    for _, it in ipairs(status:Page().items) do
+        list[#list + 1] = type(it.text) == "string" and it.text or "?"
+    end
+    return table.concat(list, ",")
+end
+assert(not labels():find("Seed options", 1, true), "Play's end: no custom settings")
+o.state.newBest, o.state.custom = nil, true
+ended()
+assert(status:Page().items[1].text == "Custom game: no best score", "a custom run says it saves none")
+assert(labels():find("Seed options", 1, true), "and its settings' pages")
+o.state.custom = nil
+ended()
+assert(not status:Page().items[1].note, "a plain run without a new best: no note")
+-- A challenge's end: how much it beat or missed the best before it by, when both reached the
+-- last portal or neither did.
+-- (The scorecard's challenge card shows its label, goal, difficulty and reset too.)
+o.state.challenge, o.state.finished =
+    {
+        kind = { name = "Daily" },
+        key = "daily-1",
+        label = "2 January 1970",
+        goal = 5000,
+        difficulty = "normal",
+        ends = 2 * 86400,
+    }, true
+o.state.lastBest = { score = g.Score(o.state) + 120, finished = true }
+ended()
+assert(status:Page().title == "Challenge complete" and status:Page().items[1].text == "120 short of your best")
+o.state.newBest, o.state.lastBest.score = true, g.Score(o.state) - 80
+ended()
+assert(status:Page().items[1].text == "New best!" and status:Page().items[2].text == "80 more than your best")
+o.state.newBest, o.state.lastBest.score = nil, g.Score(o.state)
+ended()
+assert(status:Page().items[1].text == "Level with your best")
+o.state.finished = false
+ended()
+local items = status:Page().items
+assert(items[1].text == "The last portal not reached" and not items[2].note, "only one through it: no difference")
+o.state.challenge, o.state.finished, o.state.lastBest = nil, nil, nil
 assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
 -- Captured, a key the menu leaves unused stays with the game: the character does not jump.
 o.capture = true
@@ -1109,3 +1379,147 @@ do
     PlaySoundFile, app.db.profile.enemySound = oldSound, enabled
 end
 print("PASS hostile sounds at the pass in the same or adjacent lane only")
+
+-- The challenge card under the scorecard: the live target against the best's checkpoints, and
+-- a running frame of a challenge allocates nothing either.
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+local period = app.challenges.Period("daily")
+local run = g.New(period.seed, period.difficulty, true, nil, period.goal)
+run.challenge = period
+run.target = { score = 2000, distance = 1000, trace = { 100, 300 }, traceEvery = 100 }
+app.challenges.NewTrace(run)
+run.nextRow, run.objects = math.huge, {}
+g.Start(run)
+run.forward = true
+o.state = run
+o.hudShown = nil
+local shown
+local function challengeFrame(yards, points)
+    run.distance, run.points = yards, points
+    app.challenges.Trace(run)
+    o:Render()
+    shown = o.hudShown
+end
+challengeFrame(150, 250)
+assert(shown.challenge == period, "the card shows the run's challenge")
+assert(shown.challengeTarget == 2 * 50 + 4, "ahead by 50 at 150 yards")
+function GetTime()
+    return 1
+end
+challengeFrame(150, 150)
+assert(shown.challengeTarget == 2 * 50 + 5, "behind by 50")
+function GetTime()
+    return 2
+end
+challengeFrame(1200, 5000)
+assert(shown.challengeTarget == -3, "past where the best ended")
+local t = 2
+local function later()
+    t = t + 1
+    return t
+end
+GetTime = later
+for i = 1, 50 do
+    challengeFrame(300 + i, 1000 + 3 * i)
+end
+collectgarbage("collect")
+collectgarbage("stop")
+before = collectgarbage("count")
+for i = 1, 300 do
+    challengeFrame(300 + i, 1000 + 3 * i)
+end
+assert(shown.challengeTarget > 0, "a gap to the best")
+grown = collectgarbage("count") - before
+collectgarbage("restart")
+assert(grown < 0.5, string.format("300 challenge frames allocated %.2f KB", grown))
+print(string.format("PASS the challenge card's live target, and its frames allocate nothing (%.2f KB)", grown))
+
+-- The scorecard's extra info: off by default; once on, a row each under the score, redrawn every
+-- INFO_EVERY seconds, written only when changed, and its frames allocate nothing either.
+function GetFramerate()
+    return 59.6
+end
+o:LayoutHudInfo()
+assert(o:HudInfoRoom() == 0 and o.hud.info.count == 0, "no extra info by default")
+app.db.profile.hudInfo = {}
+for _, stat in ipairs(o.HUD_INFO) do
+    app.db.profile.hudInfo[stat.id] = true
+end
+o:LayoutHudInfo()
+local info = o.hud.info
+assert(info.count == #o.HUD_INFO and o:HudInfoRoom() > 0, "every row turned on is shown")
+-- What each row writes, read through a recorder.
+local written = {}
+local function row(id)
+    for i, r in ipairs(info.shown) do
+        if r.stat.id == id then
+            return written[i]
+        end
+    end
+end
+run.time = 125.4
+for i, r in ipairs(info.shown) do
+    r.stat.write({
+        SetText = function(_, value)
+            written[i] = value
+        end,
+        SetFormattedText = function(_, format, ...)
+            written[i] = string.format(format, ...)
+        end,
+    }, r.stat.value(o, run))
+end
+assert(row("time") == "2m 05s", "the run's time: " .. tostring(row("time")))
+assert(row("fps") == "60", "frames per second, rounded")
+assert(row("seed") == string.format("%.0f", run.seed), "the seed")
+assert(row("biome") == o.biome.name, "the biome")
+for i = 1, 50 do
+    run.time = i
+    challengeFrame(400 + i, 2000 + 3 * i)
+end
+local timeRow
+for _, r in ipairs(info.shown) do
+    if r.stat.id == "time" then
+        timeRow = r
+    end
+end
+assert(timeRow.written == 50, "the time row follows the run")
+collectgarbage("collect")
+collectgarbage("stop")
+before = collectgarbage("count")
+for i = 1, 300 do
+    run.time, run.speed = 50 + i, 30 + i / 10
+    challengeFrame(450 + i, 2200 + 3 * i)
+end
+grown = collectgarbage("count") - before
+collectgarbage("restart")
+assert(timeRow.written == 350, "the time row still follows the run")
+assert(grown < 0.5, string.format("300 frames with every extra info allocated %.2f KB", grown))
+app.db.profile.hudInfo = nil
+o:LayoutHudInfo()
+assert(o:HudInfoRoom() == 0, "turned off, the section goes")
+print(string.format("PASS the scorecard's extra info, and its frames allocate nothing (%.2f KB)", grown))
+-- The Anniversary swim offset affects only the drawn twin and resets after ducking.
+do
+    local state, screen, seated, animation = o.state, o.screen, o.seated, o.twinAnimation
+    o.state = { status = "running", duck = 1, lateral = 0 }
+    o.screen, o.seated, o.twinAnimation = nil, false, 666
+    o:PlaceTwin()
+    local normalZ = o.twinActor.position[3]
+    app.biomes.playerAnimations = { [666] = 42 }
+    app.biomes.playerAnimationOffsets = { [42] = -0.5 }
+    local feet = o.camera.feet
+    o:PlaceTwin()
+    assert(
+        math.abs(o.twinActor.position[3] - (normalZ - 0.5 * o.bodyScale / o:TwinScale())) < 1e-9,
+        "swim lowered visually"
+    )
+    assert(o.camera.feet == feet and o.state.duck == 1, "camera and duck state unchanged")
+    o.state.duck = 0
+    o:PlaceTwin()
+    assert(o.twinActor.position[3] == normalZ, "normal height restored after duck")
+    app.biomes.playerAnimations, app.biomes.playerAnimationOffsets = nil, nil
+    o.state, o.screen, o.seated, o.twinAnimation = state, screen, seated, animation
+end
+print("PASS swim visual offset and restoration")

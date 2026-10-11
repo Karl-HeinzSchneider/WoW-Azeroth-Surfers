@@ -1,6 +1,8 @@
 -- Counts the WoW API calls the full-screen view makes per frame, on a generated track with lane
 -- changes and jumps. Not part of `npm run check`; run with `lua tests/bench-overlay.lua`.
 local counts, frames = {}, 0
+-- All calls so far, for each frame's own count.
+local calls = 0
 local methods = {}
 local special = {}
 local proto = setmetatable({}, {
@@ -11,6 +13,7 @@ local proto = setmetatable({}, {
             if not f then
                 f = function()
                     counts[name] = (counts[name] or 0) + 1
+                    calls = calls + 1
                 end
                 methods[name] = f
             end
@@ -25,6 +28,7 @@ local function stub(kind)
 end
 local function count(name)
     counts[name] = (counts[name] or 0) + 1
+    calls = calls + 1
 end
 function special.GetStringHeight()
     count("GetStringHeight")
@@ -184,27 +188,10 @@ dofile("tests/load.lua")(app, {
     "biomes/elwynn",
     "biomes/transitions/dream",
     "scenes/lobby",
-    "game/random",
-    "game/simulation",
-    "game/track",
-    "patterns/patterns.xml",
-    "game/autopilot",
+    "game/game.xml",
     "game/light",
     "game/shapes",
-    "game/overlay",
-    "game/decorations",
-    "game/occluder",
-    "game/obstacles",
-    "game/ambient",
-    "game/window",
-    "game/keys",
-    "game/menu",
-    "game/hud",
-    "game/legend",
-    "game/messages",
-    "game/menus",
-    "game/screens",
-    "game/controls",
+    "game/overlay.xml",
 })
 local profile = app.dbDefaults.profile
 -- The runner follows the character's sampled movement, as without capturing the keys.
@@ -222,6 +209,7 @@ o.state = o:NewState()
 local update = o.frame.scripts.OnUpdate
 -- Play 30 seconds at 140 fps: a lane change every 2 s, a jump every 3 s.
 local seconds, fps = 30, 140
+local perFrame = {}
 local clock = os.clock()
 o.timing = { frames = 0 }
 for i = 1, seconds * fps do
@@ -233,7 +221,9 @@ for i = 1, seconds * fps do
     if i % (3 * fps) == 0 then
         g.Jump(o.state)
     end
+    local before = calls
     update(o.frame, 1 / fps)
+    perFrame[i] = calls - before
     -- Run through obstacles: the benchmark measures drawing, not playing.
     if o.state.status == "over" then
         o.state.status = "running"
@@ -263,6 +253,16 @@ table.sort(rows, function(a, b)
 end)
 print(string.format("%s, %.0f yards, %d boxes on the track", o.state.status, o.state.distance, #o.state.objects))
 print(string.format("API calls per frame: %.0f   Lua time per frame (stubbed API): %.3f ms", total, lua))
+-- The worst frames are the camera's: every jump and lane change moves it.
+table.sort(perFrame)
+print(
+    string.format(
+        "Calls per frame: median %d, 90th percentile %d, worst %d",
+        perFrame[math.ceil(#perFrame / 2)],
+        perFrame[math.ceil(#perFrame * 0.9)],
+        perFrame[#perFrame]
+    )
+)
 for i = 1, math.min(14, #rows) do
     print(string.format("  %-28s %8.1f", rows[i][1], rows[i][2]))
 end

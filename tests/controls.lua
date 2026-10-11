@@ -1,7 +1,10 @@
 local app = {}
 dofile("tests/load.lua")(app, {
     "game/random",
+    "game/scoring",
     "game/simulation",
+    "game/challenges",
+    "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -9,6 +12,7 @@ dofile("tests/load.lua")(app, {
     "game/shapes",
     "game/overlay",
     "game/keys",
+    "game/messages",
     "game/menus",
     "game/screens",
     "game/controls",
@@ -249,6 +253,30 @@ end
 assert(r.state.coins == 2 and #played == 1, "the option silences it")
 print("PASS coin pickup plays the loot sound once, unless switched off")
 
+-- Through a challenge's last portal: its finish once, the run going on to its end past it.
+local finishes = 0
+function r:Finish(s)
+    assert(s == self.state and s.status == "running")
+    finishes = finishes + 1
+end
+r.state = g.New()
+r.state.nextRow = math.huge
+r.state.objects = {}
+g.Start(r.state)
+r.state.finish = r.state.distance + 1
+while r.state.distance < r.state.finish do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(finishes == 1 and r.state.status == "running", "once, past it")
+for _ = 1, 100 do
+    x = x + 0.1
+    r:Step(0.05)
+end
+assert(finishes == 1 and r.state.finished and r.state.status == "over", "and not again at its end")
+r.Finish = nil
+print("PASS a challenge's last portal: its finish once")
+
 -- Motion relative to facing, for the twin: ahead and to the left are positive.
 facing, speed, map = 0, 7, 1
 x, y = 0, 0
@@ -329,3 +357,162 @@ app.db.profile.footstepSound = true
 r:Footsteps()
 assert(#played == n + 1, "reenabling does not replay muted contacts")
 print("PASS footsteps, biome materials, wooden dive landing, rolling, pause and sound option")
+
+-- Restarts as a player makes them: a seed lays out one track, from the menu, a restart, or a
+-- custom game's restart once it is fixed from the pause menu; with "Start at", the same track
+-- from there.
+dofile("tests/load.lua")(app, { "scenes/lobby" })
+local function layout(s)
+    local lines = {}
+    for _, o in ipairs(s.objects) do
+        lines[#lines + 1] = string.format("%s %d %.6f %d %d", o.kind, o.lane, o.at, o.layer, o.seed)
+    end
+    return table.concat(lines, "\n")
+end
+-- The track of `s` from `at` on, run high above it so nothing stops it.
+local function ahead(s, at)
+    s.status, s.forward = "running", true
+    local lines = {}
+    while s.distance < at + 400 do
+        s.height = 1e6
+        g.Update(s, 1 / 120)
+        for _, o in ipairs(s.objects) do
+            if o.at >= at then
+                lines[string.format("%s %d %.6f %d %d", o.kind, o.lane, o.at, o.layer, o.seed)] = true
+            end
+        end
+    end
+    return lines
+end
+local function same(a, b)
+    for k in pairs(a) do
+        assert(b[k], "the same box: " .. k)
+    end
+    for k in pairs(b) do
+        assert(a[k], "the same box: " .. k)
+    end
+end
+app.db = { global = { bestScore = 0 }, profile = { seed = false, startAt = 0, biome = "auto" } }
+r.frame = r.frame or {}
+r.custom = true
+r.state = r:NewState(app.lobby, 777)
+local menu = ahead(r.state, 1000)
+-- A custom game's restart with its seed fixed from the pause menu, then restarted twice.
+r.state.seed = 777
+r:SetFixedSeed(true)
+assert(app.db.profile.seed == 777)
+r:Restart()
+local first = r.state
+r:Restart()
+assert(layout(first) == layout(r.state) and r.state.seed == 777, "every restart the same")
+assert(r.state.custom, "a custom game's run")
+same(menu, ahead(r.state, 1000))
+-- Started 3000 yards in: the menu's track from its first pattern on.
+app.db.profile.startAt = 3000
+r:Restart()
+local skipped = r.state
+assert(skipped.practice == 3000 and skipped.distance >= 3000)
+local cut = math.huge
+for _, o in ipairs(skipped.objects) do
+    cut = math.min(cut, o.at)
+end
+local fromMenu = r:NewState(app.lobby, 777)
+same(ahead(fromMenu, cut), ahead(skipped, cut))
+print("PASS a seed's track is the same from the menu, a restart and a later start")
+
+-- A custom game with a new seed each run still begins "Start at" in; its runs save no best.
+app.db.profile.seed, app.db.profile.startAt = false, 2000
+r:Restart()
+assert(r.state.custom and r.state.practice == 2000 and r.state.distance >= 2000, "a new seed, 2000 yards in")
+-- "Ends at": a last portal that far into the seed, past its start, as a challenge's.
+app.db.profile.endAt = 3500
+r:Restart()
+assert(r.state.finish == 3500 and r.state.finish - r.state.start == 1500, "1500 yards from 2000 to 3500")
+app.db.profile.endAt = 1000
+r:Restart()
+assert(not r.state.finish, "an end before the start: none")
+app.db.profile.startAt = 0
+r:Restart()
+r.state.status, r.state.points = "over", 9000
+r:SaveBest()
+assert(app.db.global.bestScore == 0 and not r.state.newBest, "a custom run saves no best score")
+-- Play: whatever the custom settings, a new seed each run, from the portal, and its best kept.
+app.db.profile.seed, app.db.profile.startAt = 777, 2000
+r.custom = nil
+r:Restart()
+local played = r.state
+r:Restart()
+assert(not r.state.custom and not r.state.practice and r.state.distance < 2000, "Play ignores Start at")
+assert(played.seed ~= 777 and r.state.seed ~= played.seed, "Play draws a new seed each run")
+assert(r:NewState(app.lobby).seed ~= 777, "and from the menu")
+r.state.status, r.state.points = "over", 9000
+r:SaveBest()
+assert(app.db.global.bestScore == g.Score(r.state) and r.state.newBest, "Play's best is the best score")
+app.db.global.bestScore, app.db.profile.endAt = 0, 0
+-- A custom game's scoring: only what differs is kept, its runs play by it, Play's do not.
+r:SetCustomRule({ "coinPoints" }, 50)
+r:SetCustomRule({ "difficulty", "normal" }, 2)
+r:SetCustomRule({ "multiplier", "most" }, math.huge)
+assert(app.db.profile.customScoring.coinPoints == 50 and app.db.profile.customScoring.multiplier.most == nil)
+assert(r:CustomRule({ "streak", "gap" }) == app.scoring.DEFAULTS.streak.gap, "the default where not changed")
+r.custom = true
+r:Restart()
+assert(r.state.scoring.coinPoints == 50 and r.state.scoring.difficulty.normal == 2, "a custom run's rules")
+r.custom = nil
+r:Restart()
+assert(r.state.scoring.coinPoints == app.scoring.DEFAULTS.coinPoints, "Play's are the defaults")
+r:SetCustomRule({ "coinPoints" }, app.scoring.DEFAULTS.coinPoints)
+assert(app.db.profile.customScoring.coinPoints == nil, "back to the default: dropped")
+r:ResetCustomRules()
+assert(next(app.db.profile.customScoring) == nil)
+print("PASS a custom game's settings, and Play's new seed each run")
+
+-- A challenge: its seed and difficulty through zones to its goal, whatever the profile's seed,
+-- difficulty and start; every restart the same; the best saved once over.
+app.db.global.challenges, app.db.global.leaderboard = {}, {}
+function GetServerTime()
+    return 20736 * 86400 + 12 * 3600
+end
+local period = app.challenges.Period("daily", 20736 * 86400 + 12 * 3600)
+app.db.profile.biome = "elwynn"
+app.db.profile.difficulty = period.difficulty == "easy" and "expert" or "easy"
+r.challenge = period
+r.state = r:NewState(app.lobby)
+local challenge = r.state
+assert(challenge.seed == period.seed and challenge.zones and challenge.finish == challenge.start + period.goal)
+assert(challenge.difficulty.id == period.difficulty, "the challenge's difficulty")
+r:Restart()
+assert(r.state.challenge == period and not r.state.practice, "a restart ignores Start at")
+assert(r.state.finish - r.state.start == period.goal and r.state.seed == period.seed)
+assert(r.state.difficulty.id == period.difficulty)
+same(ahead(r:NewState(app.lobby), 1500), ahead(r.state, 1500))
+assert(r.state.target == nil and #r.state.trace == math.ceil(period.goal / app.challenges.TRACE_EVERY))
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points, r.state.coins = 6000, 42
+app.challenges.Trace(r.state)
+r:SaveBest()
+local best = app.challenges.Best(period)
+assert(best and best.score == 6000 and best.coins == 42 and best.finished and best.distance == period.goal)
+assert(best.difficulty == period.difficulty and best.goal == period.goal)
+assert(r.state.newBest and app.db.global.bestScore ~= 6000, "not the endless best")
+assert(#best.trace == math.floor(period.goal / app.challenges.TRACE_EVERY) and best.trace[1] == 6000)
+assert(best.traceEvery == app.challenges.TRACE_EVERY)
+assert(r.state.lastBest == nil, "no best before it")
+r:Restart()
+assert(r.state.target == best, "the next run chases the best")
+r:SaveBest()
+assert(app.challenges.Best(period).score == 6000, "a run left before its end saves nothing")
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points = 5000
+r:SaveBest()
+assert(not r.state.newBest and r.state.lastBest.score == 6000, "the best before it, kept")
+r:SaveBest()
+assert(r.state.lastBest.score == 6000, "saved once")
+r:Restart()
+r.state.status, r.state.finished, r.state.distance = "over", true, r.state.finish + 20
+r.state.points = 7000
+r:SaveBest()
+assert(r.state.newBest and r.state.lastBest.score == 6000 and app.challenges.Best(period).score == 7000)
+r:SaveBest()
+assert(r.state.lastBest.score == 6000, "not the best it just set")
+print("PASS a challenge's runs: its seed to its goal, restarts, its best")

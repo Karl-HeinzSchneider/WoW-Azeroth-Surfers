@@ -24,6 +24,19 @@ function module:OnInitialize()
         OnTooltipShow = function(tooltip)
             tooltip:AddLine(app.TITLE)
             tooltip:AddLine("Left-click: play", 1, 1, 1)
+            tooltip:AddLine("Right-click: options", 1, 1, 1)
+            tooltip:AddLine(" ")
+            local challenges = app.challenges
+            for _, kind in ipairs(challenges.KINDS) do
+                local period = challenges.Period(kind.id)
+                tooltip:AddDoubleLine(
+                    kind.name .. " challenge",
+                    challenges.StatusText(kind.id) .. " |cffbbbbbb(" .. challenges.Left(period) .. " left)|r",
+                    1,
+                    1,
+                    1
+                )
+            end
         end,
     }
     self.ldb = LibStub("LibDataBroker-1.1"):NewDataObject(appName, launcher) --[[@as LibDataBroker.QuickLauncher]]
@@ -44,6 +57,8 @@ end
 function module:OnClick(button)
     if button == "LeftButton" then
         app.overlay:Toggle()
+    elseif button == "RightButton" then
+        app.options:Open()
     else
         log:debug("Minimap button clicked (%s)", button)
     end

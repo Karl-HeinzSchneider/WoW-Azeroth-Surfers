@@ -4,7 +4,9 @@ dofile("tests/load.lua")(app, {
     "biomes/default",
     "biomes/elwynn",
     "game/random",
+    "game/scoring",
     "game/simulation",
+    "game/challenges",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",
@@ -78,6 +80,17 @@ test("passed enemies remain available until beyond the widest camera", function(
     s.distance = g.VIEW_BEHIND + enemy.length + 1
     g.Update(s, 0.05)
     assert(#s.objects == 0, "enemies beyond the camera are eventually removed")
+end)
+test("passed obstacles remain available until beyond the widest camera", function()
+    local passed, collected = obstacle(0, 0), coin(1, 0)
+    local s = fresh(passed, collected)
+    collected.hit = true
+    s.distance = 24
+    g.Update(s, 0.05)
+    assert(s.objects[1] == passed and #s.objects == 1, "the obstacle stays, a collected coin goes")
+    s.distance = g.VIEW_BEHIND + passed.length + 1
+    g.Update(s, 0.05)
+    assert(#s.objects == 0, "obstacles beyond the camera are eventually removed")
 end)
 
 test("a jump peaks past layer 2, lands and cannot double jump", function()
@@ -177,10 +190,10 @@ test("coins award once, high ones only in a jump", function()
     assert(s.coins == 1 and s.coinTotal == 3, "one of three")
 end)
 test("a coin streak survives a coin missed beside it, breaks on too long a gap", function()
-    local streak, from = g.STREAK, g.STREAK.from
-    streak.from = 3
     -- A row in lane 0 with one in lane 1 beside it, then one far ahead.
     local s = fresh(coin(0, 2), coin(0, 5), coin(1, 8), coin(0, 8), coin(0, 11), coin(0, 40))
+    local streak = s.scoring.streak
+    streak.from = 3
     advance(s, 0.45, 60)
     assert(s.coins == 4 and s.streak == 4 and s.coinTotal == 5, "the coin beside does not break it")
     -- 25 a coin, `points` more from the third on.
@@ -191,7 +204,6 @@ test("a coin streak survives a coin missed beside it, breaks on too long a gap",
     assert(s.streak == 0 and s.bestStreak == 4, "too far without a coin breaks it")
     advance(s, 0.6, 60)
     assert(s.coins == 5 and s.streak == 1)
-    streak.from = from
 end)
 test("the multiplier scales only what is earned after it is set", function()
     local s = fresh(coin(0, 1))
@@ -218,6 +230,41 @@ test("every gate past the start adds one to the multiplier, the lobby's none", f
     s.gates, s.start = { 20, 45 }, 30
     advance(s, 2, 60)
     assert(s.distance > 45 and s.multiplier == 2)
+end)
+test("a run's scoring rules are the defaults with a mode's overrides over them", function()
+    local defaults = app.scoring.DEFAULTS
+    local s = g.New(1, "normal")
+    assert(s.scoring ~= defaults and s.scoring.streak ~= defaults.streak, "a copy of its own")
+    assert(s.scoring.coinPoints == defaults.coinPoints and s.scoreFactor == 1)
+    s = g.New(1, "hard", nil, nil, nil, { coinPoints = 10, streak = { from = 3 }, difficulty = { hard = 2 } })
+    assert(s.scoring.coinPoints == 10 and s.scoring.streak.from == 3, "overridden")
+    assert(s.scoring.streak.gap == defaults.streak.gap, "the fields left out stay the defaults'")
+    assert(s.scoreFactor == 2 and defaults.difficulty.hard ~= 2, "the defaults stay as they are")
+end)
+test("the score is everything earned times the difficulty's factor", function()
+    local factors = app.scoring.DEFAULTS.difficulty
+    assert(factors.easy < factors.normal and factors.normal < factors.hard and factors.hard < factors.expert)
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        local s = g.New(1, difficulty.id)
+        s.points, s.bonus = 1000.5, 400
+        assert(g.Score(s) == math.floor(1400.5 * factors[difficulty.id]), difficulty.id)
+    end
+    local s = g.New(1, "normal", nil, nil, nil, { difficulty = { normal = false } })
+    s.points = 10
+    assert(g.Score(s) == 10, "a difficulty not listed scores as earned")
+end)
+test("a mode's rules set what yards and coins score and how the multiplier goes", function()
+    local s = fresh(coin(0, 1))
+    s.scoring = app.scoring.Rules({ yardPoints = 2, coinPoints = 7, multiplier = { perGate = 3, most = 5 } })
+    s.gates = { 20 }
+    advance(s, 0.3, 60)
+    assert(s.bonus == 7 and math.abs(s.points - 2 * s.distance) < 1e-6)
+    advance(s, 0.5, 60)
+    assert(s.distance > 20 and s.multiplier == 4, "perGate")
+    g.SetMultiplier(s, 9)
+    assert(s.multiplier == 5, "never above `most`")
+    s = g.New(1, "normal", nil, nil, nil, { multiplier = { start = 3 } })
+    assert(s.multiplier == 3, "start")
 end)
 test("barriers on layer 3 are run under but hit in a jump", function()
     local s = fresh(g.Box("barrier", 0, 3, 0.4, 3, 1))
@@ -761,19 +808,339 @@ test("a seed always lays out the same track", function()
     assert(layout(1234) ~= layout(1235))
     assert(g.New(99).seed == 99 and g.New().seed >= 1)
 end)
--- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
--- rate, collecting coins on the way; its runs save no best score.
-test("the autopilot plays generated tracks", function()
+-- A run begun 5000 yards (or just past the portal) into a seed lays out what running there from
+-- the menu lays out, from its first pattern on, after empty road.
+test("a run skipped ahead keeps its seed's track from the menu", function()
+    local function key(o)
+        return string.format("%s %d %.6f %.6f %d %d", o.kind, o.lane, o.at, o.length, o.layer, o.seed)
+    end
     for _, difficulty in ipairs(g.DIFFICULTIES) do
-        local s, frame = g.New(7, difficulty.id), 0
+        for _, to in ipairs({ 0, 5000 }) do
+            local name = difficulty.id .. " " .. to
+            local skipped = g.New(4242, difficulty.id, true, app.lobby)
+            local portal = skipped.start
+            g.Skip(skipped, to)
+            assert(not skipped.lobby and skipped.status == "ready" and skipped.lane == 0, name)
+            assert(skipped.distance >= math.max(to, portal) and skipped.start == skipped.distance, name)
+            assert(g.Score(skipped) == 0 and (skipped.practice == (to > 0 and to or nil)), name)
+            local clear = math.max(to, portal) + difficulty.startSpeed * g.CLEAR - track.LEAD_IN
+            for _, o in ipairs(skipped.objects) do
+                assert(o.at >= clear, name .. ": empty road ahead of the runner")
+            end
+            -- The same seed run from the menu step by step, then both on: high above the track,
+            -- so nothing stops them.
+            local ran = g.New(4242, difficulty.id, true, app.lobby)
+            g.Start(ran)
+            g.Start(skipped)
+            ran.forward, skipped.forward = true, true
+            while ran.distance < skipped.distance do
+                ran.height = 1e6
+                g.Update(ran, 1 / 120)
+            end
+            assert(ran.distance == skipped.distance and ran.nextRow == skipped.nextRow, name)
+            assert(#ran.gates == #skipped.gates and ran.multiplier == skipped.multiplier, name)
+            for _ = 1, 600 do
+                ran.height, skipped.height = 1e6, 1e6
+                g.Update(ran, 1 / 120)
+                g.Update(skipped, 1 / 120)
+            end
+            local cut, mine = math.huge, {}
+            for _, o in ipairs(skipped.objects) do
+                cut = math.min(cut, o.at)
+                mine[key(o)] = true
+            end
+            local shared = 0
+            for _, o in ipairs(ran.objects) do
+                if o.at >= cut then
+                    assert(mine[key(o)], name .. ": the same box past the cut")
+                    shared = shared + 1
+                end
+            end
+            assert(shared == #skipped.objects and shared > 0, name)
+        end
+    end
+    -- Only a run from the lobby, not started yet.
+    local restart = g.New(1)
+    g.Skip(restart, 5000)
+    assert(not restart.practice and restart.distance == 0)
+end)
+-- Auto mode's autopilot gets through generated tracks at every difficulty, at an uneven frame
+-- rate, collecting coins on the way; its runs save no best score. Its replans are spread over the
+-- frames before them: no frame after the one the run first moves in (its first replan) steps
+-- copies of the run more than a few hundred times (one replan in a frame takes over 1000), and
+-- the narrower crates and enemies its search uses never stay on for the run.
+test("the autopilot plays generated tracks", function()
+    local update, calls = g.Update, 0
+    g.Update = function(...)
+        calls = calls + 1
+        return update(...)
+    end
+    local widths = g.geometry.halfWidth
+    local crate, enemy = widths.obstacle, widths.enemy
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        local s, frame, most = g.New(7, difficulty.id), 0, 0
         while s.status ~= "over" and s.distance < 1000 do
             s.forward = s.status == "running"
             frame = frame + 1
+            calls = 0
+            local moving = s.distance > 0
             app.autopilot.Play(s, frame % 3 == 0 and 1 / 30 or 1 / 90)
+            most = moving and math.max(most, calls) or 0
+            assert(widths.obstacle == crate and widths.enemy == enemy, difficulty.id .. ": real widths")
         end
         assert(s.status == "running", difficulty.id .. ": the autopilot got through")
         assert(s.coins > 0 and s.piloted, difficulty.id .. ": collects coins, marks the run")
+        assert(most < 500, difficulty.id .. ": replans spread over frames, " .. most)
     end
+    g.Update = update
+end)
+-- A run left mid-replan (a restart) leaves nothing behind: the next one plays as it would have,
+-- frame by frame.
+test("the autopilot starts afresh with each run", function()
+    -- `frames` at an uneven frame rate, then `slow` at 1000 a second, over which a replan is
+    -- worked out a little at a time.
+    local function play(seed, frames, slow)
+        local s, trace = g.New(seed, "hard"), {}
+        for frame = 1, frames + slow do
+            s.forward = s.status == "running"
+            app.autopilot.Play(s, frame > frames and 1 / 1000 or frame % 3 == 0 and 1 / 30 or 1 / 90)
+            trace[frame] = s.lane .. " " .. s.height
+        end
+        return table.concat(trace, ",")
+    end
+    local first = play(7, 300, 0)
+    for _, left in ipairs({ 1, 2, 3, 5, 8, 13, 21, 34 }) do
+        play(99, 300, left)
+        assert(play(7, 300, 0) == first, "after " .. left)
+    end
+end)
+-- A run with a goal ends through its last portal: the track up to there is the seed's own, the
+-- portal stands at `finish` with empty road before it and nothing past it, the yards and
+-- points count up to its rim. A restart (past the lobby's portal) lays out the same and
+-- counts the same yards.
+test("a run with a goal ends through its last portal", function()
+    local gate = track.GATE
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        for _, restart in ipairs({ false, true }) do
+            local name = difficulty.id .. (restart and " restart" or "")
+            local goal = 2500
+            local s = g.New(31337, difficulty.id, true, app.lobby, goal)
+            local plain = g.New(31337, difficulty.id, true, app.lobby)
+            assert(s.finish == s.start + goal, name)
+            if restart then
+                g.Skip(s, 0)
+                g.Skip(plain, 0)
+                assert(s.finish - s.start == goal, name .. ": the goal stays")
+            end
+            g.Start(s)
+            g.Start(plain)
+            s.forward, plain.forward = true, true
+            local seen, all = {}, {}
+            -- High above the track, so nothing stops it.
+            local steps = 0
+            while s.status == "running" do
+                s.height = 1e6
+                g.Update(s, 1 / 60)
+                for _, o in ipairs(s.objects) do
+                    if not seen[o] then
+                        seen[o] = true
+                        all[#all + 1] = o
+                    end
+                end
+                steps = steps + 1
+                assert(steps < 1e5, name .. ": never ends")
+            end
+            assert(s.status == "over" and s.finished, name .. ": finished")
+            assert(s.distance >= s.finish + g.FINISH_PAST, name .. ": through the portal")
+            assert(g.Run(s) == goal, name .. ": the goal's yards " .. g.Run(s))
+            assert(math.abs(s.points - goal * 1) < 1e-6 or s.multiplier > 1, name .. ": points to the rim")
+            assert(s.gates[#s.gates] == s.finish, name .. ": the last portal at the finish")
+            local last = s.finish - gate.before - gate.lead
+            for _, o in ipairs(all) do
+                if not o.gate and not (o.kind == "coin" and math.abs(o.at - s.finish) < 10) then
+                    assert(o.at + o.length <= last, name .. ": empty road before the portal")
+                end
+            end
+            checkTrack(all, name)
+            -- Up to well before the finish, the same track as without a goal.
+            local shared = 0
+            while plain.distance < s.finish - 400 do
+                plain.height = 1e6
+                g.Update(plain, 1 / 60)
+                for _, o in ipairs(plain.objects) do
+                    if not seen[o] and o.at < s.finish - 400 then
+                        seen[o] = o
+                    end
+                end
+            end
+            local keys = {}
+            for _, o in ipairs(all) do
+                keys[string.format("%s %d %.4f %d", o.kind, o.lane, o.at, o.seed)] = true
+            end
+            for o, v in pairs(seen) do
+                if v ~= true then
+                    assert(keys[string.format("%s %d %.4f %d", o.kind, o.lane, o.at, o.seed)], name .. ": the same box")
+                    shared = shared + 1
+                end
+            end
+            assert(shared > 100, name .. ": shared " .. shared)
+        end
+    end
+end)
+
+-- Challenges: periods by UTC from the reset hour, weeks from Monday, months from the 1st; one
+-- seed, difficulty and goal for each, the same everywhere; the best saved by period.
+test("challenges change at the reset, the same for everyone", function()
+    local c = app.challenges
+    for _, days in ipairs({ 0, 59, 365, 10957, 20371, 20372, -1, 24000 }) do
+        assert(c.Days(c.Date(days)) == days, "a date and back: " .. days)
+    end
+    assert(c.Days(2026, 10, 10) == 20736)
+    local y, m, d = c.Date(c.Days(2024, 2, 29))
+    assert(y == 2024 and m == 2 and d == 29)
+    local function at(year, month, day, hour, minute)
+        return c.Days(year, month, day) * 86400 + hour * 3600 + (minute or 0) * 60
+    end
+    local before, after = c.Period("daily", at(2026, 10, 10, 10, 59)), c.Period("daily", at(2026, 10, 10, 11))
+    assert(before.index + 1 == after.index and before.seed ~= after.seed)
+    assert(after.label == "10 October 2026" and before.label == "9 October 2026", after.label)
+    assert(after.starts == at(2026, 10, 10, 11) and after.ends == at(2026, 10, 11, 11))
+    assert(c.Period("daily", at(2026, 10, 11, 10, 59)).key == after.key)
+    assert(c.Left(after, at(2026, 10, 10, 13, 30)) == "21h 30m")
+    assert(c.Left(after, at(2026, 10, 11, 11)) == "now" and c.Left(after, at(2026, 10, 11, 10, 59, 30)) == "1m")
+    -- 2026-10-05 is a Monday.
+    local week = c.Period("weekly", at(2026, 10, 10, 12))
+    assert(week.starts == at(2026, 10, 5, 11) and week.ends == at(2026, 10, 12, 11), week.label)
+    assert(week.label == "Week of 5 October 2026")
+    assert(c.Period("weekly", at(2026, 10, 5, 10, 59)).index == week.index - 1)
+    assert(c.Period("weekly", at(2026, 10, 12, 10, 59)).index == week.index)
+    local month = c.Period("monthly", at(2026, 10, 1, 11))
+    assert(month.label == "October 2026" and month.starts == at(2026, 10, 1, 11))
+    assert(month.ends == at(2026, 11, 1, 11))
+    assert(c.Period("monthly", at(2026, 10, 1, 10, 59)).label == "September 2026")
+    assert(c.Period("monthly", at(2026, 12, 31, 23)).ends == at(2027, 1, 1, 11))
+    -- Seeds: in range, the same each time, apart from period to period and kind to kind.
+    local seen = {}
+    for _, kind in ipairs(c.KINDS) do
+        for index = 0, 300 do
+            local seed = c.Draw(kind, index)
+            assert(seed >= 1 and seed <= random.MAX and seed == c.Draw(kind, index))
+            assert(not seen[seed], "a seed twice")
+            seen[seed] = true
+        end
+    end
+    -- Difficulties and goals: every difficulty comes up, goals within the variation in whole 50s.
+    local difficulties, short, long = {}, false, false
+    for _, kind in ipairs(c.KINDS) do
+        for index = 0, 300 do
+            local _, difficulty, goal = c.Draw(kind, index)
+            assert(g.DIFFICULTIES[difficulty], "a difficulty")
+            difficulties[difficulty] = true
+            assert(goal % 50 == 0, "whole 50s: " .. goal)
+            assert(math.abs(goal - kind.goal) <= kind.goal * c.VARIATION, "within the variation: " .. goal)
+            short, long = short or goal < kind.goal, long or goal > kind.goal
+        end
+    end
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        assert(difficulties[difficulty.id], "never " .. difficulty.id)
+    end
+    assert(short and long, "goals both ways")
+    -- Pinned: a change here changes every player's challenges.
+    assert(c.Period("daily", at(2026, 10, 10, 12)).seed == 905960284, c.Period("daily", at(2026, 10, 10, 12)).seed)
+    assert(after.goal == 5600 and after.difficulty == "normal", after.goal .. " " .. after.difficulty)
+
+    app.db = { global = { challenges = {} } }
+    local function record(score, finished, difficulty)
+        return { score = score, coins = 1, coinTotal = 2, distance = 1, finished = finished, difficulty = difficulty }
+    end
+    assert(c.Best(after) == nil)
+    assert(c.Save(after, record(500, false, "normal")))
+    assert(c.Save(after, record(400, true, "normal")), "reaching the portal beats any score short of it")
+    assert(not c.Save(after, record(900, false, "normal")))
+    assert(not c.Save(after, record(400, true, "normal")))
+    assert(c.Save(after, record(450, true, "normal")) and c.Best(after).score == 450)
+    assert(c.Best(before) == nil, "by period")
+    app.db.global.challenges[before.key] = { normal = record(300, true, "normal") }
+    assert(c.Best(before) == nil, "an earlier version's records are no best")
+    assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "and are replaced")
+
+    local now = after.starts
+    assert(c.Status("daily", now) == "beaten" and c.Status("weekly", now) == "new")
+    assert(c.StatusText("daily", now):find("beaten (450)", 1, true))
+    app.db.global.challenges[c.Period("monthly", now).key] = record(80, false, "easy")
+    assert(c.Status("monthly", now) == "tried")
+    local line = c.Reminder(now)
+    assert(line:find("Daily |cffffd100beaten (450)", 1, true) and line:find("Weekly |cff20ff20new", 1, true), line)
+    assert(line:find("Monthly |cffff8040not finished (80)", 1, true), line)
+    app.db = nil
+end)
+
+test("a challenge's run keeps its score at checkpoints, the live target reads them", function()
+    local c = app.challenges
+    local s = g.New(5, "normal", true, nil, 450)
+    c.NewTrace(s)
+    assert(#s.trace == 5 and s.traced == 0, "room for the whole run")
+    s.distance, s.points = 250, 300
+    c.Trace(s)
+    assert(s.traced == 2 and s.trace[1] == 300 and s.trace[2] == 300 and s.trace[3] == 0)
+    s.distance, s.points = 1000, 900
+    c.Trace(s)
+    assert(s.traced == 4, "up to the finish")
+    local saved = c.SavedTrace(s)
+    assert(#saved == 4 and saved[4] == 900)
+
+    local best = { score = 500, distance = 250, trace = { 100, 300 }, traceEvery = 100 }
+    assert(c.Target(best, 0) == 0 and c.Target(best, 50) == 50 and c.Target(best, 100) == 100)
+    assert(c.Target(best, 150) == 200, "between checkpoints")
+    assert(c.Target(best, 225) == 400, "from the last checkpoint to where it ended")
+    assert(c.Target(best, 250) == 500 and c.Target(best, 251) == nil, "nothing past it")
+    assert(c.Target({ score = 500, distance = 250 }, 10) == nil, "an older record has no trace")
+end)
+test("past challenges stay as history, with the streak of days played", function()
+    local c = app.challenges
+    local function at(year, month, day, hour)
+        return c.Days(year, month, day) * 86400 + hour * 3600
+    end
+    local now = at(2026, 10, 10, 12)
+    for _, kind in ipairs(c.KINDS) do
+        local period = c.Period(kind.id, now)
+        for back = 0, 14 do
+            local index = period.index - back
+            local again = c.ByIndex(kind.id, index)
+            assert(again.index == index and again.key == kind.id .. "-" .. index, "a period by its number")
+        end
+    end
+    assert(c.ShortLabel(c.Period("daily", now), now) == "10 Oct")
+    assert(c.ShortLabel(c.Period("weekly", now), now) == "5 Oct")
+    assert(c.ShortLabel(c.Period("monthly", now), now) == "Oct 2026")
+    assert(c.ShortLabel(c.Period("daily", at(2025, 12, 31, 12)), now) == "31 Dec 2025")
+
+    local today = c.Period("daily", now).index
+    local function record()
+        return { score = 1, coins = 1, coinTotal = 2, distance = 1, finished = true, trace = { 1 }, traceEvery = 100 }
+    end
+    local all = {}
+    app.db = { global = { challenges = all } }
+    assert(c.Streak(now) == 0, "nothing played")
+    for _, back in ipairs({ 1, 2, 3, 5, 6, 7, 8 }) do
+        all["daily-" .. (today - back)] = record()
+    end
+    all["daily-" .. (today - 9)] = { normal = record() } -- an earlier version's: no best
+    all["weekly-" .. c.Period("weekly", now).index] = record()
+    local current, longest = c.Streak(now)
+    assert(current == 3 and longest == 4, "today still to play: up to yesterday " .. current .. " " .. longest)
+    all["daily-" .. today] = record()
+    current = c.Streak(now)
+    assert(current == 4, "and with today's")
+    local list = c.History("daily")
+    assert(#list == 8 and list[1].index == today and list[8].index == today - 8, "newest first, no old records")
+    assert(#c.History("weekly") == 1 and #c.History("monthly") == 0)
+
+    c.Compact(now)
+    assert(all["daily-" .. today].trace and all["weekly-" .. c.Period("weekly", now).index].trace, "now's keep it")
+    assert(all["daily-" .. (today - 1)].trace == nil and all["daily-" .. (today - 1)].traceEvery == nil)
+    assert(all["daily-" .. (today - 1)].score == 1, "past ones keep the rest")
+    app.db = nil
 end)
 print(string.format("%d simulation tests passed", count))
 
@@ -807,3 +1174,14 @@ stopped.forward = false
 advance(stopped, 0.2, 60)
 assert(stopped.distance == distance)
 print("PASS track advances only with forward movement; jumps still land while stopped")
+
+-- The run's time: seconds past `start`, paused time not counted.
+local timed = fresh()
+timed.start = 1
+advance(timed, 2, 60)
+assert(math.abs(timed.time - (2 - 1 / timed.speed)) < 0.05, "time counts from `start`: " .. timed.time)
+g.Pause(timed)
+advance(timed, 1, 60)
+local paused = timed.time
+assert(math.abs(paused - (2 - 1 / timed.speed)) < 0.05, "paused time is not counted")
+print("PASS the run's time counts from its start, without pauses")

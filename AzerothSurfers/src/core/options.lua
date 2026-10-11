@@ -89,6 +89,35 @@ local function applyMode()
     end
 end
 
+-- An open game places the scorecard anew at once.
+local function placeHud()
+    if app.overlay.frame then
+        app.overlay:Layout()
+    end
+end
+
+-- A pixel offset of `profile.hud`.
+local function hudOffset(order, key, name, desc)
+    return {
+        type = "range",
+        order = order,
+        name = name,
+        desc = desc,
+        min = -1000,
+        max = 1000,
+        softMin = -400,
+        softMax = 400,
+        step = 1,
+        get = function()
+            return app.db.profile.hud[key]
+        end,
+        set = function(_, value)
+            app.db.profile.hud[key] = value
+            placeHud()
+        end,
+    }
+end
+
 local function header(order, name)
     return { type = "header", order = order, name = name }
 end
@@ -291,13 +320,13 @@ local game = {
                 end
             end,
         },
-        seedHeader = header(10, "Seed"),
+        seedHeader = header(10, "Custom game"),
         fixedSeed = {
             type = "toggle",
             order = 11,
             width = "full",
             name = "Fixed seed",
-            desc = "Every run lays out the same track, from the seed below. Off: a new seed every run.",
+            desc = "Every custom game run (the main menu's Custom) lays out the same track, from the seed below. Off: a new seed every run. Play always draws a new one.",
             get = function()
                 return app.db.profile.seed ~= false
             end,
@@ -309,7 +338,7 @@ local game = {
             type = "input",
             order = 12,
             name = "Seed",
-            desc = "The seed every run starts from: a whole number. Checked first: the current run's.",
+            desc = "The seed every custom game run starts from: a whole number. Checked first: the current run's.",
             hidden = function()
                 return app.db.profile.seed == false
             end,
@@ -321,6 +350,40 @@ local game = {
             end,
             set = function(_, value)
                 app.overlay:SetSeed(tonumber(value))
+            end,
+        },
+        startAt = {
+            type = "input",
+            order = 13,
+            name = "Start at (yards)",
+            desc = "Yards into the seed every custom game run begins: on empty road up to its next obstacles, the same track the seed lays out from the camp. 0: from the camp, a restart just past the portal. Custom game runs save no best score.",
+            get = function()
+                return tostring(app.db.profile.startAt or 0)
+            end,
+            validate = function(_, value)
+                local yards = tonumber(value)
+                return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
+                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+            end,
+            set = function(_, value)
+                app.overlay:SetStartAt(tonumber(value))
+            end,
+        },
+        endAt = {
+            type = "input",
+            order = 14,
+            name = "Ends at (yards)",
+            desc = "Yards into the seed every custom game run ends, at a last portal as a challenge's run does; past Start at. 0: never.",
+            get = function()
+                return tostring(app.db.profile.endAt or 0)
+            end,
+            validate = function(_, value)
+                local yards = tonumber(value)
+                return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
+                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+            end,
+            set = function(_, value)
+                app.overlay:SetEndAt(tonumber(value))
             end,
         },
         controlsHeader = header(20, "Controls"),
@@ -347,9 +410,15 @@ local game = {
                 app.minimapButton:OnProfileRefresh()
             end,
         },
+        challengeReminder = toggle(
+            32,
+            "challengeReminder",
+            "Challenge reminder at login",
+            "At login, one chat line says whether today's daily, this week's and this month's challenge are new, beaten or not finished yet."
+        ),
         logLevel = {
             type = "select",
-            order = 32,
+            order = 33,
             name = "Log level",
             desc = "How much " .. app.TITLE .. " writes to the chat window. Same as /surfers loglevel <level>.",
             values = levelNames,
@@ -510,6 +579,43 @@ local display = {
                 app.db.profile.overlay.curve = value / 2500
             end,
         },
+        hudHeader = header(20, "Scorecard"),
+        hudPosition = {
+            type = "select",
+            order = 21,
+            name = "Position",
+            desc = "Where the score sits. Beside the menu: right of the pause menu, on its top line, in full screen; top right in the side window.",
+            values = { menu = "Beside the menu", topright = "Top right", top = "Top centre", topleft = "Top left" },
+            sorting = { "menu", "topright", "top", "topleft" },
+            get = function()
+                return app.db.profile.hud.position
+            end,
+            set = function(_, value)
+                app.db.profile.hud.position = value
+                placeHud()
+            end,
+        },
+        hudCoinShare = toggle(
+            25,
+            "hudCoinShare",
+            "Coin percentage",
+            "Show the share of the coins that came past that you collected beside the coin counter, as in 156 (60%)."
+        ),
+        hudX = hudOffset(22, "x", "Move right", "Pixels to move the score right of its position (left when negative)."),
+        hudY = hudOffset(23, "y", "Move up", "Pixels to move the score up from its position (down when negative)."),
+        hudReset = {
+            type = "execute",
+            order = 24,
+            name = "Reset position",
+            desc = "Put the score back beside the menu, unmoved.",
+            func = function()
+                local saved, default = app.db.profile.hud, app.dbDefaults.profile.hud
+                for key, value in pairs(default) do
+                    saved[key] = value
+                end
+                placeHud()
+            end,
+        },
     },
 }
 
@@ -535,7 +641,7 @@ local sound = {
             3,
             "portalSound",
             "Portal sounds",
-            "Play a teleport sound when you go through a portal between zones."
+            "Play a teleport sound when you go through a portal between zones, and a fanfare at a challenge's last portal."
         ),
         music = toggle(
             4,
@@ -622,8 +728,31 @@ local options = {
     },
 }
 
+-- The scorecard's extra info under its position: a toggle per row of hud.lua's HUD_INFO. Built
+-- in OnInitialize: hud.lua loads after this file.
+local function addHudInfo(args)
+    args.hudInfoHeader = header(30, "Scorecard: extra info")
+    args.hudInfoHelp = text(31, "Shown in a section of their own under the score, in this order, while one is on.")
+    for i, stat in ipairs(app.overlay.HUD_INFO) do
+        args["hudInfo_" .. stat.id] = {
+            type = "toggle",
+            order = 31 + i,
+            name = stat.name,
+            desc = stat.desc,
+            get = function()
+                return app.db.profile.hudInfo[stat.id]
+            end,
+            set = function(_, value)
+                app.db.profile.hudInfo[stat.id] = value
+                placeHud()
+            end,
+        }
+    end
+end
+
 function module:OnInitialize()
     registerGamepadKey()
+    addHudInfo(display.args)
     options.args.keys = keysTab()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100

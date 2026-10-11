@@ -178,7 +178,7 @@ function overlay:Layout()
     local side, w, h = self.side, self.frame:GetSize()
     -- Full screen, a frame's title bar covers the top of the screen.
     local top = (not side and self.framed) and -(OUT_TOP + INSET_TOP) or 0
-    self:PlaceHud(side, w, h, top)
+    self:PlaceHud(side, top)
     self:PlaceLegend(side, top)
     self.controls:ClearAllPoints()
     self.controls:SetPoint("TOP", 0, top - (side and 8 or 14))
@@ -196,7 +196,7 @@ function overlay:Layout()
     self.controls:SetWidth(math.max(1, x - BUTTON_GAP))
     self.holdBar:ClearAllPoints()
     self.holdBar:SetPoint("TOP", self.controls, "BOTTOM", 0, -12)
-    self:PlaceMessages(side, h)
+    self:PlaceMessages(side, h, top)
     self:PlaceScreens(side, w, h)
 end
 

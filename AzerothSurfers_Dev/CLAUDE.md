@@ -23,6 +23,15 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   cycling through `dev.CROUCH`).
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).
+- `assets.lua` — `/surfers assets [all|models|animations|sounds] [all|biome]`: audits registered
+  biome assets, transitions, lobby, and the current player's used animations. Deduplicates IDs
+  and records every usage path. Loads models asynchronously (5-second timeout), compares loaded
+  file IDs, checks requested animation IDs, and briefly probes sounds on SFX. Failed sounds and
+  model timeouts need review, not automatic removal. `/surfers assets report [all]` opens a
+  copyable report; `listen <report number>` auditions a sound; `stop` cancels scanning/playback.
+  A loaded model can still be invisible or an error model; use `preview` to inspect it. Animation
+  variations need visual checks. Keep the small code-local asset list in sync with game code.
+  Offline regression test: `lua tests/assets.lua`.
 - `playtest.lua` — `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
   `reference`, `shot` (tunes the lobby's camera shots, prints them as Lua), `camp` (moves, turns
   and sizes the lobby's models live, prints them as Lua).

@@ -9,7 +9,7 @@ app.simulation = game
 
 -- A jump (about 1.64 yards) reaches a little past layer 2.
 game.LAYER = 0.6
--- Missed coins and enemies remain available beyond the maximum 24-yard camera distance.
+-- Passed boxes and missed coins remain available beyond the maximum 24-yard camera distance.
 game.VIEW_BEHIND = 32
 game.geometry = {
     laneWidth = 2.4,
@@ -105,14 +105,26 @@ function game.ZoneLength(s)
     return from + s.gateRandom() * (to - from)
 end
 
+-- A run with a `finish` (a challenge's) ends FINISH_PAST yards past the last portal's rim: the
+-- runner goes through it, and a camera close behind too. Its yards and points count up to the
+-- rim.
+game.FINISH_PAST = 18
+
 -- `seed`: any whole number, a new one when nil; `difficulty`: an id, normal when nil or unknown.
 -- `lobby` (src/scenes/lobby.lua): the run starts in its lane, with a gate at its `rim`.
-function game.New(seed, difficulty, zones, lobby)
+-- `goal`: yards from where the run starts counting to its last portal (`finish`, a track
+-- distance; track.lua lays nothing out past it), none when nil.
+-- `scoring`: a game mode's scoring rules over scoring.lua's DEFAULTS (`s.scoring`), none when nil.
+function game.New(seed, difficulty, zones, lobby, goal, scoring)
     seed = random.Normalize(seed or random.Seed())
     difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
+    scoring = app.scoring.Rules(scoring)
     local s = {
         difficulty = difficulty,
         seed = seed,
+        scoring = scoring,
+        -- What the score is everything earned times (scoring.lua's `difficulty`).
+        scoreFactor = app.scoring.Factor(scoring, difficulty),
         status = "ready",
         lane = 0,
         lateral = 0,
@@ -128,18 +140,20 @@ function game.New(seed, difficulty, zones, lobby)
         -- Where the run starts counting: nothing before it scores (a run from the lobby: where
         -- the player takes over, track.Lobby). `Run` is how far from there.
         start = 0,
+        time = 0, -- seconds run past `start` (up to `finish`)
         coins = 0,
         coinTotal = 0, -- coins come past, collected or missed
         collected = 0, -- coins picked up, before `start` too (their sound)
-        -- Coins collected one right after another (game.STREAK), and where the last one was.
+        -- Coins collected one right after another (the rules' `streak`), and where the last was.
         streak = 0,
         streakAt = 0,
         bestStreak = 0,
-        -- Distance points (fractional) and coin points, each at the multiplier of its moment.
+        -- Distance points (fractional) and coin points, each at the multiplier of its moment,
+        -- before the difficulty's factor (Score).
         points = 0,
         bonus = 0,
-        -- One more for every gate gone through past `start` (game.GATE_MULTIPLIER).
-        multiplier = 1,
+        -- More for every gate gone through past `start` (the rules' `multiplier`).
+        multiplier = scoring.multiplier.start,
         gatesPassed = 0, -- of `gates`, those the runner is past
         speed = difficulty.startSpeed,
         accumulator = 0,
@@ -162,50 +176,41 @@ function game.New(seed, difficulty, zones, lobby)
         end
         app.track.Lobby(s, lobby)
     end
+    if goal then
+        s.finish = s.start + goal
+    end
     return s
 end
 
--- At multiplier 1; a yard run is one point.
-local COIN_POINTS = 25
-
--- A streak: coins collected one right after another. A coin missed beside it (a parallel row)
--- does not break it, running on too far without one does:
---   gap      yards from one collected coin to the next that keep a streak (6: one empty spot
---            in a row)
---   seconds  or that long at the speed of the moment, if further (a change of lanes or two)
---   from     the streak's length from which every coin scores `points` more, at the multiplier
--- AzerothSurfers_Dev's /surfers streak changes them while playing.
-game.STREAK = { gap = 7, seconds = 0.35, from = 7, points = 25 }
-
 -- Yards past the last collected coin a streak holds at the speed of the moment.
 function game.StreakReach(s)
-    local streak = game.STREAK
+    local streak = s.scoring.streak
     return math.max(streak.gap, streak.seconds * s.speed)
 end
 
+-- Everything earned, times the difficulty's factor (scoring.lua).
 function game.Score(s)
-    return math.floor(s.points) + s.bonus
+    return math.floor((s.points + s.bonus) * s.scoreFactor)
 end
 
--- Yards run since the run started counting (`start`).
+-- Yards run since the run started counting (`start`), up to its `finish` at most.
 function game.Run(s)
-    return math.max(0, s.distance - s.start)
+    return math.max(0, math.min(s.distance, s.finish or math.huge) - s.start)
 end
 
--- Scales only what is earned from now on.
+-- Scales only what is earned from now on; from 1 up to the rules' `most`.
 function game.SetMultiplier(s, multiplier)
-    s.multiplier = math.max(1, math.floor(multiplier))
+    s.multiplier = math.max(1, math.min(s.scoring.multiplier.most, math.floor(multiplier)))
 end
 
--- How much each gate into the next zone adds to the multiplier. A gate before `start` (the
--- lobby's) adds nothing: a run from the lobby counts as a restart does.
-game.GATE_MULTIPLIER = 1
-
+-- Each gate into the next zone adds the rules' `perGate` to the multiplier. A gate before
+-- `start` (the lobby's) adds nothing: a run from the lobby counts as a restart does; nor does
+-- the last portal, `finish`.
 local function passGates(s)
     local gates, k = s.gates, s.gatesPassed + 1
     while gates[k] and gates[k] <= s.distance do
-        if gates[k] > s.start then
-            game.SetMultiplier(s, s.multiplier + game.GATE_MULTIPLIER)
+        if gates[k] > s.start and gates[k] ~= s.finish then
+            game.SetMultiplier(s, s.multiplier + s.scoring.multiplier.perGate)
         end
         s.gatesPassed, k = k, k + 1
     end
@@ -264,7 +269,9 @@ function game.Pause(s)
     s.accumulator = 0
 end
 
-local function tick(s)
+-- One step's speed and distance. The track ahead is laid out at the speed of the moment, so
+-- game.Skip takes the very same steps.
+local function move(s)
     local difficulty = s.difficulty
     s.speed = math.min(difficulty.topSpeed, difficulty.startSpeed + s.distance / difficulty.speedUp)
     -- A run from the lobby speeds up from its launch speed first.
@@ -279,12 +286,27 @@ local function tick(s)
         local step = s.speed * STEP
         s.distance = s.distance + step
         local counted = math.min(step, s.distance - s.start)
+        if s.finish then
+            counted = math.min(counted, s.finish - s.distance + step)
+        end
         if counted > 0 then
-            s.points = s.points + counted * s.multiplier
+            s.points = s.points + counted * s.scoring.yardPoints * s.multiplier
         end
         if s.gates then
             passGates(s)
         end
+    end
+end
+
+local function tick(s)
+    move(s)
+    if s.finish and s.distance >= s.finish + game.FINISH_PAST then
+        s.status, s.finished = "over", true
+        return
+    end
+    -- Up to a challenge's last portal, as `Run` counts.
+    if s.distance > s.start and s.distance <= (s.finish or math.huge) then
+        s.time = s.time + STEP
     end
     local delta = s.lane - s.lateral
     s.lateral = s.lateral + math.max(-STEP * 7, math.min(STEP * 7, delta))
@@ -333,9 +355,10 @@ local function tick(s)
                     s.coins = s.coins + 1
                     s.streak, s.streakAt = s.streak + 1, s.distance
                     s.bestStreak = math.max(s.bestStreak, s.streak)
-                    local points = COIN_POINTS
-                    if s.streak >= game.STREAK.from then
-                        points = points + game.STREAK.points
+                    local rules = s.scoring
+                    local points = rules.coinPoints
+                    if s.streak >= rules.streak.from then
+                        points = points + rules.streak.points
                     end
                     s.bonus = s.bonus + points * s.multiplier
                 end
@@ -351,10 +374,63 @@ local function tick(s)
                 s.coinTotal = s.coinTotal + 1
             end
         end
-        local behind = (o.kind == "enemy" or (o.kind == "coin" and not o.hit)) and game.VIEW_BEHIND or 4
+        local behind = (o.kind ~= "coin" or not o.hit) and game.VIEW_BEHIND or 4
         if o.at + o.length < s.distance - behind then
             table.remove(s.objects, i)
         end
+    end
+end
+
+-- A seed's run from the lobby (game.New with `lobby`, not started yet) begun `to` yards into
+-- it instead, past the lobby's portal at the least: the track up to there is laid out as
+-- running it from the menu lays it out (its launch and gate too), then dropped up to the first
+-- pattern game.CLEAR seconds (at the difficulty's start speed) past `to`; the runner starts
+-- there on empty road, in the middle lane. From that pattern on the track is the seed's own, the
+-- same as from the menu. A gate in the dropped stretch is still a zone's end, without its step.
+-- It scores from there on, at the multiplier its gates gave; past the portal it saves no best
+-- score (`practice`). `fromLobby`: the lobby it no longer has, for the route of its zones.
+-- The furthest a run starts (yards): every yard up to it is stepped through at once.
+game.MAX_START = 100000
+function game.Skip(s, to)
+    local lobby = s.lobby
+    if s.status ~= "ready" or not lobby then
+        return
+    end
+    local practice = to and to > s.start and to or nil
+    to = math.max(to or 0, s.start)
+    local starts = {}
+    s.forward = true
+    while s.distance < to do
+        move(s)
+        while s.nextRow < s.distance + game.AHEAD do
+            starts[#starts + 1] = s.nextRow
+            game.Spawn(s)
+        end
+    end
+    s.forward = false
+    -- The first pattern far enough ahead (the next one to be laid out, if none is yet). Past the
+    -- portal, the lobby's own first one: track.Lobby puts it just that far on.
+    local clear, first = to + s.difficulty.startSpeed * game.CLEAR, s.nextRow
+    for i = #starts, 1, -1 do
+        if starts[i] < clear then
+            break
+        end
+        first = starts[i]
+    end
+    -- Patterns are MIN_GAP apart, more than coins lead in (track.lua): this cuts between two.
+    local kept = {}
+    for _, o in ipairs(s.objects) do
+        if o.at >= first - app.track.LEAD_IN then
+            kept[#kept + 1] = o
+        end
+    end
+    s.objects = kept
+    s.lobby, s.fromLobby, s.launch = nil, lobby, nil
+    s.lane, s.lateral = 0, 0
+    s.start, s.points, s.practice = s.distance, 0, practice
+    -- With a `finish`, the yards to it stay its goal: counted from `to`, as from the menu.
+    if s.finish then
+        s.start, s.points = to, (s.distance - to) * s.scoring.yardPoints
     end
 end
 

@@ -33,7 +33,21 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
     log:debug("Enabled")
+end
+
+-- The first loading screen after a login or a reload, once the realm's clock is known (the
+-- challenges' periods follow it): past challenges keep their best without its trace
+-- (challenges.lua's history), the leaderboard drops ended periods, and at login (not on a
+-- reload) the challenge reminder.
+function addon:PLAYER_ENTERING_WORLD(_, isInitialLogin)
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    app.challenges.Compact()
+    app.leaderboard:Prune()
+    if isInitialLogin and self.db.profile.challengeReminder then
+        log:chat(app.challenges.Reminder())
+    end
 end
 
 function addon:OnDisable()
@@ -106,14 +120,22 @@ function addon:OnSlashCommand(input)
             log:chat("Log level is %s", log:getLevelName())
         end
     elseif cmd == "seed" then
-        local overlay, seed = app.overlay, tonumber(arg or "")
+        -- `/surfers seed <number> [<yards>]`: the custom game's seed, and the yards its runs begin
+        -- into it.
+        local _, typed, yards = self:GetArgs(input, 3)
+        local overlay, seed = app.overlay, tonumber(typed or "")
         if seed then
             overlay:SetSeed(seed)
-        elseif arg and arg:lower() == "random" then
+            overlay:SetStartAt(tonumber(yards or "") or 0)
+        elseif typed and typed:lower() == "random" then
             overlay:SetSeed(false)
         end
-        local fixed = self.db.profile.seed
-        log:chat(fixed and "Seed %d on every run" or "A new seed every run", fixed)
+        local fixed, startAt = self.db.profile.seed, self.db.profile.startAt or 0
+        if fixed and startAt > 0 then
+            log:chat("Custom game: seed %d on every run, from %d yards", fixed, startAt)
+        else
+            log:chat(fixed and "Custom game: seed %d on every run" or "Custom game: a new seed every run", fixed)
+        end
         if overlay.state and overlay.state.seed ~= fixed then
             log:chat("This run: seed %d", overlay.state.seed)
         end
@@ -135,7 +157,7 @@ function addon:OnSlashCommand(input)
         app.devCommands[cmd].run(input:match("^%s*%S+%s*(.-)%s*$"))
     else
         log:chat(
-            "Commands: /surfers [options], /surfers auto, /surfers loglevel <level>, /surfers seed [<number>|random], /surfers reset [confirm]"
+            "Commands: /surfers [options], /surfers auto, /surfers loglevel <level>, /surfers seed [<number> [<yards>]|random], /surfers reset [confirm]"
         )
         local names = {}
         for name in pairs(app.devCommands) do

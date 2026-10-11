@@ -1,0 +1,17 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <!-- The view: overlay.lua creates app.overlay, every file after it extends it, in this order. -->
+    <Script file="overlay.lua"/>
+    <Script file="decorations.lua"/>
+    <Script file="occluder.lua"/>
+    <Script file="obstacles.lua"/>
+    <Script file="ambient.lua"/>
+    <Script file="window.lua"/>
+    <Script file="keys.lua"/>
+    <Script file="menu.lua"/>
+    <Script file="hud.lua"/>
+    <Script file="legend.lua"/>
+    <Script file="messages.lua"/>
+    <Script file="menus.lua"/>
+    <Script file="screens.lua"/>
+    <Script file="controls.lua"/>
+</Ui>

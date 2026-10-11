@@ -1,4 +1,4 @@
-## Interface: 16001
+## Interface: 16001, 120100, 20506
 ## Title: Azeroth Surfers
 ## Notes: A three-lane endless runner starring your character. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/AzerothSurfers/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
 ## IconTexture: Interface\Icons\INV_Misc_QuestionMark
@@ -16,34 +16,13 @@ src\core\ace.lua
 src\core\options.lua
 src\core\minimapbutton.lua
 
-src\game\biomes.lua
-src\biomes\default.lua
-src\biomes\elwynn.lua
-src\biomes\durotar.lua
-src\biomes\teldrassil.lua
-src\biomes\tirisfal.lua
-src\biomes\transitions\dream.lua
+src\biomes\biomes.xml
 src\scenes\lobby.lua
-src\game\random.lua
-src\game\simulation.lua
-src\game\track.lua
-src\patterns\patterns.xml
-src\game\autopilot.lua
+src\overrides\retail.lua
+src\overrides\anniversary.lua
+src\game\game.xml
 src\game\light.lua
 src\game\shapes.lua
-src\game\overlay.lua
-src\game\decorations.lua
-src\game\occluder.lua
-src\game\obstacles.lua
-src\game\ambient.lua
-src\game\window.lua
-src\game\keys.lua
-src\game\menu.lua
-src\game\hud.lua
-src\game\legend.lua
-src\game\messages.lua
-src\game\menus.lua
-src\game\screens.lua
-src\game\controls.lua
+src\game\overlay.xml
 
 AzerothSurfers.lua

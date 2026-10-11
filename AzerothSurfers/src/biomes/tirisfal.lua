@@ -195,7 +195,7 @@ app.biomes.Register("tirisfal", {
                         creature = { 10973, 10979 },
                         height = 2.1,
                         yaw = 180,
-                        animation = 25,
+                        animation = 0, -- These displays lack ReadyUnarmed (25) on Forever.
                         attack = 16,
                         sound = ZOMBIE,
                     },

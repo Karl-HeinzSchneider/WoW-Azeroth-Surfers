@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) for the client set by the TOC's
-`## Interface` (`16001` = WoW Forever), plus Node/TypeScript tooling that checks, links and
-packages it.
+Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) targeting WoW Forever
+(`16001`), retail (`120100`) and Anniversary (2.5.6, interface 20506) through the TOC's `## Interface`, plus Node/TypeScript
+tooling that checks, links and packages it. Anniversary (2.5.6, interface 20506) compatibility still needs in-client testing.
 
 | Part                  | What it is                                                  | Details                                                      |
 | --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
@@ -31,10 +31,10 @@ the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev too
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `npm run check`                    | typecheck, addons, Lua syntax, XML schema, formatting. Run it before finishing a change.              |
 | `npm run format`                   | Prettier on TS/JSON/Markdown/YAML, StyLua on Lua (XML is left to the editor). `format:check` reports. |
-| `npm run check:addons`             | TOC entries exist (a `[TextLocale]` entry for every client language), companions, no cycles.          |
+| `npm run check:addons`             | TOC and loader XML entries exist (`[TextLocale]` ones for every language), companions, no cycles.     |
 | `npm run check:lua`                | `luac -p` on every addon Lua file (needs Lua 5.1 `luac` on PATH).                                     |
 | `npm run check:xml`                | Every addon XML against Blizzard's `UI.xsd`; skipped without `../_data/BlizzardInterfaceCode`.        |
-| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua` (needs `lua`).                                  |
+| `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua`, `leaderboard.lua` (needs `lua`).               |
 | `npm run bench:overlay`            | WoW API calls per frame, offline.                                                                     |
 | `npm run dev:link -- <AddOns dir>` | Links (junctions on Windows) every addon into a client; never replaces a path that isn't our link.    |
 | `npm run package:addons`           | Deterministic `dist/AzerothSurfers-<version>.zip` without development addons and `CLAUDE.md` files.   |
@@ -57,7 +57,7 @@ it ships inside the addon. Uploads need the secrets `CF_API_KEY`, `WAGO_API_TOKE
 ## WoW addon constraints
 
 - Lua 5.1 with Blizzard's restricted API: no `require`, `io`, `os`, or loading external files.
-  Every code file must be in its addon's TOC, in dependency order.
+  Every code file must be in its addon's TOC or a loader XML it lists, in dependency order.
 - Addons share one global namespace. Keep state in the private table; a file that uses it starts
   with
 
@@ -116,7 +116,7 @@ Creatures are named by display id, which the listfile lacks; a Wowhead classic N
 - **Don't hard-reference a retail or Classic frame**: don't inherit its templates, call its
   mixins, anchor to it or name it as the thing being copied. Remake the look with our own
   template and mixin; its art may be reused, and naming it as an example in a comment is fine.
-- Code the WoW Forever client itself ships (`Blizzard_*/Camelot/`, shared templates it loads such
-  as `Blizzard_SharedXML`) may be used directly, e.g. `PortraitFrameBaseTemplate`. Verify the
-  file is loaded by this client first.
+- Shared client templates may be used directly, e.g. `PortraitFrameBaseTemplate`, after verifying
+  they load on both supported clients. Forever-specific code (`Blizzard_*/Camelot/`) needs a
+  shared alternative or a compatibility fallback on retail.
 - A screenshot the user shares is a look reference, not a template to reproduce pixel by pixel.
