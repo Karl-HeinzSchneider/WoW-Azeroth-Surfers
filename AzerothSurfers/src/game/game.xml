@@ -1,10 +1,12 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-    <!-- The run without its view: seeded randomness, scoring, the simulation, challenges and the
-         leaderboard, the track with its patterns, and auto mode's player. -->
+    <!-- The run without its view: seeded randomness, scoring, the simulation, challenges, the
+         Stats page's numbers and the leaderboard, the track with its patterns, and auto mode's
+         player. -->
     <Script file="random.lua"/>
     <Script file="scoring.lua"/>
     <Script file="simulation.lua"/>
     <Script file="challenges.lua"/>
+    <Script file="stats.lua"/>
     <Script file="leaderboard.lua"/>
     <Script file="track.lua"/>
     <Include file="..\patterns\patterns.xml"/>

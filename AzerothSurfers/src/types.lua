@@ -13,6 +13,7 @@
 ---@field simulation table
 ---@field track table  # the track generator and the registry of patterns (src/patterns/*.lua)
 ---@field challenges table  # daily, weekly and monthly challenges: their periods from the realm's UTC clock, seeds and saved bests
+---@field stats table  # the Stats page's numbers: runs played, their totals and records, in global.stats
 ---@field leaderboard AzerothSurfers.Leaderboard  # the challenges' bests of the guild and the group, shared over AceComm
 ---@field autopilot table  # auto mode's player: plays a run by searching the simulation
 ---@field devCommands table<string, {usage: string, run: fun(rest: string)}>  # /surfers subcommands of AzerothSurfers_Dev

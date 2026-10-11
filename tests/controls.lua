@@ -4,6 +4,7 @@ dofile("tests/load.lua")(app, {
     "game/scoring",
     "game/simulation",
     "game/challenges",
+    "game/stats",
     "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
@@ -516,3 +517,54 @@ assert(r.state.newBest and r.state.lastBest.score == 6000 and app.challenges.Bes
 r:SaveBest()
 assert(r.state.lastBest.score == 6000, "not the best it just set")
 print("PASS a challenge's runs: its seed to its goal, restarts, its best")
+
+-- Stats: every run played adds up once, however often it is saved; records only from runs that
+-- keep a best, the best per difficulty only from Play's.
+app.db.global.stats = nil
+r.challenge, r.custom, r.auto = nil, nil, nil
+app.db.profile.biome, app.db.profile.difficulty, app.db.profile.startAt = "auto", "normal", 0
+r:Restart()
+local function ran(s, yards, coins, streak, points)
+    s.distance, s.coins, s.time, s.bestStreak, s.points = s.start + yards, coins, yards / 30, streak, points
+    s.gates, s.gatesPassed = { s.start - 1, s.start + 500, s.start + 900 }, 3
+end
+r:SaveBest()
+local stats = app.stats.Saved()
+assert(stats.runs == 0 and stats.yards == 0, "a run not past its start counts nothing")
+ran(r.state, 600, 10, 4, 1000)
+r:SaveBest() -- the game closed while it is paused
+ran(r.state, 1000, 25, 9, 3000)
+r.state.status = "over"
+r:SaveBest()
+r:SaveBest()
+stats = app.stats.Saved()
+assert(stats.runs == 1 and stats.yards == 1000 and stats.coins == 25, "one run, each yard once")
+assert(stats.portals == 2 and math.abs(stats.time - 1000 / 30) < 1e-9 and stats.longestStreak == 9)
+local normal = stats.best.normal
+assert(normal and normal.score == g.Score(r.state) and normal.distance == 1000 and normal.coins == 25)
+-- A custom game adds to the totals, not to the records.
+r.custom = true
+r:Restart()
+ran(r.state, 400, 5, 30, 99999)
+r:SaveBest()
+assert(stats.runs == 2 and stats.yards == 1400 and stats.longestStreak == 9 and stats.best.normal == normal)
+-- Auto mode counts nothing.
+r.custom = nil
+r:Restart()
+r.state.piloted = true
+ran(r.state, 400, 5, 30, 99999)
+r:SaveBest()
+assert(stats.runs == 2 and stats.yards == 1400)
+-- A challenge: its streak counts, its best stays its own.
+r.challenge = period
+r:Restart()
+ran(r.state, 500, 5, 12, 99999)
+r.state.gates = { r.state.start + 500 }
+r.state.gatesPassed, r.state.finish = 1, r.state.start + 500
+r:SaveBest()
+assert(stats.runs == 3 and stats.portals == 4 and stats.longestStreak == 12, "the last portal is no zone's")
+for id, b in pairs(stats.best) do
+    assert(id == "normal" and b == normal, "only Play's best per difficulty")
+end
+r.challenge = nil
+print("PASS stats: runs and totals counted once, records from runs that keep a best")
