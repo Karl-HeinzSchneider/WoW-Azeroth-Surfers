@@ -31,7 +31,7 @@ the game play itself; with AzerothSurfers_Dev, `/surfers help` lists the dev too
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `npm run check`                    | typecheck, addons, Lua syntax, XML schema, formatting. Run it before finishing a change.              |
 | `npm run format`                   | Prettier on TS/JSON/Markdown/YAML, StyLua on Lua (XML is left to the editor). `format:check` reports. |
-| `npm run check:addons`             | TOC entries exist (a `[TextLocale]` entry for every client language), companions, no cycles.          |
+| `npm run check:addons`             | TOC and loader XML entries exist (`[TextLocale]` ones for every language), companions, no cycles.     |
 | `npm run check:lua`                | `luac -p` on every addon Lua file (needs Lua 5.1 `luac` on PATH).                                     |
 | `npm run check:xml`                | Every addon XML against Blizzard's `UI.xsd`; skipped without `../_data/BlizzardInterfaceCode`.        |
 | `npm run test:game`                | `tests/simulation.lua`, `controls.lua`, `overlay.lua`, `leaderboard.lua` (needs `lua`).               |
@@ -57,7 +57,7 @@ it ships inside the addon. Uploads need the secrets `CF_API_KEY`, `WAGO_API_TOKE
 ## WoW addon constraints
 
 - Lua 5.1 with Blizzard's restricted API: no `require`, `io`, `os`, or loading external files.
-  Every code file must be in its addon's TOC, in dependency order.
+  Every code file must be in its addon's TOC or a loader XML it lists, in dependency order.
 - Addons share one global namespace. Keep state in the private table; a file that uses it starts
   with
 
