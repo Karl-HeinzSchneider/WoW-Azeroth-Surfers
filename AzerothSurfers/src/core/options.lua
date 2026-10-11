@@ -355,15 +355,17 @@ local game = {
         startAt = {
             type = "input",
             order = 13,
-            name = "Start at (yards)",
-            desc = "Yards into the seed every custom game run begins: on empty road up to its next obstacles, the same track the seed lays out from the camp. 0: from the camp, a restart just past the portal. Custom game runs save no best score.",
+            name = function()
+                return "Start at (" .. app.distance.Unit() .. ")"
+            end,
+            desc = "Distance into the seed every custom game run begins: on empty road up to its next obstacles, the same track the seed lays out from the camp. 0: from the camp, a restart just past the portal. Custom game runs save no best score.",
             get = function()
                 return tostring(app.db.profile.startAt or 0)
             end,
             validate = function(_, value)
                 local yards = tonumber(value)
                 return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
-                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+                    or ("Enter a distance from 0 to " .. app.distance.Text(app.simulation.MAX_START) .. ".")
             end,
             set = function(_, value)
                 app.overlay:SetStartAt(tonumber(value))
@@ -372,15 +374,17 @@ local game = {
         endAt = {
             type = "input",
             order = 14,
-            name = "Ends at (yards)",
-            desc = "Yards into the seed every custom game run ends, at a last portal as a challenge's run does; past Start at. 0: never.",
+            name = function()
+                return "Ends at (" .. app.distance.Unit() .. ")"
+            end,
+            desc = "Distance into the seed every custom game run ends, at a last portal as a challenge's run does; past Start at. 0: never.",
             get = function()
                 return tostring(app.db.profile.endAt or 0)
             end,
             validate = function(_, value)
                 local yards = tonumber(value)
                 return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
-                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+                    or ("Enter a distance from 0 to " .. app.distance.Text(app.simulation.MAX_START) .. ".")
             end,
             set = function(_, value)
                 app.overlay:SetEndAt(tonumber(value))
@@ -440,6 +444,22 @@ local display = {
     order = 2,
     name = "Display",
     args = {
+        distanceUnit = {
+            type = "select",
+            order = 0,
+            width = "double",
+            name = "Distance units",
+            desc = "Use the WoW client's spell-range unit, yards, or meters for distances and speed. Like WoW, this changes the unit label while keeping the same numbers.",
+            values = { client = "Same as client", yards = "Yards (yd)", meters = "Meters (m)" },
+            sorting = { "client", "yards", "meters" },
+            get = function()
+                return app.db.profile.distanceUnit
+            end,
+            set = function(_, value)
+                app.db.profile.distanceUnit = value
+                app.options:Refresh()
+            end,
+        },
         mode = {
             type = "select",
             order = 1,
@@ -564,7 +584,13 @@ local display = {
             order = 15,
             width = "full",
             name = "Ground curve",
-            desc = "How many yards the ground drops 50 yards ahead. 0 is flat.",
+            desc = function()
+                return string.format(
+                    "How many %s the ground drops %s ahead. 0 is flat.",
+                    app.distance.Name(),
+                    app.distance.Text(50)
+                )
+            end,
             min = 0,
             max = 6,
             step = 0.05,
@@ -685,15 +711,11 @@ local calibration = {
             1.5,
             0.01
         ),
-        distance = overlaySetting(
-            13,
-            "distance",
-            "Camera distance",
-            "The game's zoom in yards, also adjusted with the mouse wheel. 2 is a close shoulder view; 12 is the default; 24 is a wide overview.",
-            2,
-            24,
-            0.5
-        ),
+        distance = overlaySetting(13, "distance", "Camera distance", function()
+            return "The game's zoom in "
+                .. app.distance.Name()
+                .. ", also adjusted with the mouse wheel. 2 is a close shoulder view; 12 is the default; 24 is a wide overview."
+        end, 2, 24, 0.5),
         fov = overlaySetting(
             14,
             "fov",
