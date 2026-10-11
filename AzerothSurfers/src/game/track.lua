@@ -132,16 +132,49 @@ function track.Pick(s, at)
     return choices.patterns[k]
 end
 
--- The next pattern at `s.nextRow`, and the free road after it.
+-- A run's last portal at its `finish` (simulation.lua), and nothing past it.
+local function finish(s)
+    track.PlaceGate(s, s.finish)
+    s.nextRow, s.nextGate = math.huge, nil
+end
+
+-- The next pattern at `s.nextRow`, and the free road after it. With a `finish`, a pattern that
+-- would reach into the last portal's strip (and the empty road before it) is taken back and the
+-- portal laid out instead: the run's draws stay the same up to there, whatever its goal.
 function game.Spawn(s)
     local r, at = s.random, s.nextRow
+    local last = s.finish and s.finish - track.GATE.before - track.GATE.lead - MIN_GAP
+    if last and at >= last then
+        finish(s)
+        return
+    end
     local pattern
     if s.nextGate and at >= s.nextGate then
         pattern = track.byName.gate
     else
         pattern = track.Pick(s, at)
     end
+    local count, gates = #s.objects, s.gates and #s.gates
     local length = pattern and pattern.place(s, at, r) or 0
+    if last then
+        local reach = at + length
+        for i = count + 1, #s.objects do
+            local o = s.objects[i]
+            reach = math.max(reach, o.at + o.length)
+        end
+        if reach > last then
+            for i = #s.objects, count + 1, -1 do
+                s.objects[i] = nil
+            end
+            if gates then
+                for i = #s.gates, gates + 1, -1 do
+                    s.gates[i] = nil
+                end
+            end
+            finish(s)
+            return
+        end
+    end
     if pattern == track.byName.gate and s.gates then
         s.nextGate = s.gates[#s.gates] + game.ZoneLength(s)
     end

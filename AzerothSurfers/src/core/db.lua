@@ -57,6 +57,9 @@ local char = {}
 local global = {
     dbVersion = 1,
     bestScore = 0,
+    -- The best run of each challenge (challenges.lua's Best), by its period's key, then by
+    -- difficulty id.
+    challenges = {},
 }
 
 ---@class AzerothSurfers.DBDefaults : AceDB.Schema

@@ -252,7 +252,12 @@ function overlay:ShowHud()
     local distance = math.floor(sim.Run(s))
     if shown.distance ~= distance then
         shown.distance = distance
-        hud.distance:SetFormattedText("%d yd", distance)
+        -- A challenge's: and the yards to its last portal.
+        if s.finish then
+            hud.distance:SetFormattedText("%d / %d yd", distance, s.finish - s.start)
+        else
+            hud.distance:SetFormattedText("%d yd", distance)
+        end
     end
     if shown.layoutScore ~= hud.score.shown or shown.layoutMultiplier ~= s.multiplier then
         shown.layoutScore, shown.layoutMultiplier = hud.score.shown, s.multiplier

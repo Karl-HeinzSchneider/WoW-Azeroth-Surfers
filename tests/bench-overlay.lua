@@ -186,6 +186,7 @@ dofile("tests/load.lua")(app, {
     "scenes/lobby",
     "game/random",
     "game/simulation",
+    "game/challenges",
     "game/track",
     "patterns/patterns.xml",
     "game/autopilot",

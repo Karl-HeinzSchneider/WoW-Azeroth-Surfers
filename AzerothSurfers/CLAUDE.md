@@ -12,9 +12,9 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
 3. `src\game\biomes.lua`, then the biome files (`default.lua` first, new ones after it; one that
    derives from or borrows another's, as Teldrassil and Tirisfal do Elwynn's, after that one), the
    transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
-   `simulation` → `track` → `patterns\patterns.xml` → `autopilot`, then `light` and `shapes`,
-   then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin comes before
-   the XML that names it.
+   `simulation` → `challenges` → `track` → `patterns\patterns.xml` → `autopilot`, then `light`
+   and `shapes`, then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin
+   comes before the XML that names it.
 4. `AzerothSurfers.lua` last; it only logs.
 
 `src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`)
@@ -25,7 +25,7 @@ and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, nev
 - `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,
   `log:chat(...)` is unfiltered user output, `log:dump(tbl)` at DEBUG.
 - `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
-  `bestScore`).
+  `bestScore`, `challenges`).
 - `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
@@ -56,6 +56,16 @@ default in `db.lua` and an entry in `options.lua`.
   lays out one track, from the menu or a restart. "Start at" (`profile.startAt`, in the main
   menu, the pause and end menus and the options) begins a run from the menu that far in, and
   with a fixed seed every restart.
+- `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges. A period begins at
+  `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted from the realm's clock;
+  `Period(kind)` gives its seed, difficulty and goal in yards (`Draw`: from its number alone, by
+  `random`, the same for everyone; the goal its kind's in `KINDS`, up to `VARIATION` more or
+  less). A challenge's run (`overlay.challenge`, set by the main menu's Challenges, cleared by
+  the menu or the title) always runs through zones from the lobby at its own difficulty, never
+  "Start at"; `simulation.New(..., goal)` gives it a `finish`, where track.lua lays out a last
+  portal and nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`).
+  Its best per period is in `global.challenges` (`Best`, `Save`: reaching the portal first,
+  then the score); it never counts as the endless best score.
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
