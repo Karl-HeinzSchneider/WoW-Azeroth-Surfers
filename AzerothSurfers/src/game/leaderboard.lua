@@ -28,8 +28,9 @@ local VERSION = "1"
 local CHANNELS = { GUILD = true, PARTY = true, RAID = true }
 -- Seconds before asking a channel again, and before answering it again for a period.
 module.ASK_EVERY, module.ANSWER_EVERY = 30, 30
--- What a best may hold at most; a message past it is ignored.
-local MOST_SCORE, MOST_COINS = 100000000, 100000
+-- What a best may hold at most; a message past it is ignored. The leaderboard's columns are
+-- as wide as these (screens.lua).
+module.MOST_SCORE, module.MOST_COINS = 99999999, 9999
 -- The most players kept per period.
 module.MOST_PLAYERS = 200
 
@@ -105,10 +106,10 @@ end
 -- The best in `words` (a "B" message's, after its key) for `period`, or nil if it is not one
 -- that period could have.
 local function decodeBest(period, words)
-    local score = count(words[4], MOST_SCORE)
+    local score = count(words[4], module.MOST_SCORE)
     local distance = count(words[5], period.goal + app.simulation.FINISH_PAST)
     local finished = words[6] == "1" or words[6] ~= "0" and nil
-    local coinTotal = count(words[8], MOST_COINS)
+    local coinTotal = count(words[8], module.MOST_COINS)
     local coins = coinTotal and count(words[7], coinTotal)
     if score and distance and finished ~= nil and coins and not words[9] then
         return { score = score, distance = distance, finished = finished, coins = coins, coinTotal = coinTotal }

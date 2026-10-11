@@ -77,6 +77,8 @@ test("anything malformed, out of period, from elsewhere or from oneself is ignor
         "1 B " .. key .. " -5 100 1 3 10",
         "1 B " .. key .. " 5.5 100 1 3 10",
         "1 B " .. key .. " 1e12 100 1 3 10",
+        "1 B " .. key .. " " .. (board.MOST_SCORE + 1) .. " 100 1 3 10", -- more than the columns hold
+        "1 B " .. key .. " 50 100 1 3 " .. (board.MOST_COINS + 1),
         "1 B " .. key .. " 50 abc 1 3 10",
         "1 B " .. key .. " 50 " .. (daily.goal + 1000) .. " 1 3 10", -- further than the challenge
         "1 B " .. key .. " 50 100 2 3 10",
@@ -100,6 +102,9 @@ test("anything malformed, out of period, from elsewhere or from oneself is ignor
     assert(app.db.global.leaderboard[key].Bob == nil and app.db.global.leaderboard[key]["Me Meier"] == nil, "oneself")
     board:Receive(good, "GUILD", "Me Schulz")
     assert(app.db.global.leaderboard[key]["Me Schulz"].score == 50, "another player of the same first name")
+    board:Receive(board.Encode(key, best(board.MOST_SCORE, true)), "GUILD", "Max")
+    assert(app.db.global.leaderboard[key].Max.score == board.MOST_SCORE, "the most a column holds")
+    app.db.global.leaderboard[key].Max = nil
     board:Receive(good, "RAID", "Bob-Firemaw")
     assert(app.db.global.leaderboard[key]["Bob-Firemaw"].score == 50, "another realm's player")
     assert(#sent() == 0, "nothing answered")

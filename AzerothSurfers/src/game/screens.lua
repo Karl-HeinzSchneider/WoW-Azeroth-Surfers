@@ -115,11 +115,16 @@ local RANKS = 8
 local NAME_LETTERS = 12
 -- A leaderboard is a table (menus.lua): its name column as wide as the longest name can be, a
 -- place and a first name and surname of NAME_LETTERS each (a wide capital, then wide letters;
--- another realm's "-Realm" is cut), then score, distance and coins.
+-- another realm's "-Realm" is cut), then score, distance and coins, as wide as the most
+-- leaderboard.lua takes of each.
 local BOARD = {
     size = 20,
     label = "99. W" .. string.rep("w", NAME_LETTERS - 1) .. " W" .. string.rep("w", NAME_LETTERS - 1),
-    values = { "9999999", "9999 yd", "9999/9999 (100%)" },
+    values = {
+        tostring(app.leaderboard.MOST_SCORE),
+        "9999 yd",
+        string.format("%d/%d (100%%)", app.leaderboard.MOST_COINS, app.leaderboard.MOST_COINS),
+    },
     heads = { "Score", "Distance", "Coins" },
 }
 -- A leaderboard row's columns: the score, the distance (gray: the run did not reach the
