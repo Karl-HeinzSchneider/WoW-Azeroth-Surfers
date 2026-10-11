@@ -16,6 +16,13 @@ dev.Command("minimap", "minimap (report the icon's hover model state)", function
         module.hoverEnters or 0,
         tostring(module.hoverBlock)
     )
+    log:chat(
+        "Hover source: button=%s tooltips=%d owner=%s ownerMatches=%s",
+        tostring(button and button:GetName()),
+        module.hoverTooltips or 0,
+        tostring(module.hoverOwner),
+        tostring(module.hoverOwnerMatches)
+    )
     if hover then
         log:chat(
             "Gem: requested=%s result=%s loaded=%s file=%s ready=%s wait=%.2fs failure=%s visible=%s alpha=%.2f",

@@ -42,7 +42,7 @@ end)
 `runnable` (the input search).
 
 `minimap.lua` runs the real vendored LibDBIcon with frame stand-ins: lazy hover-scene loading
-and reuse, native animation with no steady Lua updates, static fallbacks, tooltip/click/press/
+and reuse, native animation with an active-hover lifecycle watcher, static fallbacks, tooltip/click/press/
 drag coexistence, profile refresh, lock, hide and module disable.
 
 ## Writing a new one

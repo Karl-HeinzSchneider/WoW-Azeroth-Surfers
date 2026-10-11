@@ -3,11 +3,14 @@
 local methods, sceneCount, actorCount = {}, 0, 0
 local function noop() end
 local function frame(kind, parent)
-    return setmetatable({ kind = kind, parent = parent, shown = true, alpha = 1, scripts = {}, hooks = {} }, {
-        __index = function(_, key)
-            return methods[key] or noop
-        end,
-    })
+    return setmetatable(
+        { kind = kind, parent = parent, shown = true, alpha = 1, scripts = {}, hooks = {}, owner = false, name = false },
+        {
+            __index = function(_, key)
+                return methods[key] or noop
+            end,
+        }
+    )
 end
 function methods:SetScript(event, fn)
     self.scripts[event] = fn
@@ -61,6 +64,15 @@ end
 function methods:GetParent()
     return self.parent
 end
+function methods:SetOwner(owner)
+    self.owner = owner
+end
+function methods:GetOwner()
+    return self.owner
+end
+function methods:GetName()
+    return self.name or nil
+end
 function methods:GetVertexColor()
     return 1, 1, 1
 end
@@ -84,6 +96,7 @@ function methods:CreateActor()
     actorCount = actorCount + 1
     local actor = frame("Actor", self)
     actor.loaded, actor.model, actor.returnedModel = false, 0, false
+    actor.boundsQueries = 0
     return actor
 end
 function methods:SetModelByFileID(id)
@@ -107,6 +120,7 @@ function CreateFrame(kind, name, parent)
         sceneCount = sceneCount + 1
     end
     local f = frame(kind, parent)
+    f.name = name or false
     if name then
         _G[name] = f
     end
@@ -156,6 +170,7 @@ local function new(model)
             CLIP_NEAR = 0.2,
             CLIP_FAR = 250,
             Extents = function(actor)
+                actor.boundsQueries = actor.boundsQueries + 1
                 if actor.loaded then
                     return -1, -1, -1, 1, 1, 1
                 end
@@ -208,7 +223,13 @@ assert(sceneCount == 1, "unfinished loading resumes in the same scene")
 hover.actor.loaded = true
 hover.scene:Run("OnUpdate", 0.1)
 assert(hover.ready and button.icon:GetAlpha() == 0 and hover.scene:GetAlpha() == 1, "loaded model replaces texture")
-assert(hover.actor.speed == 1 and not hover.scene.scripts.OnUpdate, "native animation needs no steady Lua update")
+assert(
+    hover.actor.speed == 1 and hover.scene.scripts.OnUpdate,
+    "native animation is protected by an active hover watcher"
+)
+local boundsQueries = hover.actor.boundsQueries
+hover.scene:Run("OnUpdate", 0.1)
+assert(hover.actor.boundsQueries == boundsQueries, "ready hover watches lifecycle without polling model bounds")
 button:Run("OnClick", "LeftButton")
 assert(app.clicked == "play", "left click still opens game")
 button:Run("OnClick", "RightButton")
@@ -311,3 +332,48 @@ assert(
     "mouse-up restart still requires pointer overlap"
 )
 print("PASS native hover entry is authoritative while non-entry restarts check pointer geometry")
+
+local _, callbacks = new()
+callbacks.button.hooks = {} -- Reproduce the reported tooltip with enters=0.
+callbacks.button.mouseOver = false
+callbacks.button:Run("OnEnter")
+assert(
+    callbacks.hover and not callbacks.hoverEnters and callbacks.hoverTooltips == 1,
+    "tooltip callback starts the model without a native hover hook"
+)
+assert(callbacks.hoverOwnerMatches, "the library identifies our minimap button as tooltip owner")
+callbacks.hover.actor.loaded = true
+callbacks.hover.scene:Run("OnUpdate", 0.1)
+assert(
+    callbacks.hover.ready and callbacks.button.icon:GetAlpha() == 0,
+    "callback-driven hover replaces the static icon"
+)
+callbacks.button:Run("OnMouseDown")
+callbacks.hover.scene:Run("OnUpdate", 0.1)
+assert(
+    not callbacks.hover.scene:IsShown() and callbacks.button.icon:GetAlpha() == 1,
+    "pressed state stops rendering even without native hooks"
+)
+callbacks.button:Run("OnMouseUp")
+callbacks.button:Run("OnEnter")
+icon.tooltip:Hide()
+callbacks.hover.scene:Run("OnUpdate", 0.1)
+assert(not callbacks.hover.scene:IsShown(), "tooltip closure stops rendering without leave hooks")
+callbacks.button:Run("OnEnter")
+callbacks.button:Run("OnLeave")
+assert(not callbacks.hover.scene:IsShown(), "launcher OnLeave restores the icon without native hooks")
+callbacks.button:Run("OnEnter")
+icon.tooltip:SetOwner(frame("Button"))
+callbacks.hover.scene:Run("OnUpdate", 0.1)
+assert(not callbacks.hover.scene:IsShown(), "tooltip changing to another launcher ends our hover")
+local _, otherDisplay = new()
+local before = sceneCount
+icon.tooltip:SetOwner(frame("Button"))
+otherDisplay.ldb.OnTooltipShow(icon.tooltip)
+assert(
+    not otherDisplay.hover and sceneCount == before and not otherDisplay.hoverOwnerMatches,
+    "compartment and broker tooltips cannot animate the minimap button"
+)
+print(
+    "PASS launcher callbacks animate without native hooks; watcher stops on press, tooltip close or owner change; other displays remain static"
+)

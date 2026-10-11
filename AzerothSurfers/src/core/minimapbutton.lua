@@ -16,6 +16,10 @@ local HOVER_FOV, HOVER_ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
 ---@field dragging boolean?
 ---@field hoverEnters number?  # native OnEnter events seen by our hook
 ---@field hoverBlock string?  # last reason StartHover returned before creating a scene
+---@field hoverTooltips number?  # launcher tooltip callbacks received
+---@field hoverOwner string?  # last tooltip owner name, for dev diagnostics
+---@field hoverOwnerMatches boolean?  # whether the tooltip belongs to our minimap button
+---@field hoverTooltip table?  # tooltip watched only while its minimap model is active
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as AzerothSurfers.MinimapButton]]
 
@@ -29,6 +33,9 @@ function module:OnInitialize()
             self:OnClick(button)
         end,
         OnTooltipShow = function(tooltip)
+            -- Use the callback the library actually delivers, even if another addon
+            -- has replaced the button scripts and their native hooks.
+            self:TooltipHover(tooltip)
             tooltip:AddLine(app.TITLE)
             tooltip:AddLine("Left-click: play", 1, 1, 1)
             tooltip:AddLine("Right-click: options", 1, 1, 1)
@@ -43,6 +50,11 @@ function module:OnInitialize()
                     1,
                     1
                 )
+            end
+        end,
+        OnLeave = function(frame)
+            if frame == self.button then
+                self:StopHover()
             end
         end,
     }
@@ -80,6 +92,19 @@ function module:OnInitialize()
     log:debug("Minimap button registered")
 end
 
+function module:TooltipHover(tooltip)
+    self.hoverTooltips = (self.hoverTooltips or 0) + 1
+    local owner = tooltip:GetOwner()
+    self.hoverOwner = owner and owner:GetName() or "<unnamed>"
+    self.hoverOwnerMatches = self.button ~= nil and owner == self.button
+    -- Broker displays and the addon compartment share this launcher; animate only
+    -- the minimap button that owns our scene.
+    if self.hoverOwnerMatches then
+        self.hoverTooltip = tooltip
+        self:StartHover(true)
+    end
+end
+
 function module:OnEnable()
     self.hoverEnabled = true
 end
@@ -90,6 +115,7 @@ function module:OnDisable()
 end
 
 function module:StopHover()
+    self.hoverTooltip = nil
     local hover = self.hover
     if hover then
         hover.scene:SetScript("OnUpdate", nil)
@@ -102,6 +128,29 @@ function module:StopHover()
     end
 end
 
+-- Native HookScript handlers can be absent after a display replaces button scripts.
+-- Watch only an active hover, checking library pressed state and tooltip ownership
+-- at 10 Hz. The gem itself still animates natively, without Lua yaw updates.
+function module:WatchHover(elapsed)
+    local hover = self.hover
+    hover.watchWait = hover.watchWait + elapsed
+    if hover.watchWait < 0.1 then
+        return false
+    end
+    hover.watchWait = 0
+    local tooltip = self.hoverTooltip
+    if
+        not self.hoverEnabled
+        or self.button.isMouseDown
+        or not self.button:IsShown()
+        or (tooltip and (not tooltip:IsShown() or tooltip:GetOwner() ~= self.button))
+    then
+        self:StopHover()
+        return true
+    end
+    return false
+end
+
 function module:ShowHover()
     local hover = self.hover
     hover.scene:SetAlpha(1)
@@ -111,7 +160,10 @@ function module:ShowHover()
     self.button.icon:SetAlpha(0)
     -- Rotation comes from the gem's idle animation, with no per-frame Lua yaw calls.
     hover.actor:SetAnimation(0, 0, 1, 0)
-    hover.scene:SetScript("OnUpdate", nil)
+    hover.watchWait = 0
+    hover.scene:SetScript("OnUpdate", function(_, elapsed)
+        self:WatchHover(elapsed)
+    end)
 end
 
 function module:StartHover(entering)
@@ -156,7 +208,7 @@ function module:StartHover(entering)
         actor:SetScale(1)
         actor:SetYaw(0)
         actor:SetPitch(0)
-        self.hover = { scene = scene, actor = actor, model = entry.model, wait = 0 }
+        self.hover = { scene = scene, actor = actor, model = entry.model, wait = 0, watchWait = 0 }
         local accepted = actor:SetModelByFileID(entry.model)
         self.hover.requestResult = tostring(accepted)
         -- Some clients return nil on a successful request, as the asset audit allows.
@@ -184,6 +236,9 @@ function module:StartHover(entering)
     -- Poll only during hover; missing or mismatched assets retain the static fallback.
     hover.scene:SetAlpha(LOAD_ALPHA)
     hover.scene:SetScript("OnUpdate", function(_, elapsed)
+        if self:WatchHover(elapsed) then
+            return
+        end
         hover.wait = hover.wait + elapsed
         local minX, minY, minZ, maxX, maxY, maxZ = app.overlay.Extents(hover.actor)
         local size = minX and math.max(maxX - minX, maxY - minY, maxZ - minZ) or 0

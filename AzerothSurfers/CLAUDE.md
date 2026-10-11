@@ -64,10 +64,14 @@ display's existing voice wins. Other local constants in rendering/control code a
   status (`challenges.StatusText`). The TOC and launcher share `assets/core/icon-gem-zoomed.tga`;
   `icon-gem.tga` retains the wider variant. A mouse-disabled ModelScene replaces only the
   button's icon during hover, using the resolved default gem's native idle animation.
+  Hover also starts directly from the launcher's `OnTooltipShow` for our button's tooltip
+  owner and ends through `OnLeave`, so it works when another display bypasses native hooks.
   Button scripts are hooked through `GetMinimapButton`, preserving library tooltip/click/drag
   behavior. The scene is created once on demand, keeps the texture during loading/failure,
   and stops rendering on leave, press/drag, profile refresh, hide or module disable. Bounds
-  polling is limited to loading during hover; there are no steady-state Lua frame updates.
+  polling is limited to loading during hover. A check at 10 Hz during active hover restores
+  the texture if the library marks it pressed, hides its tooltip or changes tooltip owner;
+  it stops on hover end. Native idle animation needs no Lua yaw updates.
   Loading uses nonzero opacity to avoid native scene culling; nil model-request results are
   accepted, and timeouts retry on the next hover. The scene sits one level above the button.
 
