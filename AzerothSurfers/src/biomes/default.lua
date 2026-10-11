@@ -159,7 +159,7 @@ app.biomes.Register("default", {
     --   size    yards its largest side is scaled to (0.5 if left out); larger than a layer, it
     --           rests on the layer's floor.
     --   sound   played on collecting one: a game sound file id or one of ours (SOUNDS), or a
-    --           list of them, one per step of a streak (game.STREAK), the last from there on.
+    --           list of them, one per step of a streak (scoring.lua's `streak`), the last from there on.
     --           Left out: lootcoinsmall (567428), as for the flat coins. A new file of ours is
     --           only found after restarting the game, not on /reload.
     --   finale  with a list: played once instead, on the coin that goes past its last step.

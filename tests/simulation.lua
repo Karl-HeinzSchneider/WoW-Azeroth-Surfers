@@ -4,6 +4,7 @@ dofile("tests/load.lua")(app, {
     "biomes/default",
     "biomes/elwynn",
     "game/random",
+    "game/scoring",
     "game/simulation",
     "game/challenges",
     "game/track",
@@ -189,10 +190,10 @@ test("coins award once, high ones only in a jump", function()
     assert(s.coins == 1 and s.coinTotal == 3, "one of three")
 end)
 test("a coin streak survives a coin missed beside it, breaks on too long a gap", function()
-    local streak, from = g.STREAK, g.STREAK.from
-    streak.from = 3
     -- A row in lane 0 with one in lane 1 beside it, then one far ahead.
     local s = fresh(coin(0, 2), coin(0, 5), coin(1, 8), coin(0, 8), coin(0, 11), coin(0, 40))
+    local streak = s.scoring.streak
+    streak.from = 3
     advance(s, 0.45, 60)
     assert(s.coins == 4 and s.streak == 4 and s.coinTotal == 5, "the coin beside does not break it")
     -- 25 a coin, `points` more from the third on.
@@ -203,7 +204,6 @@ test("a coin streak survives a coin missed beside it, breaks on too long a gap",
     assert(s.streak == 0 and s.bestStreak == 4, "too far without a coin breaks it")
     advance(s, 0.6, 60)
     assert(s.coins == 5 and s.streak == 1)
-    streak.from = from
 end)
 test("the multiplier scales only what is earned after it is set", function()
     local s = fresh(coin(0, 1))
@@ -230,6 +230,41 @@ test("every gate past the start adds one to the multiplier, the lobby's none", f
     s.gates, s.start = { 20, 45 }, 30
     advance(s, 2, 60)
     assert(s.distance > 45 and s.multiplier == 2)
+end)
+test("a run's scoring rules are the defaults with a mode's overrides over them", function()
+    local defaults = app.scoring.DEFAULTS
+    local s = g.New(1, "normal")
+    assert(s.scoring ~= defaults and s.scoring.streak ~= defaults.streak, "a copy of its own")
+    assert(s.scoring.coinPoints == defaults.coinPoints and s.scoreFactor == 1)
+    s = g.New(1, "hard", nil, nil, nil, { coinPoints = 10, streak = { from = 3 }, difficulty = { hard = 2 } })
+    assert(s.scoring.coinPoints == 10 and s.scoring.streak.from == 3, "overridden")
+    assert(s.scoring.streak.gap == defaults.streak.gap, "the fields left out stay the defaults'")
+    assert(s.scoreFactor == 2 and defaults.difficulty.hard ~= 2, "the defaults stay as they are")
+end)
+test("the score is everything earned times the difficulty's factor", function()
+    local factors = app.scoring.DEFAULTS.difficulty
+    assert(factors.easy < factors.normal and factors.normal < factors.hard and factors.hard < factors.expert)
+    for _, difficulty in ipairs(g.DIFFICULTIES) do
+        local s = g.New(1, difficulty.id)
+        s.points, s.bonus = 1000.5, 400
+        assert(g.Score(s) == math.floor(1400.5 * factors[difficulty.id]), difficulty.id)
+    end
+    local s = g.New(1, "normal", nil, nil, nil, { difficulty = { normal = false } })
+    s.points = 10
+    assert(g.Score(s) == 10, "a difficulty not listed scores as earned")
+end)
+test("a mode's rules set what yards and coins score and how the multiplier goes", function()
+    local s = fresh(coin(0, 1))
+    s.scoring = app.scoring.Rules({ yardPoints = 2, coinPoints = 7, multiplier = { perGate = 3, most = 5 } })
+    s.gates = { 20 }
+    advance(s, 0.3, 60)
+    assert(s.bonus == 7 and math.abs(s.points - 2 * s.distance) < 1e-6)
+    advance(s, 0.5, 60)
+    assert(s.distance > 20 and s.multiplier == 4, "perGate")
+    g.SetMultiplier(s, 9)
+    assert(s.multiplier == 5, "never above `most`")
+    s = g.New(1, "normal", nil, nil, nil, { multiplier = { start = 3 } })
+    assert(s.multiplier == 3, "start")
 end)
 test("barriers on layer 3 are run under but hit in a jump", function()
     local s = fresh(g.Box("barrier", 0, 3, 0.4, 3, 1))

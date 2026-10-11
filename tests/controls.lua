@@ -1,6 +1,7 @@
 local app = {}
 dofile("tests/load.lua")(app, {
     "game/random",
+    "game/scoring",
     "game/simulation",
     "game/challenges",
     "game/leaderboard",
