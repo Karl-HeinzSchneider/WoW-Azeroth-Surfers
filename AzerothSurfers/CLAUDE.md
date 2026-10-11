@@ -123,8 +123,8 @@ default in `db.lua` and an entry in `options.lua`.
     vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
-    page's extra action; a page may set its own `width` (the leaderboard's is wider). `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's
-    menu actions.
+    page's extra action; a page may set its own `width` (the leaderboard's is wider).
+    `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the keys of every screen and menu
     (`OnScreenKey`).
