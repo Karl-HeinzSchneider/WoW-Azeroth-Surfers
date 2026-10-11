@@ -16,7 +16,7 @@ XML it lists (`biomes.xml`, `game.xml`, `patterns.xml`, `overlay.xml`).
    `biomes.xml`**. Then `src\scenes\lobby.lua` (it derives a biome from Elwynn's) and the
    client overrides.
 4. `src\game\game.xml`, the run without its view: `random` → `scoring` → `simulation` →
-   `challenges` → `leaderboard` → `track` → `..\patterns\patterns.xml` → `autopilot`.
+   `challenges` → `stats` → `leaderboard` → `track` → `..\patterns\patterns.xml` → `autopilot`.
 5. `light` and `shapes`, then `src\game\overlay.xml`, the view: `overlay.lua` and the files
    that extend `app.overlay` after it. A Lua mixin comes before the XML that names it.
 6. `AzerothSurfers.lua` last; it only logs.
@@ -52,7 +52,7 @@ display's existing voice wins. Other local constants in rendering/control code a
 - `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,
   `log:chat(...)` is unfiltered user output, `log:dump(tbl)` at DEBUG.
 - `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
-  `bestScore`, `challenges`, `leaderboard`).
+  `bestScore`, `stats`, `challenges`, `leaderboard`).
 - `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
@@ -120,6 +120,11 @@ default in `db.lua` and an entry in `options.lua`.
     that clock.
   - `Status` (new, beaten or tried), `StatusText`, and `Reminder`, the chat line `ace.lua`
     prints at login (`profile.challengeReminder`).
+- `stats.lua` — `app.stats`: the Stats page's numbers in `global.stats`. `Record(s)`, from
+  controls.lua's `SaveBest` (however often it runs for a run), adds what a run played by the
+  player (never auto mode) ran since the last call: runs played, yards, coins, time, the zones'
+  portals; the longest coin streak only from Play's and the challenges' runs, the best per
+  difficulty only from Play's.
 - `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
   the guild and the group, no server. A new best goes out on GUILD and PARTY or RAID (`Share`);
   opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel
@@ -200,7 +205,8 @@ default in `db.lua` and an entry in `options.lua`.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
     the seated character, the way into a run, title music; the main menu's pages: Play (a new
     seed, difficulty, auto mode), Challenges (each challenge's page, its leaderboard, the
-    history and streak; `PlayChallenge`), Custom (Play's items and `CUSTOM`; `PlayCustom`);
+    history and streak; `PlayChallenge`), Custom (Play's items and `CUSTOM`; `PlayCustom`),
+    Stats (stats.lua's totals and records, the best per difficulty a table);
     the keys of every screen and menu (`OnScreenKey`).
   - `controls.lua` — input, per-frame `Step` (a challenge's finish and trace), best score (a
     challenge's: `SaveChallenge`, shared with `leaderboard:Share`), auto mode.

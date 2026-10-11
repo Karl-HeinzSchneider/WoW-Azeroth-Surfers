@@ -13,6 +13,7 @@ dofile("tests/load.lua")(app, {
     "game/scoring",
     "game/simulation",
     "game/challenges",
+    "game/stats",
     "game/leaderboard",
     "game/track",
     "patterns/patterns.xml",
@@ -1258,6 +1259,30 @@ o.state.status = "over"
 o:Render()
 press("Q")
 assert(o.screen == "menu" and o.state.lobby, "Q goes to the main menu")
+-- The Stats page (stats.lua's numbers) and its best per difficulty, a table.
+app.db.global.stats = { runs = 3, yards = 4200, coins = 77, time = 3725, portals = 2, longestStreak = 1 }
+app.db.global.stats.best = { hard = { score = 9100, distance = 2300, coins = 40 } }
+local function info(page, label)
+    for _, it in ipairs(page.items) do
+        if it.text == label then
+            if it.info then
+                return it.info(o)
+            end
+            return it
+        end
+    end
+end
+info(main:Page(), "Stats").run(o, main)
+local stats = main:Page()
+assert(stats.title == "Stats" and info(stats, "Runs played") == "3" and info(stats, "Distance") == "4200 yd")
+assert(info(stats, "Time running") == "1h 2m" and info(stats, "Longest streak") == "1 coin")
+info(stats, "Best per difficulty").run(o, main)
+local bests = main:Page()
+assert(bests.columns and select(2, info(bests, "Hard")) == "2300 yd" and info(bests, "Easy") == "-")
+main:Back()
+main:Back()
+assert(main:Page().title == nil, "back on the main menu")
+app.db.global.stats = nil
 app.db.profile.difficulty = difficulty
 function GetTime()
     return 0
