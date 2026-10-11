@@ -42,7 +42,18 @@ function module:OnInitialize()
     self.ldb = LibStub("LibDataBroker-1.1"):NewDataObject(appName, launcher) --[[@as LibDataBroker.QuickLauncher]]
 
     LibStub("LibDBIcon-1.0"):Register(appName, self.ldb, app.db.profile.minimap)
+    self:PositionIcon()
     log:debug("Minimap button registered")
+end
+
+function module:PositionIcon()
+    local icon = LibStub("LibDBIcon-1.0")
+    -- Start from the library's client-specific anchor so refreshes cannot accumulate
+    -- the offset. Move only the image, keeping the rim and button hit area in place.
+    icon:ResetButtonIcon(appName)
+    local texture = icon:GetMinimapButton(appName).icon
+    local point, relativeTo, relativePoint, x, y = texture:GetPoint()
+    texture:SetPoint(point, relativeTo, relativePoint, x, y - 2)
 end
 
 -- The addon's first OnProfileRefresh runs before module:OnInitialize, hence the guard.
@@ -50,6 +61,7 @@ function module:OnProfileRefresh()
     local icon = LibStub("LibDBIcon-1.0")
     if icon:IsRegistered(appName) then
         icon:Refresh(appName, app.db.profile.minimap)
+        self:PositionIcon()
     end
 end
 

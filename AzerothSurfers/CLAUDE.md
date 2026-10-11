@@ -65,6 +65,8 @@ display's existing voice wins. Other local constants in rendering/control code a
   `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes,
   masks or update handlers. The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
   `icon-gem.tga` retains the wider variant.
+  The minimap image sits two UI pixels below the library's client-specific default anchor;
+  registration and profile refresh reapply that offset without moving the rim or hit area.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a
