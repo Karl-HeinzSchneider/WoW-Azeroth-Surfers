@@ -458,8 +458,9 @@ end
 -- Whether a key (`chord`, bound in WoW to `binding`) stays with the game whatever screen or menu
 -- shows: with `profile.capture` on, every key of the game's (keys.lua, a run's or the menus') and
 -- WoW's movement keys, so the character never moves or jumps while the game is open.
+-- Full-screen auto mode always captures these keys: the world is hidden behind the view.
 function overlay:Captures(chord, binding)
-    if not self.capture then
+    if not self.capture and not (self.auto and not self.side) then
         return false
     end
     return (overlay.KeyAction("run", chord) or overlay.KeyAction("menu", chord) or MOVEMENT[binding]) ~= nil
@@ -472,9 +473,9 @@ function overlay:OnKey(key)
     end
     -- The keys shown follow the device last used (keys.lua).
     self:NoteDevice(key)
-    -- Typing goes to the focused box; in auto mode, or while the options show (a key being bound
-    -- there), every key goes on to WoW and the game takes none.
-    if GetCurrentKeyBoardFocus() or self.auto or (app.options and app.options:IsOpen()) then
+    -- Typing goes to the focused box; in side-window auto mode, or while the options show (a key
+    -- being bound there), every key goes on to WoW and the game takes none.
+    if GetCurrentKeyBoardFocus() or (self.auto and self.side) or (app.options and app.options:IsOpen()) then
         self.frame:SetPropagateKeyboardInput(true)
         return
     end
@@ -500,6 +501,10 @@ function overlay:OnKey(key)
     end
     -- Captured, the game's keys and WoW's own movement keys stop here; else WoW gets them too.
     self.frame:SetPropagateKeyboardInput(not self:Captures(chord, binding))
+    -- Auto mode keeps pause, restart and menu keys, but the autopilot alone steers the runner.
+    if self.auto then
+        return
+    end
     if action == "left" then
         self:Action("LEFT")
     elseif action == "right" then
@@ -593,8 +598,8 @@ function overlay:OnStick(stick, x, y)
     stickAxis(self, buttons, "x", x)
     stickAxis(self, buttons, "y", y)
     -- Captured, the left stick stays with the game, so the character does not walk off.
-    if buttons == LEFT and not InCombatLockdown() and not self.auto then
-        self.frame:SetPropagateKeyboardInput(not self.capture)
+    if buttons == LEFT and not InCombatLockdown() and not (self.auto and self.side) then
+        self.frame:SetPropagateKeyboardInput(not (self.capture or self.auto))
     end
 end
 

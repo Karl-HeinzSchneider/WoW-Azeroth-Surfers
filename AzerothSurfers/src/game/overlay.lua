@@ -894,7 +894,7 @@ function overlay:Create()
     self:Stack(controls, "controls")
     controls:SetHeight(24)
     -- Minimize and Close without the window frame (it has its own); Pause and Stop auto mode in
-    -- auto mode, where no key does anything. window.lua lays the row out.
+    -- auto mode (the side window passes keys on to WoW). window.lua lays the row out.
     local buttons = {
         {
             "Minimize",
