@@ -8,7 +8,9 @@ local L = sim.LAYER
 -- lane changes, jumps and ducks it can do without while keeping as many coins.
 --
 -- Copies leave out the run's coins (they would collect them) and never lay out track (it would
--- draw from the run's generator). Every table is reused, so a search allocates nothing.
+-- draw from the run's generator). Every table is reused, so a search allocates nothing. A replan
+-- is worked out ahead, a share each frame, from where the plan in play will have the run (see
+-- `foresee`), so auto mode has no long frames.
 local autopilot = {}
 app.autopilot = autopilot
 
@@ -82,50 +84,77 @@ local function collectCoins(s)
     coinCount = #coins
 end
 
--- With its own list of boxes (the simulation drops passed ones).
-local function copy(c, s)
+-- The boxes within the plan's reach (`boxes`, `boxCount` of them) and, for replays, copies of
+-- the run's coins within it (`coinCopies`, `copyCount`).
+local boxes, boxCount, copyCount = {}, 0, 0
+-- A copy stepped for DT seconds only meets boxes alongside it on the way (simulation.lua's
+-- `alongside`): those it gets, so that each tick tests a few boxes, not every one within reach.
+local NEAR = sim.geometry.playerHalfDepth + 0.01
+local function nearby(objects, n, list, count, from, to)
+    for i = 1, count do
+        local o = list[i]
+        if o.at < to and o.at + o.length > from then
+            n = n + 1
+            objects[n] = o
+        end
+    end
+    return n
+end
+-- Copies the run `s` into `c`, with the boxes (and coin copies, `withCoins`) it meets in the
+-- next DT seconds.
+local function copy(c, s, withCoins)
     local objects = c.objects
     for k, v in pairs(s) do
         c[k] = v
     end
     c.objects = objects
-    local source = s.objects
-    for i = 1, #source do
-        objects[i] = source[i]
+    local from, to = s.distance - NEAR, s.distance + s.difficulty.topSpeed * (DT + 1 / 60) + NEAR
+    local n = nearby(objects, 0, boxes, boxCount, from, to)
+    if withCoins then
+        n = nearby(objects, n, coinCopies, copyCount, from, to)
     end
-    for i = #objects, #source + 1, -1 do
+    for i = #objects, n + 1, -1 do
         objects[i] = nil
     end
     return c
 end
--- The boxes within the plan's reach, with copies of the coins only for a replay.
-local function start(c, s, withCoins)
-    local objects = c.objects
-    for k, v in pairs(s) do
-        c[k] = v
-    end
-    c.objects = objects
-    for i = #objects, 1, -1 do
-        objects[i] = nil
-    end
-    local reach = s.distance + s.difficulty.topSpeed * STEPS * DT + 2
+-- The boxes within the plan's reach of the run `s`, `extra` inputs on, for its searches and
+-- replays.
+local function gather(s, extra)
+    local reach = s.distance + s.difficulty.topSpeed * (STEPS + extra) * DT + 2
+    boxCount = 0
     for _, o in ipairs(s.objects) do
         if o.kind ~= "coin" and o.at < reach then
-            objects[#objects + 1] = o
+            boxCount = boxCount + 1
+            boxes[boxCount] = o
         end
     end
+    for i = #boxes, boxCount + 1, -1 do
+        boxes[i] = nil
+    end
+end
+-- A copy of the run `s` to search or replay from, with fresh copies of the coins within reach
+-- (`withCoins`).
+local function start(c, s, withCoins)
+    copyCount = 0
     if withCoins then
+        local reach = s.distance + s.difficulty.topSpeed * STEPS * DT + 2
         for i = 1, coinCount do
-            local o, k = coins[i], coinCopies[i]
+            local o = coins[i]
+            if o.at >= reach then
+                break
+            end
+            local k = coinCopies[i]
             if not k then
                 k = {}
                 coinCopies[i] = k
             end
             k.kind, k.lane, k.at, k.length, k.layer, k.layers, k.hit =
                 "coin", o.lane, o.at, o.length, o.layer, o.layers, nil
-            objects[#objects + 1] = k
+            copyCount = i
         end
     end
+    copy(c, s, withCoins)
     c.nextRow = math.huge
     c.coins = 0
     return c
@@ -198,6 +227,31 @@ local function key(c, step)
     return ((((step * 3 + c.lane + 1) * 64 + lateral) * 1024 + height) * 256 + velocity) * 16 + floor(c.duck * 20 + 0.5)
 end
 
+-- Replans run in a coroutine (see `think` below), up to `quota` sim.Update calls on copies a
+-- frame (`spent` so far). Crates and enemies made narrower for a search (`narrow`) are only so
+-- while it runs, never for the run itself.
+local spent, quota = 0, math.huge
+local widths, crate, enemy = sim.geometry.halfWidth, nil, nil
+local narrowed = false
+local function narrow(on)
+    if on and not narrowed then
+        crate, enemy = widths.obstacle, widths.enemy
+        widths.obstacle, widths.enemy = 1, 1
+    elseif not on and narrowed then
+        widths.obstacle, widths.enemy = crate, enemy
+    end
+    narrowed = on
+end
+local function work()
+    spent = spent + 1
+    if spent >= quota then
+        local was = narrowed
+        narrow(false)
+        coroutine.yield(false)
+        narrow(was)
+    end
+end
+
 -- Depth first from branch `c` at `step`: whether it gets through all STEPS.
 local function go(c, step)
     if c.status ~= "running" then
@@ -230,6 +284,7 @@ local function go(c, step)
             local child = copy(branches[step + 1], c)
             apply(child, i)
             sim.Update(child, DT)
+            work()
             path[step + 1] = i
             if go(child, step + 1) then
                 return true
@@ -246,7 +301,7 @@ local function search(s)
         seen[k] = nil
     end
     nodes, deepest = 0, -1
-    return go(start(root, s), 0)
+    return go(start(root, s, false), 0)
 end
 
 -- Plays `line[1..length]` on a copy of the run with copies of its coins: how many inputs it
@@ -254,8 +309,12 @@ end
 local function replay(s, line, length)
     local c = start(replayed, s, true)
     for k = 1, length do
+        if k > 1 then
+            copy(c, c, true)
+        end
         apply(c, line[k])
         sim.Update(c, DT)
+        work()
         if c.status ~= "running" then
             return k - 1, c.coins
         end
@@ -333,43 +392,143 @@ local function adopt(line, length)
     planLength, nextInput = length, 1
 end
 
--- A new plan from the run as it is. Crates and enemies fill their lane for it, so it does not
--- squeeze between two mid lane change; only when that finds no way, at their real widths.
-local function replan(s)
-    collectCoins(s)
+-- A new plan for the run `s` (as it is, or as the plan in play will have it `offset` inputs
+-- on), `coins` collected for it: whether it found a way, `best[1..deepest]` (`thought`). Crates
+-- and enemies fill their lane for it, so it does not squeeze between two mid lane change; only
+-- when that finds no way, at their real widths.
+local thought = { found = false, lane = 0 }
+local function think(s, offset)
     aim.lane = targetLane(s)
     -- The previous plan goes on while it heads for the same lane.
-    aim.prior, aim.offset = found and lane == aim.lane, nextInput - 1
-    lane = aim.lane
-    local widths = sim.geometry.halfWidth
-    local crate, enemy = widths.obstacle, widths.enemy
-    widths.obstacle, widths.enemy = 1, 1
-    found = search(s)
-    if found then
+    aim.prior, aim.offset = found and lane == aim.lane, offset
+    narrow(true)
+    local through = search(s)
+    if through then
         smooth(s, best, deepest)
     end
-    widths.obstacle, widths.enemy = crate, enemy
-    if not found then
+    narrow(false)
+    if not through then
         local wide = deepest
         best, spare = spare, best
-        found = search(s)
-        if found then
+        through = search(s)
+        if through then
             smooth(s, best, deepest)
         elseif wide >= deepest then
             best, spare, deepest = spare, best, wide
         end
     end
-    adopt(best, math.max(0, deepest))
-    -- Where it first saw no way through (or none within its budget).
-    if not found and not autopilot.lost then
-        autopilot.lost = s.distance
-    end
+    thought.found, thought.lane = through, aim.lane
 end
 
--- The next input, at an input time: from the plan, or from a new one.
+-- Replans are thought out ahead, in a coroutine given a share each frame: from where the plan in
+-- play will have the run by the time it is due (`ahead`, `jobAt` inputs on), so that its
+-- searches are spread over the frames before that rather than all in one. `thinking`: a job in
+-- hand, `ready`: done.
+local ahead = { objects = {} }
+local thinker, job, jobAt, thinking, ready = nil, nil, 0, false, false
+-- What a replan may take in sim.Update calls on copies, spread over the frames before it is due
+-- (at least MIN a frame); the few that take more finish when due.
+local SPREAD, MIN = 2000, 50
+local function body()
+    while true do
+        think(job, jobAt)
+        coroutine.yield(true)
+    end
+end
+-- Thinks on, up to `limit` more sim.Update calls.
+local function resume(limit)
+    quota = spent + limit
+    local ok, done = coroutine.resume(thinker)
+    if not ok then
+        narrow(false)
+        thinker, thinking = nil, false
+        error(done)
+    end
+    ready = done == true
+end
+-- A job: replan for the run `s`, `at` inputs into the plan in play. One left half done (for
+-- another state, or another run) is dropped with its coroutine.
+local function begin(s, at)
+    if not ready then
+        thinker = nil
+    end
+    thinker = thinker or coroutine.create(body)
+    job, jobAt, spent, thinking, ready = s, at, 0, true, false
+end
+
+-- Whether the run is where the job foresaw it (its time to the next tick but for rounding).
+local function foreseen(s)
+    return thinking
+        and jobAt == nextInput - 1
+        and s.distance == ahead.distance
+        and s.lane == ahead.lane
+        and s.lateral == ahead.lateral
+        and s.height == ahead.height
+        and s.velocity == ahead.velocity
+        and s.floor == ahead.floor
+        and s.duck == ahead.duck
+        and s.diving == ahead.diving
+        and s.speed == ahead.speed
+        and s.launch == ahead.launch
+        and math.abs(s.accumulator - ahead.accumulator) < 1e-9
+end
+
+-- Starts thinking about the next replan, from where the plan just adopted will have the run:
+-- after REPLAN inputs, or after one if it found no way through.
+local function foresee(s)
+    local at = found and REPLAN or 1
+    if planLength < at then
+        return
+    end
+    collectCoins(s)
+    gather(s, at)
+    local c = start(ahead, s, true)
+    for k = 1, at do
+        if k > 1 then
+            copy(c, c, true)
+        end
+        apply(c, plan[k])
+        sim.Update(c, DT)
+    end
+    if c.status ~= "running" then
+        return
+    end
+    -- The coins it collects or passes by then are not ahead of it any more.
+    local n = 0
+    for i = 1, coinCount do
+        local o = coins[i]
+        if not (i <= copyCount and coinCopies[i].hit) and o.at + o.length > c.distance then
+            n = n + 1
+            coins[n] = o
+        end
+    end
+    for i = coinCount, n + 1, -1 do
+        coins[i] = nil
+    end
+    coinCount = n
+    begin(c, at)
+end
+
+-- The next input, at an input time: from the plan, or from a new one (thought out ahead if the
+-- run is where that foresaw it, else now).
 local function decide(s)
     if not found or nextInput > REPLAN or nextInput > planLength then
-        replan(s)
+        if not foreseen(s) then
+            collectCoins(s)
+            gather(s, 0)
+            begin(s, nextInput - 1)
+        end
+        if not ready then
+            resume(math.huge)
+        end
+        thinking = false
+        found, lane = thought.found, thought.lane
+        adopt(best, math.max(0, deepest))
+        -- Where it first saw no way through (or none within its budget).
+        if not found and not autopilot.lost then
+            autopilot.lost = s.distance
+        end
+        foresee(s)
     end
     local i = plan[nextInput]
     nextInput = nextInput + 1
@@ -389,10 +548,12 @@ function autopilot.Play(s, elapsed)
     end
     if current ~= s then
         current, due, found, planLength, nextInput, lane = s, 0, false, 0, 1, s.lane
+        thinking = false
         autopilot.lost = nil
     end
     -- Like the simulation, a stall loses time.
     elapsed = math.min(elapsed, 0.1)
+    local frame = elapsed
     while elapsed > 1e-9 and s.status == "running" do
         if due <= 1e-9 then
             decide(s)
@@ -401,6 +562,11 @@ function autopilot.Play(s, elapsed)
         local part = math.min(elapsed, due)
         sim.Update(s, part)
         due, elapsed = due - part, elapsed - part
+    end
+    -- This frame's share of the job: what is left of SPREAD over the frames before it is due.
+    if thinking and not ready and s.status == "running" then
+        local frames = math.max(1, math.floor((due + (jobAt + 1 - nextInput) * DT) / math.max(frame, 1e-3)))
+        resume(math.max(MIN, math.ceil((SPREAD - spent) / frames)))
     end
 end
 
