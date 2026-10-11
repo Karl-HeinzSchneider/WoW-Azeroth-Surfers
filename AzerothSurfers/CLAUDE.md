@@ -68,6 +68,8 @@ display's existing voice wins. Other local constants in rendering/control code a
   behavior. The scene is created once on demand, keeps the texture during loading/failure,
   and stops rendering on leave, press/drag, profile refresh, hide or module disable. Bounds
   polling is limited to loading during hover; there are no steady-state Lua frame updates.
+  Loading uses nonzero opacity to avoid native scene culling; nil model-request results are
+  accepted, and timeouts retry on the next hover. The scene sits one level above the button.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a

@@ -2,6 +2,34 @@
 local _, dev = ...
 local app, log = dev.app, dev.log
 
+dev.Command("minimap", "minimap (report the icon's hover model state)", function()
+    local module = app.minimapButton
+    local button, hover = module.button, module.hover
+    log:chat(
+        "Minimap: enabled=%s button=%s hovered=%s dragging=%s pressed=%s scene=%s",
+        tostring(module.hoverEnabled),
+        tostring(button and button:IsShown()),
+        tostring(button and button:IsMouseOver()),
+        tostring(module.dragging),
+        tostring(button and button.isMouseDown),
+        tostring(hover ~= nil)
+    )
+    if hover then
+        log:chat(
+            "Gem: requested=%s result=%s loaded=%s file=%s ready=%s wait=%.2fs failure=%s visible=%s alpha=%.2f",
+            tostring(hover.model),
+            tostring(hover.requestResult),
+            tostring(hover.actor:IsLoaded()),
+            tostring(hover.actor:GetModelFileID()),
+            tostring(hover.ready),
+            hover.wait,
+            tostring(hover.failure),
+            tostring(hover.scene:IsShown()),
+            hover.scene:GetAlpha()
+        )
+    end
+end)
+
 -- Read-only snapshot; no UI is opened or restacked to collect it.
 local UI_FRAMES = {
     "UIParent",

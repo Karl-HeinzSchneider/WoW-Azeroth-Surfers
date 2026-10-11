@@ -6,7 +6,7 @@ local addon = app.addon
 
 -- Same texture as the TOC's `## IconTexture`.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\icon-gem-zoomed"
-local HOVER_FOV, HOVER_ZOOM, LOAD_TIMEOUT = 0.5, 3.5, 5
+local HOVER_FOV, HOVER_ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
 
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
@@ -133,8 +133,10 @@ function module:StartHover()
         -- Mouse-disabled child: the original button keeps all pointer input.
         scene:SetAllPoints(button.icon)
         scene:EnableMouse(false)
-        scene:SetFrameLevel(button:GetFrameLevel())
-        scene:SetDrawLayer("ARTWORK")
+        -- A separate frame at the button's level has no guaranteed ordering against
+        -- its background. Stay above it, within the icon's interior viewport.
+        scene:SetFrameLevel(button:GetFrameLevel() + 1)
+        scene:SetDrawLayer("OVERLAY")
         scene:SetCameraNearClip(app.overlay.CLIP_NEAR)
         scene:SetCameraFarClip(app.overlay.CLIP_FAR)
         scene:SetCameraOrientationByYawPitchRoll(0, 0, 0)
@@ -149,13 +151,21 @@ function module:StartHover()
         actor:SetYaw(0)
         actor:SetPitch(0)
         self.hover = { scene = scene, actor = actor, model = entry.model, wait = 0 }
-        if not actor:SetModelByFileID(entry.model) then
-            self.hover.failed = true
+        local accepted = actor:SetModelByFileID(entry.model)
+        self.hover.requestResult = tostring(accepted)
+        -- Some clients return nil on a successful request, as the asset audit allows.
+        if accepted == false then
+            self.hover.failed, self.hover.failure = true, "request rejected"
+            log:debug("Minimap gem model %d request rejected; retaining texture", entry.model)
         end
     end
     local hover = self.hover
     if hover.failed then
-        return
+        if hover.failure ~= "load timed out" then
+            return
+        end
+        -- A cold-cache timeout must not disable hover for the rest of the session.
+        hover.failed, hover.failure, hover.wait = false, nil, 0
     end
     hover.actor:Show()
     hover.scene:Show()
@@ -163,9 +173,10 @@ function module:StartHover()
         self:ShowHover()
         return
     end
-    -- Keep the texture visible while loading. Poll only during hover, with a bounded
-    -- timeout; missing or mismatched assets retain the static fallback.
-    hover.scene:SetAlpha(0)
+    -- Keep the texture visible while loading, with the scene nearly transparent.
+    -- Zero opacity can cull native scene work, preventing loading/bounds from advancing.
+    -- Poll only during hover; missing or mismatched assets retain the static fallback.
+    hover.scene:SetAlpha(LOAD_ALPHA)
     hover.scene:SetScript("OnUpdate", function(_, elapsed)
         hover.wait = hover.wait + elapsed
         local minX, minY, minZ, maxX, maxY, maxZ = app.overlay.Extents(hover.actor)
@@ -176,7 +187,7 @@ function module:StartHover()
             hover.ready = true
             self:ShowHover()
         elseif hover.wait > LOAD_TIMEOUT then
-            hover.failed = true
+            hover.failed, hover.failure = true, "load timed out"
             self:StopHover()
             log:debug("Minimap gem model %d did not load; retaining texture", hover.model)
         end

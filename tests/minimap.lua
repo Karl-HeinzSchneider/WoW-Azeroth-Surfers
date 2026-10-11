@@ -88,6 +88,9 @@ function methods:CreateActor()
 end
 function methods:SetModelByFileID(id)
     self.model = id
+    if id == 998 then
+        return nil -- Legacy client success without a boolean result.
+    end
     return id ~= 999
 end
 function methods:GetModelFileID()
@@ -187,7 +190,11 @@ assert(icon.tooltip:IsShown(), "library tooltip must still open")
 assert(sceneCount == 1 and actorCount == 1, "first hover creates exactly one scene and actor")
 local hover = module.hover
 assert(hover.scene.target == button.icon and not hover.scene.mouseEnabled, "scene follows icon without taking input")
-assert(button.icon:GetAlpha() == 1 and hover.scene:GetAlpha() == 0, "texture stays visible during loading")
+assert(
+    button.icon:GetAlpha() == 1 and hover.scene:GetAlpha() > 0 and hover.scene:GetAlpha() <= 0.01,
+    "texture stays visible while nonzero scene opacity allows native loading"
+)
+assert(hover.scene:GetFrameLevel() > button:GetFrameLevel(), "model renders above the button background")
 hover.scene:Run("OnUpdate", 0.1)
 assert(not hover.ready, "loading is asynchronous")
 button.mouseOver = false
@@ -260,6 +267,13 @@ local _, missing = new(999)
 missing.button.mouseOver = true
 missing.button:Run("OnEnter")
 assert(missing.hover.failed and missing.button.icon:GetAlpha() == 1, "rejected model retains static icon")
+local _, legacy = new(998)
+legacy.button.mouseOver = true
+legacy.button:Run("OnEnter")
+assert(not legacy.hover.failed, "nil request result must not reject a legacy client's model")
+legacy.hover.actor.loaded = true
+legacy.hover.scene:Run("OnUpdate", 0.1)
+assert(legacy.hover.ready and legacy.button.icon:GetAlpha() == 0, "legacy model replaces icon after loading")
 local _, timeout = new()
 timeout.button.mouseOver = true
 timeout.button:Run("OnEnter")
@@ -268,6 +282,12 @@ assert(
     timeout.hover.failed and not timeout.hover.scene:IsShown() and not timeout.hover.scene.scripts.OnUpdate,
     "timeout stops polling and rendering"
 )
+timeout.button:Run("OnLeave")
+timeout.button:Run("OnEnter")
+assert(not timeout.hover.failed and timeout.hover.scene.scripts.OnUpdate, "next hover retries a cold-cache timeout")
+timeout.hover.actor.loaded = true
+timeout.hover.scene:Run("OnUpdate", 0.1)
+assert(timeout.hover.ready, "a timed-out model can recover without reloading the addon")
 local _, wrong = new()
 wrong.button.mouseOver = true
 wrong.button:Run("OnEnter")
