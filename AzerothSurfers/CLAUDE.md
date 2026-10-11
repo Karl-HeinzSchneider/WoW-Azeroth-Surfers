@@ -5,7 +5,7 @@ Everything in this folder ships. Settings live in `AzerothSurfersDB` (AceDB).
 ## Load order (`AzerothSurfers.toc`)
 
 The TOC is the source of truth; **every new Lua/XML file must be listed**, in it or in a loader
-XML it lists (`biomes.xml`, `patterns.xml`).
+XML it lists (`biomes.xml`, `game.xml`, `patterns.xml`, `overlay.xml`).
 
 1. `embeds.xml`: the vendored libraries in dependency order.
 2. `src\core\`: `logger.lua` (everything logs), `db.lua` (the defaults), `ace.lua` (creates
@@ -13,11 +13,13 @@ XML it lists (`biomes.xml`, `patterns.xml`).
 3. `src\biomes\biomes.xml`: `src\game\biomes.lua`, then the biome files (`default.lua` first, new
    ones after it; one that derives from or borrows another's, as Teldrassil and Tirisfal do
    Elwynn's, after that one) and the transitions; **a new biome is a new file plus a line in
-   `biomes.xml`**. Then `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
-   `scoring` → `simulation` → `challenges` → `leaderboard` → `track` → `patterns\patterns.xml` →
-   `autopilot`, then `light` and `shapes`, then `overlay.lua` and the files that extend
-   `app.overlay` after it. A Lua mixin comes before the XML that names it.
-4. `AzerothSurfers.lua` last; it only logs.
+   `biomes.xml`**. Then `src\scenes\lobby.lua` (it derives a biome from Elwynn's) and the
+   client overrides.
+4. `src\game\game.xml`, the run without its view: `random` → `scoring` → `simulation` →
+   `challenges` → `leaderboard` → `track` → `..\patterns\patterns.xml` → `autopilot`.
+5. `light` and `shapes`, then `src\game\overlay.xml`, the view: `overlay.lua` and the files
+   that extend `app.overlay` after it. A Lua mixin comes before the XML that names it.
+6. `AzerothSurfers.lua` last; it only logs.
 
 `src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`)
 and `AzerothSurfers.DB`. `lib/` is vendored: update by replacing the folder, never patch it.
@@ -159,7 +161,7 @@ default in `db.lua` and an entry in `options.lua`.
   (`face`, `SkinPiece`), and a call that would change nothing is skipped.
   Mouse wheel changes the game's camera distance (2 to 24 yards, default 12). The foreground ground strip
   extends at least 32 UI pixels below the viewport as needed, including while jumping.
-- Files that extend `app.overlay`, in TOC order:
+- Files that extend `app.overlay`, in `overlay.xml`'s order:
   - `decorations.lua` — the world ModelScene (one render pass for every model, the twin's too,
     with the road's camera; its lens measured against the road) and the roadside's and the
     lobby's models in it. Its actors are pooled by model (`AcquireActor`); the roadside and the
