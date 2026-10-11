@@ -620,7 +620,7 @@ do
         end,
     }
     hud.inputHudCaps = {}
-    for i = 1, 13 do
+    for i = 1, 7 do
         local cap = { SetShown = function() end, SetBackdropBorderColor = function() end }
         cap.SetAlpha = function(_, value)
             cap.alpha = value
@@ -654,7 +654,7 @@ do
     hud.screen = "menu"
     hud:InputHudPress("W", "W")
     hud:UpdateInputHud()
-    assert(hud.inputHudCaps[8].lit and hud.inputHudCaps[8].action == "up", "menu context uses menu bindings")
+    assert(#hud.inputHudCaps == 7, "one set of gameplay indicators, without duplicate menu controls")
     assert(
         hud.inputHudCaps[1].action == "jump" and hud.inputHudCaps[1].alpha == 0.3,
         "gameplay keys retain their layout and dim in menus"
@@ -671,10 +671,6 @@ do
     assert(
         hud.inputHudCaps[2].action == "left" and hud.inputHudCaps[2].alpha == 0.3,
         "unbound actions keep their position and dim"
-    )
-    assert(
-        hud.inputHudCaps[8].action == "up" and hud.inputHudCaps[8].alpha == 0.3,
-        "menu keys retain their layout and dim during gameplay"
     )
     hud:InputHudPress("PAD1", "PAD1")
     assert(hud.inputHudHeld.PAD1 == "jump", "controller presses use the same actions")

@@ -60,6 +60,7 @@ dofile("tests/load.lua")(app, {
     "game/menu",
     "game/hud",
     "game/legend",
+    "game/inputhud",
     "game/messages",
     "game/bestmarker",
     "game/menus",
@@ -1763,3 +1764,62 @@ do
     o.state, o.screen, o.seated, o.twinAnimation = state, screen, seated, animation
 end
 print("PASS swim visual offset and restoration")
+
+-- The HUD must use the actual menu window as its input-box parent. Its update handler
+-- belongs to the positioning panel so menu dragging can use the window's own OnUpdate.
+do
+    local oldCreate, oldFrame = CreateFrame, o.frame
+    local oldPosition = app.db.profile.inputHudPosition
+    local oldLevel = app.db.profile.drawLevel
+    app.db.profile.drawLevel = 1
+    local function mock()
+        local f = widget()
+        f.scripts = {}
+        f.SetScript = function(self, name, fn)
+            self.scripts[name] = fn
+        end
+        f.SetSize = function(self, width, height)
+            self.width, self.height = width, height
+        end
+        f.SetPoint = function(self, ...)
+            self.point = { ... }
+        end
+        f.ClearAllPoints = function(self)
+            self.point = nil
+        end
+        return f
+    end
+    CreateFrame = function(_, _, parent, template)
+        local f = mock()
+        f.parent, f.template = parent, template
+        return f
+    end
+    o.frame = mock()
+    o.frame.IsShown = function()
+        return true
+    end
+    app.db.profile.inputHudPosition = { point = "BOTTOM", relative = "BOTTOM", x = 0, y = 100 }
+    o:CreateInputHud()
+    local panel, menu = o.inputHud, o.inputHudMenu
+    assert(menu.panel == panel and menu.window.parent == panel, "menu panel owns the independent window")
+    assert(
+        menu.window.template == "DialogBorderTemplate" and menu.window.point,
+        "menu window keeps its frame and anchors"
+    )
+    assert(#o.inputHudCaps == 7 and #menu.rows == 0, "one set of inputs replaces option rows")
+    for _, cap in ipairs(o.inputHudCaps) do
+        assert(cap.parent == menu.window, "input caps are inside the menu window")
+    end
+    assert(panel.scripts.OnUpdate and menu.window.scripts.OnDragStart, "input updates preserve menu dragging")
+    menu:PlaceWindow(20, -10)
+    menu.window.scripts.OnDragStop()
+    assert(
+        app.db.profile.inputHudPosition.x == 20 and app.db.profile.inputHudPosition.y == 90,
+        "menu drag offset is saved"
+    )
+    assert(menu.dx == 0 and menu.dy == 0, "saved drag offset is not applied twice")
+    CreateFrame, o.frame = oldCreate, oldFrame
+    app.db.profile.inputHudPosition = oldPosition
+    app.db.profile.drawLevel = oldLevel
+end
+print("PASS input HUD uses one menu window, contains its caps and saves dragging once")

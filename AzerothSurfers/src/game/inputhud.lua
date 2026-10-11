@@ -12,27 +12,15 @@ local ACTIONS = {
     "pause",
     "restart",
     "forward",
-    "up",
-    "menuLeft",
-    "down",
-    "menuRight",
-    "accept",
-    "back",
 }
 local POSITIONS = {
-    { 96, -36 },
-    { 18, -94 },
-    { 96, -94 },
-    { 174, -94 },
-    { 252, -36 },
-    { 252, -94 },
-    { 330, -94 },
-    { 96, -176 },
-    { 18, -234 },
-    { 96, -234 },
-    { 174, -234 },
-    { 252, -176 },
-    { 252, -234 },
+    { 104, -76 },
+    { 26, -138 },
+    { 104, -138 },
+    { 182, -138 },
+    { 260, -76 },
+    { 260, -138 },
+    { 338, -138 },
 }
 
 function overlay:InputHudContext()
@@ -145,40 +133,29 @@ function overlay:UpdateInputHud()
 end
 
 function overlay:CreateInputHud()
-    local f = CreateFrame("Frame", nil, UIParent, "DialogBorderTemplate")
+    -- Use the menu's actual window, title, trim and drag implementation. The panel owns
+    -- the saved position; its window holds input caps in place of selectable option rows.
+    local menu = self:CreateMenu(UIParent)
+    local f, window = menu.panel, menu.window
     self.inputHud = f
-    f:ClearAllPoints()
-    f:SetSize(430, 310)
+    self.inputHudMenu = menu
+    f:SetSize(440, 220)
     f:SetFrameStrata("HIGH")
-    f:SetClampedToScreen(true)
-    f:SetMovable(true)
-    f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    title:SetPoint("TOPLEFT", 18, -14)
-    title:SetText("INPUT HUD")
-    title:SetTextColor(0.72, 0.68, 0.58)
-    local divider = f:CreateTexture(nil, "ARTWORK")
-    divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
-    divider:SetPoint("TOPLEFT", 14, -152)
-    divider:SetPoint("TOPRIGHT", -14, -152)
-    divider:SetHeight(8)
-    local menuLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    menuLabel:SetPoint("TOPLEFT", 18, -160)
-    menuLabel:SetText("MENU")
-    menuLabel:SetTextColor(0.72, 0.68, 0.58)
-    f:SetScript("OnDragStart", function()
-        f:StartMoving()
-    end)
-    f:SetScript("OnDragStop", function()
-        f:StopMovingOrSizing()
-        local point, _, relative, x, y = f:GetPoint()
+    menu.title:SetText("Input HUD")
+    menu:PlaceTrim(menu.trims[1], -58)
+    menu.trims[2]:Hide()
+    menu.marker:Hide()
+    menu.version:Hide()
+    window:SetScript("OnDragStop", function()
+        window:SetScript("OnUpdate", nil)
         local saved = app.db.profile.inputHudPosition
-        saved.point, saved.relative, saved.x, saved.y = point, relative, x, y
+        saved.x, saved.y = saved.x + menu.dx, saved.y + menu.dy
+        menu:PlaceWindow(0, 0)
+        self:RefreshInputHud()
     end)
     self.inputHudCaps = {}
     for i, position in ipairs(POSITIONS) do
-        local cap = self.KeyCap(f)
+        local cap = self.KeyCap(window)
         cap:SetSize(76, 36)
         cap.text:SetWidth(70)
         cap:SetPoint("TOPLEFT", position[1], position[2])
@@ -191,7 +168,6 @@ function overlay:CreateInputHud()
         self:UpdateInputHud()
     end)
     f:SetScript("OnHide", function()
-        f:StopMovingOrSizing()
         self:ClearInputHud()
     end)
     self.frame:HookScript("OnHide", function()
