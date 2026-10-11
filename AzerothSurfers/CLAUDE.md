@@ -118,7 +118,9 @@ default in `db.lua` and an entry in `options.lua`.
   glides between them), and the twin over the real character: an actor of the world scene, so it
   shares its camera and depth with every model, drawn `TWIN_SIZE` (√2) times as big as the real
   character (the size it had in a scene of its own). **A running frame allocates nothing**
-  (`tests/overlay.lua` checks it).
+  (`tests/overlay.lua` checks it). The ground's pieces are small so their textures don't
+  shimmer; one off the screen, past the horizon or faded out is hidden and costs no calls
+  (`face`, `SkinPiece`), and a call that would change nothing is skipped.
   Mouse wheel changes the game's camera distance (2 to 24 yards, default 12). The foreground ground strip
   extends at least 32 UI pixels below the viewport as needed, including while jumping.
 - Files that extend `app.overlay`, in TOC order:
