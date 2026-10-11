@@ -37,6 +37,9 @@ local windTail, windHead
 -- The zone text's colors: the zone's cream, a subzone's gold.
 local CREAM = { 1, 0.9294, 0.7607 }
 local GOLD = { 1, 0.82, 0 }
+-- A challenge's last portal: its banner's seconds and the level-up fanfare
+-- (Sound/Interface/LevelUp.ogg).
+local FINISH_SECONDS, FINISH_SOUND = 1.5, 567431
 
 -- The status menu's pages (menus.lua describes pages and items), built anew for each pause and
 -- each end of a run.
@@ -212,6 +215,22 @@ local function page(title, ...)
     return { title = title, items = items }
 end
 
+-- How much the run beat or missed the best before it by (controls.lua's SaveChallenge), as a
+-- note; nil without one, or when only one of them reached the last portal (that decides).
+local function bestDifference(s)
+    local last = s.lastBest
+    if not last or last.finished ~= (s.finished or false) then
+        return nil
+    end
+    local difference = sim.Score(s) - last.score
+    if difference > 0 then
+        return { text = string.format("%d more than your best", difference), note = GREEN }
+    elseif difference < 0 then
+        return { text = string.format("%d short of your best", -difference), note = GRAY }
+    end
+    return { text = "Level with your best", note = GRAY }
+end
+
 -- A challenge's run (screens.lua's PlayChallenge): its seed, difficulty and where it begins are
 -- the challenge's own; it ends at its last portal (or before).
 local function challengePage(s)
@@ -222,11 +241,19 @@ local function challengePage(s)
         p.extra = { text = "Start over", run = restart }
         return p
     end
-    local note = s.newBest and { text = "New best!", note = GREEN }
-        or not s.finished and { text = "The last portal not reached", note = GRAY }
+    local notes = {}
+    if s.newBest then
+        notes[1] = { text = "New best!", note = GREEN }
+    elseif not s.finished then
+        notes[1] = { text = "The last portal not reached", note = GRAY }
+    end
+    local difference = bestDifference(s)
+    if difference then
+        notes[#notes + 1] = difference
+    end
     local p = page(
         s.finished and "Challenge complete" or name,
-        note and { note } or {},
+        notes,
         NUMBERS,
         { { text = "Try again", run = restart }, MENU }
     )
@@ -386,6 +413,8 @@ function overlay:ShowStatus()
     self.statusOpen = page ~= nil
     if page then
         self.statusMenu:Open(page)
+        -- An announcement fades out from under it.
+        self:EndAnnouncement()
     end
     self.statusHolder:SetShown(page ~= nil)
 end
@@ -401,6 +430,30 @@ function overlay:Announce(text, seconds, small)
     b.start, b.hold = GetTime(), seconds or ANNOUNCE_SECONDS
     b.frame:SetAlpha(0)
     b.frame:Show()
+end
+
+-- Fades out an announcement still showing from now on.
+function overlay:EndAnnouncement()
+    local b = self.banner
+    if not b or not b.start then
+        return
+    end
+    local t = GetTime() - b.start
+    if t > FADE_IN and t < FADE_IN + b.hold then
+        b.hold = t - FADE_IN
+    elseif t <= FADE_IN then
+        -- From where its fade in got to.
+        b.start, b.hold = GetTime() - FADE_IN - (1 - t / FADE_IN) * FADE_OUT, 0
+    end
+end
+
+-- A challenge's last portal (`s.finish`), gone through: its banner and fanfare (with the
+-- portal sounds).
+function overlay:Finish(s)
+    self:Announce("Finish!", FINISH_SECONDS, s.challenge and s.challenge.kind.name .. " challenge")
+    if app.db.profile.portalSound then
+        PlaySoundFile(FINISH_SOUND, "SFX")
+    end
 end
 
 -- White when `color` is nil.
