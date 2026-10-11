@@ -33,6 +33,7 @@ local profile = {
     seed = false, -- a fixed seed for every custom run, or false: a new one each run
     startAt = 0, -- yards into its seed every custom run begins (simulation.Skip); 0: from the camp
     endAt = 0, -- yards into its seed every custom run ends, at a last portal; 0: never
+    customScoring = {}, -- its scoring rules where they differ from scoring.lua's DEFAULTS
     frame = { full = false, side = true }, -- the window frame in each mode
     -- The scorecard: "menu" (full screen: right of the pause and end menus, its top on theirs;
     -- the side window: top right), "topright", "top" or "topleft"; x and y move it that many

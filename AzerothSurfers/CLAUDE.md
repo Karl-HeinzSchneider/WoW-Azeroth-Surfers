@@ -64,8 +64,9 @@ default in `db.lua` and an entry in `options.lua`.
   at the camp; a custom game (the main menu's Custom, `overlay.custom`, cleared by the menu or
   the title; `s.custom`) takes `CUSTOM`'s settings (messages.lua: `profile.seed`, fixed or new
   each run, "Start at", `profile.startAt`, from the menu and every restart, and "Ends at",
-  `profile.endAt`, a last portal as a challenge's `finish`, yards from the camp as "Start at")
-  and saves no best score.
+  `profile.endAt`, a last portal as a challenge's `finish`, yards from the camp as "Start at";
+  its Scoring page, `profile.customScoring`, only what differs from scoring.lua's `DEFAULTS`,
+  passed to `New` as its `scoring`) and saves no best score.
 - `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges.
   - Periods: one begins at `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted
     from the realm's clock (`Now`). `Period(id, now)` gives its `key` ("daily-20371", the key

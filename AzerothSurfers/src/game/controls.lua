@@ -75,8 +75,8 @@ end
 -- `at` yards in: a seed lays out one track, from the menu or a restart. A run from Play draws
 -- a new seed each time and begins at the portal. While a custom game is on (`custom`: the main
 -- menu's Custom), its settings (`CUSTOM` in messages.lua: the profile's fixed `seed`, else a new
--- one, `startAt`, `at` when left out, and `endAt`, its last portal) and `s.custom`, so it saves
--- no best score. While a
+-- one, `startAt`, `at` when left out, `endAt`, its last portal, and `customScoring`, its
+-- scoring rules) and `s.custom`, so it saves no best score. While a
 -- challenge is on (`challenge`, its period: screens.lua's PlayChallenge), its seed and
 -- difficulty through zones to its goal, never further in.
 function overlay:NewState(lobby, seed, at)
@@ -95,7 +95,9 @@ function overlay:NewState(lobby, seed, at)
     end
     local custom = self.custom
     local zones = profile.biome == app.biomes.AUTO
-    local s = sim.New(seed or (custom and profile.seed) or nil, profile.difficulty, zones, lobby or app.lobby)
+    local scoring = custom and profile.customScoring or nil
+    local s =
+        sim.New(seed or (custom and profile.seed) or nil, profile.difficulty, zones, lobby or app.lobby, nil, scoring)
     s.custom = custom or nil
     -- A custom game's end, past its start and the portal: a last portal there, as a challenge's
     -- `finish` (yards from the camp, as "Start at").
@@ -131,6 +133,43 @@ function overlay:SetEndAt(yards)
     if self.frame and self.state.status == "ready" and not self.state.lobby then
         self.state = self:NewState(nil, self.state.seed)
     end
+end
+
+-- A custom game's scoring rule at `path` (keys into scoring.lua's DEFAULTS): its own
+-- (`profile.customScoring`, only what differs), else the default; `default`: the default.
+function overlay:CustomRule(path, default)
+    local own, value = not default and app.db.profile.customScoring or nil, app.scoring.DEFAULTS
+    for _, key in ipairs(path) do
+        own, value = type(own) == "table" and own[key] or nil, value[key]
+    end
+    return type(own) == "number" and own or value
+end
+
+-- A run not started yet takes the custom game's rules at once.
+local function rulesChanged(self)
+    if self.frame and self.state.status == "ready" and self.state.custom then
+        self.state = self:NewState(self.state.lobby, self.state.seed)
+    end
+end
+
+-- Sets a custom game's rule at `path`; the default's value drops its own (so no limit, the
+-- multiplier's default most, is never saved: SavedVariables have no math.huge).
+function overlay:SetCustomRule(path, value)
+    local profile = app.db.profile
+    profile.customScoring = profile.customScoring or {}
+    local into, last = profile.customScoring, #path
+    for i = 1, last - 1 do
+        into[path[i]] = into[path[i]] or {}
+        into = into[path[i]]
+    end
+    into[path[last]] = value ~= self:CustomRule(path, true) and value or nil
+    rulesChanged(self)
+end
+
+-- Every custom scoring rule back to the default.
+function overlay:ResetCustomRules()
+    app.db.profile.customScoring = {}
+    rulesChanged(self)
 end
 
 function overlay:Restart()

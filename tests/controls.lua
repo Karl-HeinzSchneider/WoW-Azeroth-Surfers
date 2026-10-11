@@ -449,6 +449,22 @@ r.state.status, r.state.points = "over", 9000
 r:SaveBest()
 assert(app.db.global.bestScore == g.Score(r.state) and r.state.newBest, "Play's best is the best score")
 app.db.global.bestScore, app.db.profile.endAt = 0, 0
+-- A custom game's scoring: only what differs is kept, its runs play by it, Play's do not.
+r:SetCustomRule({ "coinPoints" }, 50)
+r:SetCustomRule({ "difficulty", "normal" }, 2)
+r:SetCustomRule({ "multiplier", "most" }, math.huge)
+assert(app.db.profile.customScoring.coinPoints == 50 and app.db.profile.customScoring.multiplier.most == nil)
+assert(r:CustomRule({ "streak", "gap" }) == app.scoring.DEFAULTS.streak.gap, "the default where not changed")
+r.custom = true
+r:Restart()
+assert(r.state.scoring.coinPoints == 50 and r.state.scoring.difficulty.normal == 2, "a custom run's rules")
+r.custom = nil
+r:Restart()
+assert(r.state.scoring.coinPoints == app.scoring.DEFAULTS.coinPoints, "Play's are the defaults")
+r:SetCustomRule({ "coinPoints" }, app.scoring.DEFAULTS.coinPoints)
+assert(app.db.profile.customScoring.coinPoints == nil, "back to the default: dropped")
+r:ResetCustomRules()
+assert(next(app.db.profile.customScoring) == nil)
 print("PASS a custom game's settings, and Play's new seed each run")
 
 -- A challenge: its seed and difficulty through zones to its goal, whatever the profile's seed,

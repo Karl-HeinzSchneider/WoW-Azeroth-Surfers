@@ -204,7 +204,83 @@ local function category(page)
         end,
     }
 end
-overlay.CUSTOM = { category(SEED_PAGE) }
+-- A scoring rule (scoring.lua's DEFAULTS) at `path` (its keys), the custom game's own while it
+-- differs: a choice stepping by `step` from `least` to `most`; `huge`: past `most` it has no
+-- limit (math.huge).
+local function rule(text, path, step, least, most, huge)
+    local function get()
+        return overlay:CustomRule(path)
+    end
+    return {
+        text = text,
+        choice = {
+            get = function()
+                local value = get()
+                if value == math.huge then
+                    return "No limit"
+                end
+                local shown = string.format("%g", value)
+                return value == overlay:CustomRule(path, true) and shown or "|cffffffff" .. shown .. "|r"
+            end,
+            can = function(_, dir)
+                local value = get()
+                if dir < 0 then
+                    return value > least
+                end
+                return value < most or (huge and value ~= math.huge)
+            end,
+            step = function(o, dir)
+                local value = get()
+                if value == math.huge then
+                    value = most
+                elseif huge and dir > 0 and value >= most then
+                    value = math.huge
+                else
+                    -- Whole steps: no 0.35000001.
+                    value = math.floor((value + dir * step) / step + 0.5) * step
+                    value = math.max(least, math.min(most, value))
+                end
+                o:SetCustomRule(path, value)
+            end,
+        },
+    }
+end
+local function rulesPage(title, items)
+    items[#items + 1] = { text = "Back", back = true }
+    return {
+        title = title,
+        items = items,
+        extra = {
+            text = "Defaults",
+            run = function(o)
+                o:ResetCustomRules()
+            end,
+        },
+    }
+end
+local DIFFICULTY_FACTORS = {}
+for _, difficulty in ipairs(sim.DIFFICULTIES) do
+    DIFFICULTY_FACTORS[#DIFFICULTY_FACTORS + 1] = rule(difficulty.name, { "difficulty", difficulty.id }, 0.25, 0, 5)
+end
+-- How a custom game's runs score: changed values in white, Defaults (its extra action) undoes
+-- every change.
+local SCORING_PAGE = rulesPage("Scoring", {
+    rule("Yard points", { "yardPoints" }, 1, 0, 10),
+    rule("Coin points", { "coinPoints" }, 5, 0, 200),
+    category(rulesPage("Streak", {
+        rule("Bonus from", { "streak", "from" }, 1, 1, 30),
+        rule("Bonus points", { "streak", "points" }, 5, 0, 200),
+        rule("Gap (yards)", { "streak", "gap" }, 1, 1, 20),
+        rule("Gap (seconds)", { "streak", "seconds" }, 0.05, 0, 2),
+    })),
+    category(rulesPage("Multiplier", {
+        rule("Start", { "multiplier", "start" }, 1, 1, 10),
+        rule("Per gate", { "multiplier", "perGate" }, 1, 0, 5),
+        rule("Most", { "multiplier", "most" }, 1, 1, 20, true),
+    })),
+    category(rulesPage("Difficulty factor", DIFFICULTY_FACTORS)),
+})
+overlay.CUSTOM = { category(SEED_PAGE), category(SCORING_PAGE) }
 
 local function restart(o)
     if not InCombatLockdown() then
