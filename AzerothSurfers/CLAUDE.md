@@ -189,6 +189,9 @@ default in `db.lua` and an entry in `options.lua`.
     one top line); a challenge's own pause and end pages (its best, the difference to the one
     before); announcements (the challenge's or a custom game's "Finish!", `Finish`), the gate's
     flash and vortex.
+  - `bestmarker.lua` — a challenge's best on the track: a gold line across the road where the
+    best run (`s.target`) ended, unless it reached the finish, and "New best!" (or "Past your
+    best run") once the runner passes it (`ShowBestMarker`, `PassBest`).
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action; a page may set its own `width`, or be a table (`columns`: sized from

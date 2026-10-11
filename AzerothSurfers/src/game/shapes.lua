@@ -169,6 +169,8 @@ local function place(t, project, f)
     return true
 end
 
+shapes.Place = place
+
 function shapes.Draw(t, project, f)
     if not place(t, project, f) then
         return false

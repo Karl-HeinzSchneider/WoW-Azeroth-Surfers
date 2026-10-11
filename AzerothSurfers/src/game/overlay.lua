@@ -858,6 +858,8 @@ function overlay:Create()
     -- The ground; the boxes on it draw on BORDER.
     self:CreateGround(f)
     self.faces = shapes.Pool(f, "BORDER")
+    -- Where a challenge's best ended (bestmarker.lua), on the ground under the boxes.
+    self:CreateBestMarker(f)
     local probe = CreateFrame("ModelScene", nil, f)
     probe:SetSize(1, 1)
     probe:SetPoint("TOPLEFT")
@@ -1245,6 +1247,7 @@ function overlay:Render(lap)
         -- Never empty: the twin (or the seated character) is always in it.
         shapes.Show(self.worldScene)
     end
+    self:ShowBestMarker()
     lap = self:Lap("boxes, coins", lap)
     self:ShowScreens()
     self:ShowStatus()
