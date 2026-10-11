@@ -13,8 +13,8 @@ The TOC is the source of truth; **every new Lua/XML file must be listed**.
    derives from or borrows another's, as Teldrassil and Tirisfal do Elwynn's, after that one), the
    transitions and `src\scenes\lobby.lua` (it derives a biome from Elwynn's), then `random` →
    `simulation` → `challenges` → `leaderboard` → `track` → `patterns\patterns.xml` →
-   `autopilot`, then `light` and `shapes`, then `overlay.lua` and the files that extend `app.overlay` after it. A Lua mixin
-   comes before the XML that names it.
+   `autopilot`, then `light` and `shapes`, then `overlay.lua` and the files that extend
+   `app.overlay` after it. A Lua mixin comes before the XML that names it.
 4. `AzerothSurfers.lua` last; it only logs.
 
 `src/types.lua` is LuaLS annotations only (not in the TOC): the `AzerothSurfers` class (`app.*`)
@@ -46,7 +46,7 @@ default in `db.lua` and an entry in `options.lua`.
   **Nothing in a run may use `math.random`**: everything a seed should replay draws from a
   generator of the run's seed, each system from its own stream.
 - `simulation.lua` — the pure fixed-step simulation: every object is a box on a lane/layer grid.
-  `New(seed, difficulty, zones, lobby)`; `DIFFICULTIES`; `VIEW` (how far the views show),
+  `New(seed, difficulty, zones, lobby, goal)` (`goal`: a challenge's, see below); `DIFFICULTIES`; `VIEW` (how far the views show),
   `AHEAD` (how far the track is laid out), `CLEAR` (seconds of empty road at a run's start).
   Nothing scores before a run's `start` (a run from the lobby: where the player takes over past
   the portal); `Run(s)` is the yards counted. Each gate past `start` adds `GATE_MULTIPLIER` to
@@ -57,31 +57,35 @@ default in `db.lua` and an entry in `options.lua`.
   lays out one track, from the menu or a restart. "Start at" (`profile.startAt`, in the main
   menu, the pause and end menus and the options) begins a run from the menu that far in, and
   with a fixed seed every restart.
-- `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges. A period begins at
-  `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted from the realm's clock;
-  `Period(kind)` gives its seed, difficulty and goal in yards (`Draw`: from its number alone, by
-  `random`, the same for everyone; the goal its kind's in `KINDS`, up to `VARIATION` more or
-  less). A challenge's run (`overlay.challenge`, set by the main menu's Challenges, cleared by
-  the menu or the title) always runs through zones from the lobby at its own difficulty, never
-  "Start at"; `simulation.New(..., goal)` gives it a `finish`, where track.lua lays out a last
-  portal and nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`).
-  Going through that portal shows "Finish!" with the level-up fanfare (messages.lua's `Finish`,
-  the fanfare with the portal sounds). Its best per period is in `global.challenges` (`Best`,
-  `Save`: reaching the portal first, then the score); it never counts as the endless best score.
-  The end menu says how much the run beat or missed the best before it by (`s.lastBest`).
-  A challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved
-  with its best, for the live target (`Target`: the best's score at a distance).
-  Every period's best stays as history (`History`, `ByIndex`, `ShortLabel`; past ones lose
-  their trace at login, `Compact`), and the streak of days played counts days in a row with a
-  daily challenge run (`Streak`): the Challenges page's History in screens.lua.
-  `Status` (new, beaten or tried) and `Reminder`, the chat line `ace.lua` prints at login
-  (`profile.challengeReminder`).
+- `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges.
+  - Periods: one begins at `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted
+    from the realm's clock (`Now`). `Period(id, now)` gives its `key` ("daily-20371", the key
+    of everything saved for it), seed, difficulty and goal in yards (`Draw`: from its number
+    alone, by `random`, the same for everyone; the goal its kind's in `KINDS`, up to
+    `VARIATION` more or less); `ByIndex(id, index)` the same by its number.
+  - The run: `overlay.challenge` (set by the main menu's Challenges, cleared by the menu or the
+    title) always runs through zones from the lobby at its own difficulty, never "Start at";
+    `simulation.New(..., goal)` gives it a `finish`, where track.lua lays out a last portal and
+    nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`). Going
+    through that portal shows "Finish!" with the level-up fanfare (messages.lua's `Finish`, the
+    fanfare with the portal sounds).
+  - Bests: one per period in `global.challenges` (`Best`, `Save`, `Beats`: reaching the portal
+    first, then the score; controls.lua's `SaveChallenge`, only for a run that is over); it
+    never counts as the endless best score. The end menu says how much the run beat or missed
+    the best before it by (`s.lastBest`).
+  - Live target: a challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`,
+    `Trace`), saved with its best (`SavedTrace`); `Target` reads the best's score at a distance.
+  - History: every period's best stays (`History`, `ShortLabel`; past ones lose their trace at
+    login, `Compact`), and the streak counts days in a row with a daily challenge run
+    (`Streak`): the Challenges page's History in screens.lua.
+  - `Status` (new, beaten or tried), `StatusText`, and `Reminder`, the chat line `ace.lua`
+    prints at login (`profile.challengeReminder`).
 - `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
   the guild and the group, no server. A new best goes out on GUILD and PARTY or RAID (`Share`);
   opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel
   every `ASK_EVERY`), and whoever has one answers on that channel (once every `ANSWER_EVERY`).
   The message format is at the top of the file. Only the current periods' bests are kept, in
-  `global.leaderboard` by key then sender; anything malformed, from another period, another
+  `global.leaderboard` by key then sender (ended periods dropped when it is enabled, `Prune`); anything malformed, from another period, another
   channel or another protocol version is ignored. `Ranked(period)` sorts them with the player's
   own as challenges.lua does (`Beats`).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
@@ -128,19 +132,23 @@ default in `db.lua` and an entry in `options.lua`.
     `ShownSlot`, `NoteDevice`, `ShownKeys`), `menu.lua` (restart bar, number box), `hud.lua`
     (score; where it sits, `profile.hud`: beside the pause menu, a top corner or the top
     centre; under it during a challenge the challenge card: its period, goal, difficulty, time
-    to the reset, best and the live target, ahead or behind the best at this distance), `legend.lua` (the running keys).
+    to the reset, best and the live target, ahead or behind the best at this distance),
+    `legend.lua` (the running keys, below the scorecard and the challenge card).
   - `messages.lua` — the pause and end menus (seed, keep it or a random one, start at,
-    difficulty; full screen, they hang from one top line), announcements, the gate's flash and
-    vortex.
+    difficulty; full screen, they hang from one top line); a challenge's own pause and end
+    pages (its best, the difference to the one before); announcements (the challenge's
+    "Finish!", `Finish`), the gate's flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action; a page may set its own `width`, or be a table (`columns`: sized from
     samples of its longest label and values, as the leaderboard is).
     `MenuAction` maps a key (keyboard or gamepad) to them through keys.lua's menu actions.
   - `screens.lua` — the title screen and the main menu over the lobby, camera shots and glides,
-    the seated character, the way into a run, title music; the keys of every screen and menu
-    (`OnScreenKey`).
-  - `controls.lua` — input, per-frame `Step`, best score, auto mode.
+    the seated character, the way into a run, title music; the main menu's pages, among them
+    Challenges (each challenge's page, its leaderboard, the history and streak;
+    `PlayChallenge`); the keys of every screen and menu (`OnScreenKey`).
+  - `controls.lua` — input, per-frame `Step` (a challenge's finish and trace), best score (a
+    challenge's: `SaveChallenge`, shared with `leaderboard:Share`), auto mode.
 
 Tests: `npm run test:game` runs `tests/*.lua` without the client; `npm run bench:overlay`
 counts WoW API calls per frame. Development tools live in `AzerothSurfers_Dev`

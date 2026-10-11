@@ -99,8 +99,6 @@ PAGES.play = {
         end,
     },
 }
--- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
--- distance all its own), its best, and a run to beat it.
 local GRAY = { 0.7, 0.7, 0.7 }
 -- A challenge's best (challenges.lua's Best): its score, and how far it got if it did not reach
 -- the portal.
@@ -205,6 +203,8 @@ local function leaderboardPage(period)
         },
     }
 end
+-- A challenge's page (challenges.lua): its period as it is when opened (seed, difficulty and
+-- distance all its own), its best, and a run to beat it.
 local challengePage
 function challengePage(id)
     local challenges = app.challenges
