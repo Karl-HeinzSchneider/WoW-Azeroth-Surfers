@@ -108,8 +108,14 @@ local function scoreText(record)
     return record.finished and tostring(record.score)
         or string.format("%d  |cffaaaaaa%d yd|r", record.score, record.distance)
 end
--- Rows of a leaderboard; this player's place below them when it is further down.
-local RANKS = 8
+-- Rows of a leaderboard; this player's place below them when it is further down. Its window is
+-- wider than the menu's (menus.lua's WIDTH), for a full name beside score, distance and coins.
+local RANKS, BOARD_WIDTH = 8, 620
+-- A leaderboard's row: the score, how far a run got that did not reach the portal, the coins.
+local function boardText(record)
+    local far = record.finished and "" or string.format("%d yd   ", record.distance)
+    return string.format("%d   |cffaaaaaa%s%d/%d coins|r", record.score, far, record.coins, record.coinTotal)
+end
 -- A challenge's leaderboard (leaderboard.lua): the bests of the guild and the group, asked for
 -- when it opens and again by its extra action, and shown as they arrive.
 local function leaderboardPage(period)
@@ -134,7 +140,7 @@ local function leaderboardPage(period)
             end,
             info = function()
                 local e = entry(i)
-                return e and scoreText(e.record) or ""
+                return e and boardText(e.record) or ""
             end,
         }
     end
@@ -154,13 +160,14 @@ local function leaderboardPage(period)
         end,
         info = function()
             local e = own()
-            return e and scoreText(e.record) or ""
+            return e and boardText(e.record) or ""
         end,
     }
     items[#items + 1] = { text = "Back", back = true }
     return {
         title = period.kind.name .. " leaderboard",
         items = items,
+        width = BOARD_WIDTH,
         extra = {
             text = "Ask again",
             run = function()

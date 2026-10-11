@@ -8,7 +8,8 @@ local _, app = ...
 -- too: an item is chosen by pointing at it and run by a click.
 --
 -- A page: { title = text or nil, items = { ... }, back = function(o) for back on the first page,
--- extra = { text = its hint, run = function(o, menu) } }.
+-- extra = { text = its hint, run = function(o, menu) }, width = the window's in pixels, WIDTH
+-- when left out }.
 -- An item:
 --   text    its label, or function(o) returning it (shown anew when it changes)
 --   run     function(o, menu): run on accept
@@ -98,7 +99,7 @@ function Menu:Row(i)
     end
     row = CreateFrame("Button", nil, self.panel)
     row.index = i
-    row:SetSize(WIDTH - 2 * PAD + MARKER, ROW)
+    row:SetHeight(ROW)
     row.label = text(row, ITEM_SIZE, GOLD)
     row.label:SetPoint("LEFT", MARKER + 6, 0)
     row.easier = arrow(self, row, ARROWS[1], "left")
@@ -315,6 +316,9 @@ function Menu:Layout()
         return
     end
     local y = -TOP
+    -- The page's own width; the next page without one gets WIDTH back.
+    local width = page.width or WIDTH
+    panel:SetWidth(width)
     self.title:SetShown(page.title ~= nil)
     if page.title then
         self.title:SetText(page.title)
@@ -328,6 +332,7 @@ function Menu:Layout()
     local hasChoice = false
     for i, item in ipairs(page.items) do
         local row = self:Row(i)
+        row:SetWidth(width - 2 * PAD + MARKER)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD - MARKER / 2, y)
         row.label:SetText(label(self.o, item))
@@ -357,7 +362,7 @@ function Menu:Layout()
     y = y - 6
     self:PlaceTrim(self.trims[2], y)
     y = y - TRIM_HEIGHT - 8
-    y = self:LayoutHints(y, hasChoice, page.extra)
+    y = self:LayoutHints(y, hasChoice, page.extra, width)
     panel:SetHeight(-y + PAD - 6)
     self.shownSelected = nil
     self:Show()
@@ -372,7 +377,7 @@ end
 
 -- The hints in a row, centered, wrapped onto a second row should they not fit. Returns where the
 -- next line would start.
-function Menu:LayoutHints(y, hasChoice, extra)
+function Menu:LayoutHints(y, hasChoice, extra, width)
     local shown, total = {}, 0
     for i, spec in ipairs(HINTS) do
         local hint = self:Hint(i)
@@ -384,22 +389,22 @@ function Menu:LayoutHints(y, hasChoice, extra)
             cap:Hide()
         end
         if on then
-            local width = 0
+            local capsWidth = 0
             for k, capText in ipairs(overlay.ShownKeys(hintTexts, spec.actions, self.o:ShownSlot())) do
                 local cap = hint.caps[k]
                 cap.width = overlay.SetKeyCap(cap, nil, capText)
                 cap:Show()
-                width = width + cap.width + (k > 1 and CAP_GAP or 0)
+                capsWidth = capsWidth + cap.width + (k > 1 and CAP_GAP or 0)
             end
             hint.label:SetText(spec.extra and extra.text or spec.text)
-            hint.width = width + LABEL_GAP + hint.label:GetStringWidth()
+            hint.width = capsWidth + LABEL_GAP + hint.label:GetStringWidth()
             shown[#shown + 1] = hint
             total = total + hint.width
         end
     end
     -- One line, or two halves.
     local lines = { shown }
-    if total + HINT_GAP * (#shown - 1) > WIDTH - 2 * PAD and #shown > 2 then
+    if total + HINT_GAP * (#shown - 1) > width - 2 * PAD and #shown > 2 then
         local half = math.ceil(#shown / 2)
         lines = { {}, {} }
         for i, hint in ipairs(shown) do
@@ -407,11 +412,11 @@ function Menu:LayoutHints(y, hasChoice, extra)
         end
     end
     for _, line in ipairs(lines) do
-        local width = 0
+        local lineWidth = 0
         for i, hint in ipairs(line) do
-            width = width + hint.width + (i > 1 and HINT_GAP or 0)
+            lineWidth = lineWidth + hint.width + (i > 1 and HINT_GAP or 0)
         end
-        local x = (WIDTH - width) / 2
+        local x = (width - lineWidth) / 2
         for _, hint in ipairs(line) do
             for _, cap in ipairs(hint.caps) do
                 if cap:IsShown() then

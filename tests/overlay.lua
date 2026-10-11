@@ -848,9 +848,14 @@ assert(daily.items[#daily.items - 2].text(o) == "Play", "no best yet")
 function UnitName()
     return "Me"
 end
+local panelWidth
+main.panel.SetWidth = function(_, w)
+    panelWidth = w
+end
 daily.items[#daily.items - 1].run(o, main)
 local board = main:Page()
 assert(board.title == "Daily leaderboard" and board.extra, board.title)
+assert(panelWidth == board.width and panelWidth > 400, "a wider window")
 main:Show()
 assert(board.items[2].text(o) == "No bests shared yet" and board.items[2].info(o) == "")
 local period = app.challenges.Period("daily")
@@ -866,10 +871,12 @@ app.leaderboard:Receive(
     "Ann"
 )
 main:Show()
-assert(board.items[2].text(o) == "1. Ann" and board.items[2].info(o) == "4321", board.items[2].text(o))
+assert(board.items[2].text(o) == "1. Ann", board.items[2].text(o))
+assert(board.items[2].info(o) == "4321   |cffaaaaaa1/2 coins|r", board.items[2].info(o))
 assert(board.items[3].text(o) == "", "one player")
 press("Q", "STRAFELEFT")
 assert(main:Page() == daily, "back to the challenge")
+assert(panelWidth == 400, "the menu's own width again")
 press("Q", "STRAFELEFT")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 2, "Q goes back to where it was")
