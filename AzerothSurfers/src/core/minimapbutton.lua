@@ -6,9 +6,9 @@ local log, addon = app.logger, app.addon
 -- Only our minimap region's alpha changes once the model is ready.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\icon-gem-zoomed"
 local FOV, ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
--- About one UI pixel lower within the 17/18-pixel viewport. Raising the camera
+-- About two UI pixels lower within the 17/18-pixel viewport. Raising the camera
 -- offsets the visible model without depending on its native bounds or actor scale.
-local CAMERA_Z = 0.06
+local CAMERA_Z = 0.12
 local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 ---@class AzerothSurfers.MinimapButton : AceModule
