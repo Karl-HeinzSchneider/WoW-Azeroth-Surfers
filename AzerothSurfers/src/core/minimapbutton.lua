@@ -14,6 +14,8 @@ local HOVER_FOV, HOVER_ZOOM, LOAD_TIMEOUT, LOAD_ALPHA = 0.5, 3.5, 5, 0.01
 ---@field hover table?  # one lazily created ModelScene and actor, reused across hovers
 ---@field hoverEnabled boolean?
 ---@field dragging boolean?
+---@field hoverEnters number?  # native OnEnter events seen by our hook
+---@field hoverBlock string?  # last reason StartHover returned before creating a scene
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as AzerothSurfers.MinimapButton]]
 
@@ -52,7 +54,8 @@ function module:OnInitialize()
     -- LDB's OnEnter is skipped when OnTooltipShow exists. Hooks preserve the tooltip,
     -- click handlers and drag scripts (including replacements on LibDBIcon:Refresh).
     self.button:HookScript("OnEnter", function()
-        self:StartHover()
+        self.hoverEnters = (self.hoverEnters or 0) + 1
+        self:StartHover(true)
     end)
     self.button:HookScript("OnLeave", function()
         self:StopHover()
@@ -111,20 +114,23 @@ function module:ShowHover()
     hover.scene:SetScript("OnUpdate", nil)
 end
 
-function module:StartHover()
+function module:StartHover(entering)
     local button = self.button
-    if
-        not self.hoverEnabled
-        or self.dragging
-        or button.isMouseDown
-        or not button:IsShown()
-        or not button:IsMouseOver()
-    then
+    -- OnEnter itself proves pointer entry. The client can report IsMouseOver=false
+    -- inside that callback; query geometry only for mouse-up/drag-stop restarts.
+    self.hoverBlock = not self.hoverEnabled and "disabled"
+        or self.dragging and "dragging"
+        or button.isMouseDown and "pressed"
+        or not button:IsShown() and "hidden"
+        or (not entering and not button:IsMouseOver()) and "pointer outside"
+        or nil
+    if self.hoverBlock then
         return
     end
     if not self.hover then
         local entry = app.biomes.Get("default").coin.models[1]
         if not entry then
+            self.hoverBlock = "no coin model"
             return
         end
         local scene = CreateFrame("ModelScene", nil, button)

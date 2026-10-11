@@ -6,13 +6,15 @@ dev.Command("minimap", "minimap (report the icon's hover model state)", function
     local module = app.minimapButton
     local button, hover = module.button, module.hover
     log:chat(
-        "Minimap: enabled=%s button=%s hovered=%s dragging=%s pressed=%s scene=%s",
+        "Minimap: enabled=%s button=%s hovered=%s dragging=%s pressed=%s scene=%s enters=%d blocked=%s",
         tostring(module.hoverEnabled),
         tostring(button and button:IsShown()),
         tostring(button and button:IsMouseOver()),
         tostring(module.dragging),
         tostring(button and button.isMouseDown),
-        tostring(hover ~= nil)
+        tostring(hover ~= nil),
+        module.hoverEnters or 0,
+        tostring(module.hoverBlock)
     )
     if hover then
         log:chat(

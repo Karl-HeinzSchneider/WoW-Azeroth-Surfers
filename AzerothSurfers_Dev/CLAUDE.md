@@ -18,6 +18,7 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   on the screen against the road's projection of its body).
   `/surfers minimap` reports hover enablement, button/scene visibility, model request result,
   loaded file, fitting state, accumulated load wait and failure reason without changing them.
+  Includes the native hover-entry count and last reason scene startup was blocked.
   `/surfers layers` reports existing unit frames, action bars, bags, chat and game frames sorted
   by strata and level, with visibility and parent names. `/surfers layers FrameName` inspects
   one named frame and its direct children. It never changes their layers or opens UI panels.

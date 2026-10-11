@@ -295,3 +295,19 @@ wrong.hover.actor.loaded, wrong.hover.actor.returnedModel = true, 123
 wrong.hover.scene:Run("OnUpdate", 5.1)
 assert(wrong.hover.failed and wrong.button.icon:GetAlpha() == 1, "error model with valid bounds cannot replace icon")
 print("PASS rejected, timed-out and incorrect models retain static fallback")
+
+local _, entryEvent = new()
+entryEvent.button.mouseOver = false
+entryEvent.button:Run("OnEnter")
+assert(
+    entryEvent.hover and entryEvent.hoverEnters == 1,
+    "native entry must start loading even before pointer geometry updates"
+)
+assert(not entryEvent.hoverBlock, "entry must not be blocked by an IsMouseOver timing discrepancy")
+entryEvent.button:Run("OnLeave")
+entryEvent.button:Run("OnMouseUp")
+assert(
+    not entryEvent.hover.scene:IsShown() and entryEvent.hoverBlock == "pointer outside",
+    "mouse-up restart still requires pointer overlap"
+)
+print("PASS native hover entry is authoritative while non-entry restarts check pointer geometry")
