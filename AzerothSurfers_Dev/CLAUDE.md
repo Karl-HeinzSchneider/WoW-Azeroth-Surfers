@@ -21,6 +21,19 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   one named frame and its direct children. It never changes their layers or opens UI panels.
 - `preview.lua` — `/surfers preview creature|model|player|turn|off` (`player`: your own character,
   cycling through `dev.CROUCH`).
+- `icon.lua` — `/surfers icon`: isolated, evenly lit gameplay gem on a solid background,
+  without opening the game. Buttons adjust yaw, pitch, zoom, rotation and background.
+  `icon turn <degrees>`, `pitch <degrees>`, `zoom <0.1-10>`, `background black|white|green`,
+  `spin on|off`, `clean`, `controls`, `off` provide the same controls through chat.
+  Clean view stops rotation and hides controls; Escape closes. Capture the central square
+  with WoW's screenshot key, crop outside WoW, and edit alpha externally (screenshots are
+  opaque; black preserves the blue glow better than chroma key). Keep PNG for external use;
+  convert to BLP or uncompressed 32-bit TGA for the TOC and minimap texture. The model's
+  built-in idle animation is frozen at time zero; `spin` only turns the actor's yaw.
+  The selected gem capture has wider `AzerothSurfers/assets/core/icon-gem.tga` and tighter
+  `icon-gem-zoomed.tga` variants. Both TOCs and the minimap use the supplied
+  `AzerothSurfers/assets/core/gem128.blp` instead.
+  This tool never writes image files.
 - `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).
 - `assets.lua` — `/surfers assets [all|models|animations|sounds] [all|biome]`: audits registered

@@ -61,7 +61,17 @@ display's existing voice wins. Other local constants in rendering/control code a
   Calibration, Profiles), for the Settings panel and a standalone window. `Refresh()` after a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
-  status (`challenges.StatusText`).
+  status (`challenges.StatusText`). The minimap/LDB launcher uses the supplied static
+  `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes
+  or update handlers. An opaque black circle under the image uses Blizzard's portrait mask
+  and slightly overlaps the inner rim to cover fading alpha and background seams.
+  Both the main and dev TOCs use the same `gem128.blp` for the addon list.
+  `icon-gem.tga` and `icon-gem-zoomed.tga` retain the earlier capture variants.
+  The minimap image fills the circular backing's size (at least 26 UI pixels), shifted
+  two UI pixels left from its center.
+  Its own UpdateCoord method keeps full 0–1 texture coordinates on reset, press, release
+  and drag, preventing LibDBIcon's default 5% crop and pressed-state size change. Registration
+  and profile refresh reapply the layout without changing the rim, hit area or input scripts.
 
 Prototype-style Ace modules: methods on a local `module` table passed to
 `addon:NewModule("Name", module)`; state on the object Ace returns. A new user setting gets a
