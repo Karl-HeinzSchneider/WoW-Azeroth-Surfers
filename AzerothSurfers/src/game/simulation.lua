@@ -114,12 +114,17 @@ game.FINISH_PAST = 18
 -- `lobby` (src/scenes/lobby.lua): the run starts in its lane, with a gate at its `rim`.
 -- `goal`: yards from where the run starts counting to its last portal (`finish`, a track
 -- distance; track.lua lays nothing out past it), none when nil.
-function game.New(seed, difficulty, zones, lobby, goal)
+-- `scoring`: a game mode's scoring rules over scoring.lua's DEFAULTS (`s.scoring`), none when nil.
+function game.New(seed, difficulty, zones, lobby, goal, scoring)
     seed = random.Normalize(seed or random.Seed())
     difficulty = game.DIFFICULTIES[difficulty] or game.DIFFICULTIES.normal
+    scoring = app.scoring.Rules(scoring)
     local s = {
         difficulty = difficulty,
         seed = seed,
+        scoring = scoring,
+        -- What the score is everything earned times (scoring.lua's `difficulty`).
+        scoreFactor = app.scoring.Factor(scoring, difficulty),
         status = "ready",
         lane = 0,
         lateral = 0,
@@ -139,15 +144,16 @@ function game.New(seed, difficulty, zones, lobby, goal)
         coins = 0,
         coinTotal = 0, -- coins come past, collected or missed
         collected = 0, -- coins picked up, before `start` too (their sound)
-        -- Coins collected one right after another (game.STREAK), and where the last one was.
+        -- Coins collected one right after another (the rules' `streak`), and where the last was.
         streak = 0,
         streakAt = 0,
         bestStreak = 0,
-        -- Distance points (fractional) and coin points, each at the multiplier of its moment.
+        -- Distance points (fractional) and coin points, each at the multiplier of its moment,
+        -- before the difficulty's factor (Score).
         points = 0,
         bonus = 0,
-        -- One more for every gate gone through past `start` (game.GATE_MULTIPLIER).
-        multiplier = 1,
+        -- More for every gate gone through past `start` (the rules' `multiplier`).
+        multiplier = scoring.multiplier.start,
         gatesPassed = 0, -- of `gates`, those the runner is past
         speed = difficulty.startSpeed,
         accumulator = 0,
@@ -176,26 +182,15 @@ function game.New(seed, difficulty, zones, lobby, goal)
     return s
 end
 
--- At multiplier 1; a yard run is one point.
-local COIN_POINTS = 25
-
--- A streak: coins collected one right after another. A coin missed beside it (a parallel row)
--- does not break it, running on too far without one does:
---   gap      yards from one collected coin to the next that keep a streak (6: one empty spot
---            in a row)
---   seconds  or that long at the speed of the moment, if further (a change of lanes or two)
---   from     the streak's length from which every coin scores `points` more, at the multiplier
--- AzerothSurfers_Dev's /surfers streak changes them while playing.
-game.STREAK = { gap = 7, seconds = 0.35, from = 7, points = 25 }
-
 -- Yards past the last collected coin a streak holds at the speed of the moment.
 function game.StreakReach(s)
-    local streak = game.STREAK
+    local streak = s.scoring.streak
     return math.max(streak.gap, streak.seconds * s.speed)
 end
 
+-- Everything earned, times the difficulty's factor (scoring.lua).
 function game.Score(s)
-    return math.floor(s.points) + s.bonus
+    return math.floor((s.points + s.bonus) * s.scoreFactor)
 end
 
 -- Yards run since the run started counting (`start`), up to its `finish` at most.
@@ -203,21 +198,19 @@ function game.Run(s)
     return math.max(0, math.min(s.distance, s.finish or math.huge) - s.start)
 end
 
--- Scales only what is earned from now on.
+-- Scales only what is earned from now on; from 1 up to the rules' `most`.
 function game.SetMultiplier(s, multiplier)
-    s.multiplier = math.max(1, math.floor(multiplier))
+    s.multiplier = math.max(1, math.min(s.scoring.multiplier.most, math.floor(multiplier)))
 end
 
--- How much each gate into the next zone adds to the multiplier. A gate before `start` (the
--- lobby's) adds nothing: a run from the lobby counts as a restart does; nor does the last
--- portal, `finish`.
-game.GATE_MULTIPLIER = 1
-
+-- Each gate into the next zone adds the rules' `perGate` to the multiplier. A gate before
+-- `start` (the lobby's) adds nothing: a run from the lobby counts as a restart does; nor does
+-- the last portal, `finish`.
 local function passGates(s)
     local gates, k = s.gates, s.gatesPassed + 1
     while gates[k] and gates[k] <= s.distance do
         if gates[k] > s.start and gates[k] ~= s.finish then
-            game.SetMultiplier(s, s.multiplier + game.GATE_MULTIPLIER)
+            game.SetMultiplier(s, s.multiplier + s.scoring.multiplier.perGate)
         end
         s.gatesPassed, k = k, k + 1
     end
@@ -297,7 +290,7 @@ local function move(s)
             counted = math.min(counted, s.finish - s.distance + step)
         end
         if counted > 0 then
-            s.points = s.points + counted * s.multiplier
+            s.points = s.points + counted * s.scoring.yardPoints * s.multiplier
         end
         if s.gates then
             passGates(s)
@@ -362,9 +355,10 @@ local function tick(s)
                     s.coins = s.coins + 1
                     s.streak, s.streakAt = s.streak + 1, s.distance
                     s.bestStreak = math.max(s.bestStreak, s.streak)
-                    local points = COIN_POINTS
-                    if s.streak >= game.STREAK.from then
-                        points = points + game.STREAK.points
+                    local rules = s.scoring
+                    local points = rules.coinPoints
+                    if s.streak >= rules.streak.from then
+                        points = points + rules.streak.points
                     end
                     s.bonus = s.bonus + points * s.multiplier
                 end
@@ -436,7 +430,7 @@ function game.Skip(s, to)
     s.start, s.points, s.practice = s.distance, 0, practice
     -- With a `finish`, the yards to it stay its goal: counted from `to`, as from the menu.
     if s.finish then
-        s.start, s.points = to, s.distance - to
+        s.start, s.points = to, (s.distance - to) * s.scoring.yardPoints
     end
 end
 

@@ -2,6 +2,7 @@
 local app = {}
 dofile("tests/load.lua")(app, {
     "game/random",
+    "game/scoring",
     "game/simulation",
     "game/challenges",
     "game/leaderboard",
@@ -52,7 +53,7 @@ test("a best goes out to the guild and the group and comes back the same", funct
     board:Share(daily, best(1234, true, daily.goal))
     local out = sent()
     assert(#out == 2 and out[1].channel == "GUILD" and out[2].channel == "PARTY", "both channels")
-    assert(out[1].text == "1 B " .. daily.key .. " 1234 " .. daily.goal .. " 1 3 10", out[1].text)
+    assert(out[1].text == "2 B " .. daily.key .. " 1234 " .. daily.goal .. " 1 3 10", out[1].text)
     assert(#out[1].text <= 255, "one message")
     board:Receive(out[1].text, "GUILD", "Ann")
     local kept = app.db.global.leaderboard[daily.key].Ann
@@ -72,23 +73,23 @@ end)
 test("anything malformed, out of period, from elsewhere or from oneself is ignored", function()
     local key = daily.key
     local bad = {
-        "1 B " .. key .. " 50 100 1 3", -- a word short
-        "1 B " .. key .. " 50 100 1 3 10 7", -- a word too many
-        "1 B " .. key .. " -5 100 1 3 10",
-        "1 B " .. key .. " 5.5 100 1 3 10",
-        "1 B " .. key .. " 1e12 100 1 3 10",
-        "1 B " .. key .. " " .. (board.MOST_SCORE + 1) .. " 100 1 3 10", -- more than the columns hold
-        "1 B " .. key .. " 50 100 1 3 " .. (board.MOST_COINS + 1),
-        "1 B " .. key .. " 50 abc 1 3 10",
-        "1 B " .. key .. " 50 " .. (daily.goal + 1000) .. " 1 3 10", -- further than the challenge
-        "1 B " .. key .. " 50 100 2 3 10",
-        "1 B " .. key .. " 50 100 1 11 10", -- more coins than there were
-        "1 B daily-" .. (daily.index - 1) .. " 50 100 1 3 10", -- yesterday's
-        "1 B daily-" .. (daily.index + 1) .. " 50 100 1 3 10",
-        "2 B " .. key .. " 50 100 1 3 10", -- another version
-        "1 X " .. key,
+        "2 B " .. key .. " 50 100 1 3", -- a word short
+        "2 B " .. key .. " 50 100 1 3 10 7", -- a word too many
+        "2 B " .. key .. " -5 100 1 3 10",
+        "2 B " .. key .. " 5.5 100 1 3 10",
+        "2 B " .. key .. " 1e12 100 1 3 10",
+        "2 B " .. key .. " " .. (board.MOST_SCORE + 1) .. " 100 1 3 10", -- more than the columns hold
+        "2 B " .. key .. " 50 100 1 3 " .. (board.MOST_COINS + 1),
+        "2 B " .. key .. " 50 abc 1 3 10",
+        "2 B " .. key .. " 50 " .. (daily.goal + 1000) .. " 1 3 10", -- further than the challenge
+        "2 B " .. key .. " 50 100 2 3 10",
+        "2 B " .. key .. " 50 100 1 11 10", -- more coins than there were
+        "2 B daily-" .. (daily.index - 1) .. " 50 100 1 3 10", -- yesterday's
+        "2 B daily-" .. (daily.index + 1) .. " 50 100 1 3 10",
+        "1 B " .. key .. " 50 100 1 3 10", -- another version
+        "2 X " .. key,
         "",
-        "1 B",
+        "2 B",
     }
     for _, text in ipairs(bad) do
         board:Receive(text, "GUILD", "Bob")
@@ -114,7 +115,7 @@ test("asking: once per channel a while, answered with the bests one has", functi
     group = true
     board:Ask(daily)
     local out = sent()
-    assert(#out == 2 and out[1].text == "1 Q " .. daily.key, out[1] and out[1].text)
+    assert(#out == 2 and out[1].text == "2 Q " .. daily.key, out[1] and out[1].text)
     board:Ask(daily)
     assert(#sent() == 0, "not again so soon")
     now = now + board.ASK_EVERY
@@ -122,17 +123,17 @@ test("asking: once per channel a while, answered with the bests one has", functi
     assert(#sent() == 2, "again after a while")
     group = false
     -- Answers: only with a best of the period, once a while per channel and period.
-    board:Receive("1 Q " .. daily.key, "GUILD", "Ann")
+    board:Receive("2 Q " .. daily.key, "GUILD", "Ann")
     assert(#sent() == 0, "no best of its own yet")
     c.Save(daily, best(777, true))
-    board:Receive("1 Q " .. daily.key .. " " .. weekly.key, "GUILD", "Ann")
+    board:Receive("2 Q " .. daily.key .. " " .. weekly.key, "GUILD", "Ann")
     out = sent()
     assert(#out == 1 and out[1].channel == "GUILD" and out[1].text:find(" 777 "), "its daily best")
-    board:Receive("1 Q " .. daily.key, "GUILD", "Cid")
+    board:Receive("2 Q " .. daily.key, "GUILD", "Cid")
     assert(#sent() == 0, "not again so soon")
-    board:Receive("1 Q " .. daily.key, "PARTY", "Cid")
+    board:Receive("2 Q " .. daily.key, "PARTY", "Cid")
     assert(#sent() == 1, "another channel")
-    board:Receive("1 Q daily-" .. (daily.index - 1), "RAID", "Cid")
+    board:Receive("2 Q daily-" .. (daily.index - 1), "RAID", "Cid")
     assert(#sent() == 0, "not for another period")
 end)
 

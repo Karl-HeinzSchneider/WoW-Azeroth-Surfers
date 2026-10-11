@@ -189,6 +189,7 @@ dofile("tests/load.lua")(app, {
     "biomes/transitions/dream",
     "scenes/lobby",
     "game/random",
+    "game/scoring",
     "game/simulation",
     "game/challenges",
     "game/leaderboard",
