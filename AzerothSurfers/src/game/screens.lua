@@ -111,10 +111,19 @@ end
 -- Rows of a leaderboard; this player's place below them when it is further down. Its window is
 -- wider than the menu's (menus.lua's WIDTH), for a full name beside score, distance and coins.
 local RANKS, BOARD_WIDTH = 8, 620
--- A leaderboard's row: the score, how far a run got that did not reach the portal, the coins.
+-- A leaderboard's row: the score, how far a run got that did not reach the portal, the coins
+-- and their share of the run's, in whole percent down.
 local function boardText(record)
     local far = record.finished and "" or string.format("%d yd   ", record.distance)
-    return string.format("%d   |cffaaaaaa%s%d/%d coins|r", record.score, far, record.coins, record.coinTotal)
+    local share = record.coinTotal > 0 and math.floor(100 * record.coins / record.coinTotal) or 0
+    return string.format(
+        "%d   |cffaaaaaa%s%d/%d coins (%d%%)|r",
+        record.score,
+        far,
+        record.coins,
+        record.coinTotal,
+        share
+    )
 end
 -- A challenge's leaderboard (leaderboard.lua): the bests of the guild and the group, asked for
 -- when it opens and again by its extra action, and shown as they arrive.

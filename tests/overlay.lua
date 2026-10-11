@@ -872,7 +872,7 @@ app.leaderboard:Receive(
 )
 main:Show()
 assert(board.items[2].text(o) == "1. Ann", board.items[2].text(o))
-assert(board.items[2].info(o) == "4321   |cffaaaaaa1/2 coins|r", board.items[2].info(o))
+assert(board.items[2].info(o) == "4321   |cffaaaaaa1/2 coins (50%)|r", board.items[2].info(o))
 assert(board.items[3].text(o) == "", "one player")
 press("Q", "STRAFELEFT")
 assert(main:Page() == daily, "back to the challenge")
