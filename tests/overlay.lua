@@ -909,6 +909,21 @@ local function press(key, binding)
     return passed
 end
 local main = o.mainMenu
+-- The first time, How to play over the main menu; back from it to the main menu, and never on
+-- its own again.
+local tips = main:Page()
+assert(tips.title == "How to play" and #main.stack == 2 and app.db.global.tipsShown, "How to play, once")
+assert(tips.items[main.stack[2].selected].text == "Got it", "the tips cannot be chosen")
+for _, item in ipairs(tips.items) do
+    if item.info then
+        assert(item.info(o) ~= "", item.text)
+    end
+end
+assert(tips.items[5].info(o) == "A D" and tips.items[6].info(o) == "SPACE", tips.items[6].info(o))
+press("Q", "STRAFELEFT")
+assert(main:Page().title == nil and #main.stack == 1, "back to the main menu")
+o:OpenMenu()
+assert(#main.stack == 1, "the tips only the first time")
 assert(press("ENTER") and press("SPACE", "JUMP"), "Enter and jump go on to WoW")
 assert(main:Page().title == nil and main.stack[1].selected == 1, "on the main page, at Play")
 assert(press("S", "MOVEBACKWARD") == false and main.stack[1].selected == 2, "down to Challenges")

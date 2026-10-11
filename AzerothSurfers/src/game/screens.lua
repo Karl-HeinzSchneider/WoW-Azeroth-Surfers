@@ -405,6 +405,33 @@ PAGES.stats = {
         { text = "Back", back = true },
     },
 }
+-- What the track holds and the keys of a run (key 1, or gamepad 1 since a gamepad was used, as
+-- the legend shows them). Shown once over the main menu the first time it opens
+-- (`global.tipsShown`), and from its How to play. The boxes are told by what to do with them, as
+-- each biome dresses them in its own models.
+local tipKeys = {}
+local function keysInfo(...)
+    local actions = { ... }
+    return function(o)
+        local keys = overlay.ShownKeys(tipKeys, actions, o:ShownSlot())
+        return keys[1] and table.concat(keys, " ") or NOT_BOUND or "Not bound"
+    end
+end
+PAGES.tips = {
+    title = "How to play",
+    width = 560,
+    items = {
+        { text = "Jump low things, go around tall ones", note = GRAY },
+        { text = "Run under high bars, duck under low ones", note = GRAY },
+        { text = "Jump onto long piles, never into a side", note = GRAY },
+        { text = "Coins and portals raise your score", note = GRAY },
+        { text = "Change lane", info = keysInfo("left", "right") },
+        { text = "Jump", info = keysInfo("jump") },
+        { text = "Duck / drop", info = keysInfo("duck") },
+        { text = "Pause", info = keysInfo("pause") },
+        { text = "Got it", back = true },
+    },
+}
 PAGES.main = {
     items = {
         {
@@ -429,6 +456,12 @@ PAGES.main = {
             text = "Stats",
             run = function(_, menu)
                 menu:Push(PAGES.stats)
+            end,
+        },
+        {
+            text = "How to play",
+            run = function(_, menu)
+                menu:Push(PAGES.tips)
             end,
         },
         {
@@ -618,6 +651,12 @@ function overlay:OpenMenu()
     self:EnterLobby()
     self.screen, self.shotName = "menu", "menu"
     self.mainMenu:Open(PAGES.main)
+    -- The first time: How to play over it, back to the main menu.
+    local global = app.db.global
+    if not global.tipsShown then
+        global.tipsShown = true
+        self.mainMenu:Push(PAGES.tips)
+    end
     self:PlayTitleMusic(true)
 end
 

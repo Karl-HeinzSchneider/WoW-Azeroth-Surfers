@@ -75,6 +75,8 @@ local char = {}
 local global = {
     dbVersion = 1,
     bestScore = 0,
+    -- The main menu has shown How to play (screens.lua) once, on its first opening.
+    tipsShown = false,
     -- The best run of each challenge (challenges.lua's Best), by its period's key.
     challenges = {},
     -- The bests the guild and the group shared (leaderboard.lua), by the period's key, then by
