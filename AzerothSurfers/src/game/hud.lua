@@ -31,8 +31,12 @@ local BOOST = { 1, 0.55, 0.1 }
 -- of the twin's square on the screen (overlay.lua's twinAnchor), centred on the character and a
 -- little larger than it.
 local STREAK_EARLY, STREAK_SIZE = 1, 20
-local STREAK_HEIGHT = 32
 local STREAK_OFFSET = { -10, 6 }
+-- Its border is the dialog's (DialogBorderTemplate), whose corners are STREAK_CORNER pixels
+-- square: the panel is never less than two corners high or wide, or they overlap. Drawn at
+-- STREAK_SCALE, so the badge stays small with its border whole; STREAK_PAD (at that scale)
+-- keeps the text clear of the corners' studs.
+local STREAK_CORNER, STREAK_SCALE, STREAK_PAD = 32, 0.75, 20
 local DIGITS = {}
 for d = 0, 9 do
     DIGITS[d] = tostring(d)
@@ -161,10 +165,18 @@ function overlay:CreateHud(f)
     -- Follows the twin's square, which follows the character on screen.
     local streakPanel = CreateFrame("Frame", nil, hud, "DialogBorderTemplate")
     streakPanel:ClearAllPoints()
-    streakPanel:SetHeight(STREAK_HEIGHT)
-    streakPanel:SetPoint("BOTTOMLEFT", self.twinAnchor, "RIGHT", STREAK_OFFSET[1], STREAK_OFFSET[2])
+    streakPanel:SetScale(STREAK_SCALE)
+    streakPanel:SetSize(2 * STREAK_CORNER, 2 * STREAK_CORNER)
+    -- Its offsets are in its own scale.
+    streakPanel:SetPoint(
+        "BOTTOMLEFT",
+        self.twinAnchor,
+        "RIGHT",
+        STREAK_OFFSET[1] / STREAK_SCALE,
+        STREAK_OFFSET[2] / STREAK_SCALE
+    )
     streakPanel:Hide()
-    local streak = text(streakPanel, STREAK_SIZE)
+    local streak = text(streakPanel, STREAK_SIZE / STREAK_SCALE)
     streak:SetPoint("CENTER")
 
     self.hud = {
@@ -275,7 +287,8 @@ function overlay:ShowHud()
             hud.streak:SetFormattedText("Streak %d", streak)
             local color = streak >= sim.STREAK.from and BOOST or GOLD
             hud.streak:SetTextColor(color[1], color[2], color[3])
-            hud.streakPanel:SetWidth((hud.streak:GetStringWidth() or 0) + 2 * PAD)
+            local width = (hud.streak:GetStringWidth() or 0) + 2 * STREAK_PAD
+            hud.streakPanel:SetWidth(math.max(2 * STREAK_CORNER, width))
         end
     end
     self:ShowChallengeCard(shown, now)
