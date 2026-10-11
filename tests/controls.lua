@@ -14,6 +14,7 @@ dofile("tests/load.lua")(app, {
     "game/shapes",
     "game/overlay",
     "game/keys",
+    "game/inputhud",
     "game/messages",
     "game/menus",
     "game/screens",
@@ -598,3 +599,64 @@ for id, b in pairs(stats.best) do
 end
 r.challenge = nil
 print("PASS stats: runs and totals counted once, records from runs that keep a best")
+
+-- The input HUD observes bound actions without changing input handling. Both aliases can
+-- hold one action; releasing one must not extinguish the other. Taps survive one stream frame.
+do
+    local now = 10
+    GetTime = function()
+        return now
+    end
+    local probe = { db = { profile = { inputHud = true, keys = { jump = { "SHIFT-E", "UP" } } } } }
+    probe.overlay = {}
+    dofile("tests/load.lua")(probe, { "game/keys", "game/inputhud" })
+    local hud = probe.overlay
+    hud.inputHud = {
+        IsShown = function()
+            return true
+        end,
+    }
+    hud.inputHudCaps = {}
+    for i = 1, 7 do
+        local cap = { SetShown = function() end, SetBackdropBorderColor = function() end }
+        cap.SetBackdropColor = function(_, red)
+            cap.lit = red == 0.1
+        end
+        cap.text = { SetText = function() end }
+        cap.label = { SetText = function() end }
+        hud.inputHudCaps[i] = cap
+    end
+    hud.capture = true
+    hud:InputHudPress("E", "SHIFT-E")
+    hud:InputHudPress("UP", "UP")
+    hud:InputHudRelease("E")
+    now = 11
+    hud:UpdateInputHud()
+    assert(hud.inputHudCaps[1].lit, "alternate key still holds jump")
+    hud:InputHudRelease("UP")
+    hud:UpdateInputHud()
+    assert(not hud.inputHudCaps[1].lit, "released keys clear the highlight")
+    hud:InputHudPress("E", "SHIFT-E")
+    hud:InputHudRelease("E")
+    hud:UpdateInputHud()
+    assert(hud.inputHudCaps[1].lit, "short taps remain visible")
+    now = 12
+    hud:UpdateInputHud()
+    assert(not hud.inputHudCaps[1].lit, "tap highlight expires")
+    hud:InputHudPress("F", "F")
+    assert(not hud.inputHudHeld.F, "unrelated keys stay out of the HUD")
+    hud.screen = "menu"
+    hud:InputHudPress("W", "W")
+    hud:UpdateInputHud()
+    assert(hud.inputHudCaps[1].lit and hud.inputHudCaps[1].action == "up", "menu context uses menu bindings")
+    hud:ClearInputHud()
+    assert(not hud.inputHudHeld and not hud.inputHudUntil, "closing clears held inputs and taps")
+    hud.screen = nil
+    hud:InputHudPress("PAD1", "PAD1")
+    assert(hud.inputHudHeld.PAD1 == "jump", "controller presses use the same actions")
+    probe.db.profile.inputHud = false
+    hud:ClearInputHud()
+    hud:InputHudPress("A", "A")
+    assert(not hud.inputHudHeld, "disabled HUD does not track keys")
+end
+print("PASS input HUD: chords, aliases, taps, menu context, gamepad and clearing")

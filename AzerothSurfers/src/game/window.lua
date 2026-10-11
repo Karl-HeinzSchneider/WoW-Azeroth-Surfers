@@ -120,6 +120,7 @@ end
 
 -- On Create and whenever a mode setting or the profile changes.
 function overlay:ApplyMode()
+    self:RefreshInputHud()
     local profile, f = app.db.profile, self.frame
     local side = profile.mode == "side"
     self.side, self.capture = side, profile.capture

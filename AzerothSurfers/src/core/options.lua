@@ -606,6 +606,27 @@ local display = {
             end,
         },
         hudHeader = header(20, "Scorecard"),
+        inputHud = toggle(
+            40,
+            "inputHud",
+            "Show input HUD",
+            "A separate draggable window highlights the game's bound actions as you press them. Shown while the game is open; drag it to place it for your stream.",
+            function()
+                app.overlay:RefreshInputHud()
+            end
+        ),
+        inputHudReset = {
+            type = "execute",
+            order = 41,
+            name = "Reset input HUD position",
+            func = function()
+                local saved = app.db.profile.inputHudPosition
+                for key, value in pairs(app.dbDefaults.profile.inputHudPosition) do
+                    saved[key] = value
+                end
+                app.overlay:RefreshInputHud()
+            end,
+        },
         hudPosition = {
             type = "select",
             order = 21,

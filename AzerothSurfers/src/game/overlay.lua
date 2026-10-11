@@ -995,6 +995,7 @@ function overlay:Create()
         end
     end)
     self:CreateWindow(f)
+    self:CreateInputHud()
     f:SetScript("OnUpdate", function(_, elapsed)
         local lap = self.timing and debugprofilestop()
         self:Step(elapsed)

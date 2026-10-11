@@ -198,6 +198,10 @@ default in `db.lua` and an entry in `options.lua`.
     challenge the challenge card: its period, goal, difficulty, time to the reset, best and the
     live target, ahead or behind the best at this distance),
     `legend.lua` (the running keys, below the scorecard and the challenge card).
+  - `inputhud.lua` — optional independent draggable input window (`profile.inputHud`, position
+    in `profile.inputHudPosition`), enabled on the Display tab. Highlights bound actions while
+    held, with a 120 ms minimum for taps; follows keyboard/gamepad hints and menu context.
+    Shares controls.lua's input events, never captures input itself, and hides with the game.
   - `messages.lua` — the pause and end menus (difficulty, and in a custom game its settings,
     `CUSTOM`, a page per category such as Seed options: **a new custom setting is an item on
     its category's page** over a profile setting `NewState` reads; full screen, they hang from

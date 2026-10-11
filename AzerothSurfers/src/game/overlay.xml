@@ -10,6 +10,7 @@
     <Script file="menu.lua"/>
     <Script file="hud.lua"/>
     <Script file="legend.lua"/>
+    <Script file="inputhud.lua"/>
     <Script file="messages.lua"/>
     <Script file="bestmarker.lua"/>
     <Script file="menus.lua"/>
