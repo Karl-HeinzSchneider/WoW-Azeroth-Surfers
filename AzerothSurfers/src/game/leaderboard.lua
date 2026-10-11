@@ -19,7 +19,7 @@ local challenges = app.challenges
 local module = {}
 local leaderboard = app.addon:NewModule("Leaderboard", module, "AceComm-3.0") --[[@as AzerothSurfers.Leaderboard]]
 app.leaderboard = leaderboard
--- When each channel was asked; when each was answered, by "<channel> <key>"; Ranked's lists by
+-- When each channel was asked and answered, by "<channel> <key>"; Ranked's lists by
 -- key; how often what arrived changed.
 leaderboard.asked, leaderboard.answered, leaderboard.ranked, leaderboard.changes = {}, {}, {}, 0
 
@@ -199,15 +199,16 @@ function module:Share(period, record, now)
     end
 end
 
--- Asks every channel for its bests of `period`, at most once per ASK_EVERY each.
+-- Asks every channel for its bests of `period`, at most once per ASK_EVERY per channel and period.
 function module:Ask(period, now)
     now = now or challenges.Now()
     if not current(now)[period.key] then
         return
     end
     for _, channel in ipairs(self.Channels()) do
-        if (self.asked[channel] or -math.huge) + self.ASK_EVERY <= now then
-            self.asked[channel] = now
+        local id = channel .. " " .. period.key
+        if (self.asked[id] or -math.huge) + self.ASK_EVERY <= now then
+            self.asked[id] = now
             send(self, string.format("%s Q %s", VERSION, period.key), channel)
         end
     end
