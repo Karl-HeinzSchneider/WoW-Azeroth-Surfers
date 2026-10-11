@@ -1165,6 +1165,60 @@ assert(labels():find("Seed options", 1, true), "and its settings' pages")
 o.state.custom = nil
 ended()
 assert(not status:Page().items[1].note, "a plain run without a new best: no note")
+-- Share: one plain chat line on a channel the player is in, from a page of them.
+do
+    local said
+    app.TITLE = app.TITLE or "Azeroth Surfers"
+    local guild, group = false, false
+    IsInGuild = function()
+        return guild
+    end
+    IsInRaid = function()
+        return false
+    end
+    IsInGroup = function()
+        return group
+    end
+    SendChatMessage = function(text, channel)
+        said = { text = text, channel = channel }
+    end
+    local function share()
+        for i, it in ipairs(status:Page().items) do
+            if it.text == "Share" then
+                status:SelectRow(i)
+                status:Input("accept")
+                return
+            end
+        end
+        error("no Share on the end menu")
+    end
+    share()
+    assert(status:Page().title == "Share" and status:Page().items[1].text == "Not in a guild or group")
+    status:Back()
+    guild, group = true, true
+    share()
+    assert(labels() == "Guild,Party,Back", "the channels the player is in: " .. labels())
+    status:SelectRow(2)
+    status:Input("accept")
+    assert(said.channel == "PARTY" and status:Page().title == "Run complete", "sent, back at the end")
+    assert(said.text == o.ShareText(o.state) and not said.text:find("|", 1, true), "plain text")
+    assert(said.text:match("^Azeroth Surfers: [%d,]+ points, [%d,]+ yards, [%d,]+ coins on %a+$"), said.text)
+    local s = { score = 0, coins = 1234, difficulty = { name = "Hard" }, newBest = true }
+    s.challenge = { kind = { name = "Daily" } }
+    local score, run = g.Score, g.Run
+    g.Score, g.Run = function()
+        return 42310
+    end, function()
+        return 5200.7
+    end
+    local line = o.ShareText(s)
+    g.Score, g.Run = score, run
+    assert(
+        line == "Azeroth Surfers daily challenge: 42,310 points, 5,200 yards, 1,234 coins on Hard, a new best!",
+        line
+    )
+    IsInGuild, IsInGroup, SendChatMessage = nil, nil, nil
+end
 -- A challenge's end: how much it beat or missed the best before it by, when both reached the
 -- last portal or neither did.
 -- (The scorecard's challenge card shows its label, goal, difficulty and reset too.)
