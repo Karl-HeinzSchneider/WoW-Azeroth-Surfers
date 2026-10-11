@@ -14,6 +14,7 @@ local profile = {
     enemySound = true, -- enemies passed and wildlife
     portalSound = true,
     music = true, -- the title music on the title screen and in the menu
+    challengeReminder = true, -- a chat line at login: each challenge new, beaten or not finished
     legend = true,
     -- A biome id, or "auto": zone to zone as the run goes.
     biome = "auto",
@@ -57,9 +58,11 @@ local char = {}
 local global = {
     dbVersion = 1,
     bestScore = 0,
-    -- The best run of each challenge (challenges.lua's Best), by its period's key, then by
-    -- difficulty id.
+    -- The best run of each challenge (challenges.lua's Best), by its period's key.
     challenges = {},
+    -- The bests the guild and the group shared (leaderboard.lua), by the period's key, then by
+    -- the player's name; only the current periods'.
+    leaderboard = {},
 }
 
 ---@class AzerothSurfers.DBDefaults : AceDB.Schema

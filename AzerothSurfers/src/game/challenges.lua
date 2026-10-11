@@ -165,8 +165,8 @@ function challenges.Best(period)
     end
 end
 
--- Whether `record` beats `best`: reaching the portal first, then the score.
-local function beats(record, best)
+-- Whether `record` beats `best` (nil: none yet): reaching the portal first, then the score.
+function challenges.Beats(record, best)
     if not best then
         return true
     elseif record.finished ~= best.finished then
@@ -178,7 +178,7 @@ end
 -- Keeps `record` (fields as in Best) if it beats the saved one; true then.
 function challenges.Save(period, record)
     local all = app.db.global.challenges
-    if not beats(record, challenges.Best(period)) then
+    if not challenges.Beats(record, challenges.Best(period)) then
         return false
     end
     all[period.key] = record
@@ -329,4 +329,33 @@ function challenges.ShortLabel(period, now)
     end
     local thisYear = challenges.Date(math.floor((now or challenges.Now()) / DAY))
     return y == thisYear and string.format("%d %s", d, month) or string.format("%d %s %d", d, month, y)
+end
+
+-- How this player stands in the current period of `id` (`now` as in Period): "new" (no run
+-- yet), "beaten" (a run reached its finish) or "tried" (none did yet); then its best (Best)
+-- and the period.
+function challenges.Status(id, now)
+    local period = challenges.Period(id, now)
+    local best = challenges.Best(period)
+    return (not best and "new") or (best.finished and "beaten") or "tried", best, period
+end
+
+-- The status as players read it: "new", "beaten (1234)", "not finished (800)", in its color.
+local STATUS = {
+    new = "|cff20ff20new|r",
+    beaten = "|cffffd100beaten (%d)|r",
+    tried = "|cffff8040not finished (%d)|r",
+}
+function challenges.StatusText(id, now)
+    local status, best = challenges.Status(id, now)
+    return string.format(STATUS[status], best and best.score or 0)
+end
+
+-- The login reminder: one chat line with every kind's status.
+function challenges.Reminder(now)
+    local parts = {}
+    for i, kind in ipairs(challenges.KINDS) do
+        parts[i] = kind.name .. " " .. challenges.StatusText(kind.id, now)
+    end
+    return "Challenges: " .. table.concat(parts, ", ")
 end

@@ -27,6 +27,7 @@ src\scenes\lobby.lua
 src\game\random.lua
 src\game\simulation.lua
 src\game\challenges.lua
+src\game\leaderboard.lua
 src\game\track.lua
 src\patterns\patterns.xml
 src\game\autopilot.lua

@@ -35,7 +35,17 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
+    self:RegisterEvent("PLAYER_ENTERING_WORLD")
     log:debug("Enabled")
+end
+
+-- At login (not on a reload or a loading screen): the challenge reminder, once the realm's
+-- clock is known.
+function addon:PLAYER_ENTERING_WORLD(_, isInitialLogin)
+    self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+    if isInitialLogin and self.db.profile.challengeReminder then
+        log:chat(app.challenges.Reminder())
+    end
 end
 
 function addon:OnDisable()
