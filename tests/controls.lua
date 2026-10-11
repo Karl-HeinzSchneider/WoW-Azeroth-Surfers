@@ -604,6 +604,9 @@ print("PASS stats: runs and totals counted once, records from runs that keep a b
 -- hold one action; releasing one must not extinguish the other. Taps survive one stream frame.
 do
     local now = 10
+    GetBindingKey = function()
+        return "W"
+    end
     GetTime = function()
         return now
     end
@@ -617,8 +620,11 @@ do
         end,
     }
     hud.inputHudCaps = {}
-    for i = 1, 7 do
+    for i = 1, 13 do
         local cap = { SetShown = function() end, SetBackdropBorderColor = function() end }
+        cap.SetAlpha = function(_, value)
+            cap.alpha = value
+        end
         cap.SetBackdropColor = function(_, red)
             cap.lit = red == 0.1
         end
@@ -648,10 +654,28 @@ do
     hud.screen = "menu"
     hud:InputHudPress("W", "W")
     hud:UpdateInputHud()
-    assert(hud.inputHudCaps[1].lit and hud.inputHudCaps[1].action == "up", "menu context uses menu bindings")
+    assert(hud.inputHudCaps[8].lit and hud.inputHudCaps[8].action == "up", "menu context uses menu bindings")
+    assert(
+        hud.inputHudCaps[1].action == "jump" and hud.inputHudCaps[1].alpha == 0.3,
+        "gameplay keys retain their layout and dim in menus"
+    )
+    assert(
+        hud.inputHudCaps[7].action == "forward" and hud.inputHudCaps[7].alpha == 0.3,
+        "captured forward key stays visible and dim"
+    )
     hud:ClearInputHud()
     assert(not hud.inputHudHeld and not hud.inputHudUntil, "closing clears held inputs and taps")
     hud.screen = nil
+    probe.db.profile.keys.left = { false, false, false, false }
+    hud:UpdateInputHud()
+    assert(
+        hud.inputHudCaps[2].action == "left" and hud.inputHudCaps[2].alpha == 0.3,
+        "unbound actions keep their position and dim"
+    )
+    assert(
+        hud.inputHudCaps[8].action == "up" and hud.inputHudCaps[8].alpha == 0.3,
+        "menu keys retain their layout and dim during gameplay"
+    )
     hud:InputHudPress("PAD1", "PAD1")
     assert(hud.inputHudHeld.PAD1 == "jump", "controller presses use the same actions")
     probe.db.profile.inputHud = false

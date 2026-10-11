@@ -4,9 +4,36 @@ local overlay = app.overlay
 
 -- Actions rather than physical keyboard positions: remapped keys and gamepad buttons share
 -- the same indicators. Short taps stay visible for 120 ms so a stream can show them.
-local RUN = { "jump", "left", "duck", "right", "pause", "restart", "forward" }
-local MENU = { "up", "menuLeft", "down", "menuRight", "accept", "back", "restart" }
-local POSITIONS = { { 90, -32 }, { 12, -90 }, { 90, -90 }, { 168, -90 }, { 246, -32 }, { 246, -90 }, { 324, -90 } }
+local ACTIONS = {
+    "jump",
+    "left",
+    "duck",
+    "right",
+    "pause",
+    "restart",
+    "forward",
+    "up",
+    "menuLeft",
+    "down",
+    "menuRight",
+    "accept",
+    "back",
+}
+local POSITIONS = {
+    { 96, -36 },
+    { 18, -94 },
+    { 96, -94 },
+    { 174, -94 },
+    { 252, -36 },
+    { 252, -94 },
+    { 330, -94 },
+    { 96, -176 },
+    { 18, -234 },
+    { 96, -234 },
+    { 174, -234 },
+    { 252, -176 },
+    { 252, -234 },
+}
 
 function overlay:InputHudContext()
     return (self.screen == "title" or self.screen == "menu" or self.statusOpen) and "menu" or "run"
@@ -56,17 +83,14 @@ function overlay:RefreshInputHud()
 end
 
 function overlay:UpdateInputHud()
-    if GetCurrentKeyBoardFocus() or (app.options and app.options:IsOpen()) or (self.auto and self.side) then
+    local blocked = GetCurrentKeyBoardFocus() or (app.options and app.options:IsOpen()) or (self.auto and self.side)
+    if blocked then
         self:ClearInputHud()
     end
-    local actions = self:InputHudContext() == "menu" and MENU or RUN
+    local context = self:InputHudContext()
     local now, slot = GetTime(), self:ShownSlot()
     for i, cap in ipairs(self.inputHudCaps) do
-        local id = actions[i]
-        if id == "forward" and self.capture then
-            id = nil
-        end
-        cap:SetShown(id ~= nil)
+        local id = ACTIONS[i]
         if id then
             local action = overlay.ACTION_BY_ID[id]
             local key
@@ -76,6 +100,21 @@ function overlay:UpdateInputHud()
                 key = overlay.ActionKey(id, slot) or overlay.ActionKey(id, slot + 1)
             end
             local text = key and overlay.KeyText(key) or "—"
+            local enabled = key ~= nil and not blocked
+            if id == "forward" then
+                enabled = enabled and context == "run" and not self.capture and not self.auto
+            else
+                enabled = enabled and overlay.SameContext(action.context, context)
+                if self.screen == "title" then
+                    enabled = enabled and id == "accept"
+                elseif self.screen == "start" or (self.auto and context == "run") then
+                    enabled = enabled and (id == "pause" or id == "restart")
+                end
+            end
+            if cap.enabled ~= enabled then
+                cap.enabled = enabled
+                cap:SetAlpha(enabled and 1 or 0.3)
+            end
             if cap.keyText ~= text then
                 cap.keyText = text
                 cap.text:SetText(text)
@@ -90,6 +129,7 @@ function overlay:UpdateInputHud()
                     active = active or held == id
                 end
             end
+            active = active and enabled
             if cap.active ~= active then
                 cap.active = active
                 if active then
@@ -105,19 +145,28 @@ function overlay:UpdateInputHud()
 end
 
 function overlay:CreateInputHud()
-    local f = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", nil, UIParent, "DialogBorderTemplate")
     self.inputHud = f
-    f:SetSize(412, 160)
+    f:ClearAllPoints()
+    f:SetSize(430, 310)
     f:SetFrameStrata("HIGH")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
     f:EnableMouse(true)
     f:RegisterForDrag("LeftButton")
-    f:SetBackdrop({ bgFile = "Interface\\Tooltips\\UI-Tooltip-Background" })
-    f:SetBackdropColor(0.03, 0.03, 0.05, 0.85)
-    local title = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    title:SetPoint("TOPLEFT", 12, -10)
-    title:SetText("Input HUD")
+    local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    title:SetPoint("TOPLEFT", 18, -14)
+    title:SetText("INPUT HUD")
+    title:SetTextColor(0.72, 0.68, 0.58)
+    local divider = f:CreateTexture(nil, "ARTWORK")
+    divider:SetTexture("Interface\\Common\\UI-TooltipDivider")
+    divider:SetPoint("TOPLEFT", 14, -152)
+    divider:SetPoint("TOPRIGHT", -14, -152)
+    divider:SetHeight(8)
+    local menuLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    menuLabel:SetPoint("TOPLEFT", 18, -160)
+    menuLabel:SetText("MENU")
+    menuLabel:SetTextColor(0.72, 0.68, 0.58)
     f:SetScript("OnDragStart", function()
         f:StartMoving()
     end)
