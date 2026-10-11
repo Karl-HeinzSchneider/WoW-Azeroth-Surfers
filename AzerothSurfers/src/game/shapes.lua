@@ -59,18 +59,18 @@ local function post(o, near, left, z)
 end
 
 -- How far faces are drawn this frame: DRAW_DISTANCE, or nearer where the view ends (a gate).
-local limit, coinNear = DRAW_DISTANCE, NEAR
+local limit, boxNear, coinNear = DRAW_DISTANCE, NEAR, NEAR
 
 local function box(o, s, viewX)
     local near, far = o.at - s.distance, o.at + o.length - s.distance
-    if far < NEAR or near > limit then
+    if far < boxNear or near > limit then
         return
     end
     local x = -o.lane * LANE
     local half = bounds.halfWidth[o.kind]
     local x1, x2 = x - half, x + half
     local bottom = o.layer * sim.LAYER
-    if near >= NEAR then
+    if near >= boxNear then
         local z, top = bottom + ground(near), sim.Top(o, o.at) + ground(near)
         if top - z > 0.01 then
             add(o, o.kind, "front", near, near, x1, top, near, x1, z, near, x2, top, near, x2, z)
@@ -82,7 +82,7 @@ local function box(o, s, viewX)
         end
     end
     -- A ramp's slope and the flat top after it are separate faces.
-    local a, b = math.max(near, NEAR), math.min(far, limit)
+    local a, b = math.max(near, boxNear), math.min(far, limit)
     local rampEnd = o.ramp and near + o.ramp
     if rampEnd and rampEnd > a and rampEnd < b then
         segment(o, s, viewX, x1, x2, a, rampEnd)
@@ -105,11 +105,12 @@ end
 
 -- Every face in view, reusing the same tables every frame. `viewX`: the camera's position to the
 -- screen's right (which sides it sees); `far`: where the view ends this frame.
--- `nearCoins`: behind the camera, with room for the coin's size; boxes keep their own cutoff.
-function shapes.Collect(s, viewX, far, nearCoins)
+-- `nearBoxes`: where boxes are cut off, just ahead of the camera (a face is drawn only whole);
+-- `nearCoins`: behind the camera, with room for the coin's size.
+function shapes.Collect(s, viewX, far, nearBoxes, nearCoins)
     count = 0
     limit = math.min(DRAW_DISTANCE, far or DRAW_DISTANCE)
-    coinNear = nearCoins or NEAR
+    boxNear, coinNear = nearBoxes or NEAR, nearCoins or NEAR
     for _, o in ipairs(s.objects) do
         if not o.hit then
             if o.kind == "coin" then

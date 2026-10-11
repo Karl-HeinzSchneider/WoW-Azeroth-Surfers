@@ -9,7 +9,7 @@ app.simulation = game
 
 -- A jump (about 1.64 yards) reaches a little past layer 2.
 game.LAYER = 0.6
--- Missed coins and enemies remain available beyond the maximum 24-yard camera distance.
+-- Passed boxes and missed coins remain available beyond the maximum 24-yard camera distance.
 game.VIEW_BEHIND = 32
 game.geometry = {
     laneWidth = 2.4,
@@ -375,7 +375,7 @@ local function tick(s)
                 s.coinTotal = s.coinTotal + 1
             end
         end
-        local behind = (o.kind == "enemy" or (o.kind == "coin" and not o.hit)) and game.VIEW_BEHIND or 4
+        local behind = (o.kind ~= "coin" or not o.hit) and game.VIEW_BEHIND or 4
         if o.at + o.length < s.distance - behind then
             table.remove(s.objects, i)
         end
