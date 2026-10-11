@@ -62,8 +62,10 @@ display's existing voice wins. Other local constants in rendering/control code a
   setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
   status (`challenges.StatusText`). The minimap/LDB launcher uses the supplied static
-  `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes,
-  masks or update handlers. The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
+  `assets/core/gem128.blp`; LibDBIcon handles the button normally, without custom scenes
+  or update handlers. An opaque black circle under the image uses Blizzard's portrait mask
+  and slightly overlaps the inner rim to cover fading alpha and background seams.
+  The TOC keeps `assets/core/icon-gem-zoomed.tga` for the addon list;
   `icon-gem.tga` retains the wider variant.
   The minimap image sits two UI pixels below the library's client-specific default anchor;
   registration and profile refresh reapply that offset without moving the rim or hit area.

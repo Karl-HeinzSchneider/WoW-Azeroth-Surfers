@@ -6,9 +6,11 @@ local addon = app.addon
 
 -- Custom minimap/LDB texture; the addon-list icon is set separately in the TOC.
 local ICON = "Interface\\AddOns\\AzerothSurfers\\assets\\core\\gem128"
+local CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
 ---@class AzerothSurfers.MinimapButton : AceModule
 ---@field ldb LibDataBroker.QuickLauncher
+---@field backdrop table?  # opaque circular backing under the supplied icon
 local module = {}
 app.minimapButton = addon:NewModule("MinimapButton", module) --[[@as AzerothSurfers.MinimapButton]]
 
@@ -51,9 +53,30 @@ function module:PositionIcon()
     -- Start from the library's client-specific anchor so refreshes cannot accumulate
     -- the offset. Move only the image, keeping the rim and button hit area in place.
     icon:ResetButtonIcon(appName)
-    local texture = icon:GetMinimapButton(appName).icon
+    local button = icon:GetMinimapButton(appName)
+    local texture = button.icon
     local point, relativeTo, relativePoint, x, y = texture:GetPoint()
     texture:SetPoint(point, relativeTo, relativePoint, x, y - 2)
+    self:PositionBackdrop(button)
+end
+
+function module:PositionBackdrop(button)
+    if not self.backdrop then
+        local fill = button:CreateTexture(nil, "BACKGROUND", nil, 1)
+        fill:SetColorTexture(0, 0, 0, 1)
+        local mask = button:CreateMaskTexture()
+        mask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        mask:SetAllPoints(fill)
+        fill:AddMaskTexture(mask)
+        self.backdrop = { fill = fill, mask = mask }
+    end
+    -- Cover the icon's fading alpha with a solid interior. The extra diameter sits
+    -- under the gold rim, avoiding an exposed seam along the stock background edge.
+    local fill = self.backdrop.fill
+    local size = math.max(26, button.background:GetWidth() + 2, button.background:GetHeight() + 2)
+    fill:SetSize(size, size)
+    fill:ClearAllPoints()
+    fill:SetPoint("CENTER", button.background, "CENTER", 1, -2)
 end
 
 -- The addon's first OnProfileRefresh runs before module:OnInitialize, hence the guard.
