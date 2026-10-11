@@ -120,8 +120,9 @@ local DIFFICULTY = {
 }
 
 -- A custom game's settings (screens.lua's Custom page, and its pause and end menus): every run
--- of it takes them, from the menu and every restart. A new one is an item here (menus.lua) over
--- a profile setting NewState (controls.lua) reads while `custom` is on.
+-- of it takes them, from the menu and every restart. A new one is an item on its category's
+-- page here (menus.lua; a new category is a page and an item in CUSTOM) over a profile setting
+-- NewState (controls.lua) reads while `custom` is on.
 -- The seed: the fixed one, or a new one each run. One typed in is fixed from now on.
 local SEED = {
     text = "Seed",
@@ -167,7 +168,43 @@ local START_AT = {
         end,
     },
 }
-overlay.CUSTOM = { SEED_MODE, SEED, START_AT }
+-- Yards into the seed every run ends, at a last portal as a challenge's does; 0: never.
+local END_AT = {
+    text = "Ends at",
+    input = {
+        get = function()
+            local yards = app.db.profile.endAt or 0
+            return yards > 0 and tostring(yards) or "Never"
+        end,
+        set = function(o, typed)
+            local yards = tonumber(typed)
+            if yards then
+                o:SetEndAt(yards)
+            end
+        end,
+    },
+}
+-- The settings by category, a page each: the custom game's page, its pause and end menus show
+-- one item per category that opens its page.
+local SEED_PAGE = {
+    title = "Seed options",
+    items = { SEED_MODE, SEED, START_AT, END_AT, { text = "Back", back = true } },
+    extra = {
+        text = "New seed",
+        run = function(o)
+            o:SetSeed(app.random.Seed())
+        end,
+    },
+}
+local function category(page)
+    return {
+        text = page.title,
+        run = function(_, menu)
+            menu:Push(page)
+        end,
+    }
+end
+overlay.CUSTOM = { category(SEED_PAGE) }
 
 local function restart(o)
     if not InCombatLockdown() then
@@ -445,10 +482,11 @@ function overlay:EndAnnouncement()
     end
 end
 
--- A challenge's last portal (`s.finish`), gone through: its banner and fanfare (with the
--- portal sounds).
+-- A challenge's or a custom game's last portal (`s.finish`), gone through: its banner and
+-- fanfare (with the portal sounds).
 function overlay:Finish(s)
-    self:Announce("Finish!", FINISH_SECONDS, s.challenge and s.challenge.kind.name .. " challenge")
+    local small = s.challenge and s.challenge.kind.name .. " challenge" or s.custom and "Custom game" or nil
+    self:Announce("Finish!", FINISH_SECONDS, small)
     if app.db.profile.portalSound then
         PlaySoundFile(FINISH_SOUND, "SFX")
     end

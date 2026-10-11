@@ -823,6 +823,8 @@ assert(said.text == "Finish!" and said.small == "Daily challenge" and fanfares =
 app.db.profile.portalSound = false
 o:Finish({})
 assert(said.small == "" and fanfares == 1, "silent without portal sounds")
+o:Finish({ custom = true })
+assert(said.small == "Custom game", "a custom game's end")
 app.db.profile.portalSound, PlaySoundFile = portalSound, playSound
 -- Ended early (a menu over it): it fades out from then on, from where its fade in got to.
 now = 200
@@ -1006,15 +1008,28 @@ press("S")
 press("E")
 local custom = main:Page()
 assert(custom.title == "Custom" and main.stack[2].selected == 2, "Custom opens its page, at Play past its note")
+assert(custom.items[3].text == "Difficulty" and custom.items[4].text == "Seed options")
+press("S")
+press("S")
+press("E")
+local seedPage = main:Page()
+assert(seedPage.title == "Seed options", "its seed options on a page of their own")
 assert(press("R") == false and app.db.profile.seed, "R fixes a new seed")
-local item
-for _, it in ipairs(custom.items) do
-    if it.text == "Seed" then
-        item = it
+local function item(page, label)
+    for _, it in ipairs(page.items) do
+        if it.text == label then
+            return it
+        end
     end
 end
-item.input.set(o, "12345")
-assert(app.db.profile.seed == 12345 and item.input.get(o) == "12345", "a seed typed in")
+item(seedPage, "Seed").input.set(o, "12345")
+assert(app.db.profile.seed == 12345 and item(seedPage, "Seed").input.get(o) == "12345", "a seed typed in")
+assert(item(seedPage, "Ends at").input.get(o) == "Never", "no end at first")
+item(seedPage, "Ends at").input.set(o, "3000")
+assert(app.db.profile.endAt == 3000 and item(seedPage, "Ends at").input.get(o) == "3000", "an end typed in")
+app.db.profile.endAt = 0
+press("Q", "STRAFELEFT")
+assert(main:Page() == custom, "back to Custom")
 press("Q", "STRAFELEFT")
 assert(main:Page().title == nil and main.stack[1].selected == 3, "back at Custom")
 press("UP")
@@ -1117,11 +1132,11 @@ local function labels()
     end
     return table.concat(list, ",")
 end
-assert(not labels():find("Seed"), "Play's end: no custom settings")
+assert(not labels():find("Seed options", 1, true), "Play's end: no custom settings")
 o.state.newBest, o.state.custom = nil, true
 ended()
 assert(status:Page().items[1].text == "Custom game: no best score", "a custom run says it saves none")
-assert(labels():find("Seed mode,Seed,Start at", 1, true), "and has its settings")
+assert(labels():find("Seed options", 1, true), "and its settings' pages")
 o.state.custom = nil
 ended()
 assert(not status:Page().items[1].note, "a plain run without a new best: no note")

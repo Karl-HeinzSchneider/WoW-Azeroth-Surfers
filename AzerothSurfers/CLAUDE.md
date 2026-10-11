@@ -57,8 +57,9 @@ default in `db.lua` and an entry in `options.lua`.
   lays out one track, from the menu or a restart. Play's runs draw a new seed each and begin
   at the camp; a custom game (the main menu's Custom, `overlay.custom`, cleared by the menu or
   the title; `s.custom`) takes `CUSTOM`'s settings (messages.lua: `profile.seed`, fixed or new
-  each run, and "Start at", `profile.startAt`, from the menu and every restart) and saves no
-  best score.
+  each run, "Start at", `profile.startAt`, from the menu and every restart, and "Ends at",
+  `profile.endAt`, a last portal as a challenge's `finish`, yards from the camp as "Start at")
+  and saves no best score.
 - `challenges.lua` — `app.challenges`: daily, weekly and monthly challenges.
   - Periods: one begins at `RESET_HOUR` UTC (a week on Monday, a month on the 1st), counted
     from the realm's clock (`Now`). `Period(id, now)` gives its `key` ("daily-20371", the key
@@ -147,10 +148,11 @@ default in `db.lua` and an entry in `options.lua`.
     live target, ahead or behind the best at this distance),
     `legend.lua` (the running keys, below the scorecard and the challenge card).
   - `messages.lua` — the pause and end menus (difficulty, and in a custom game its settings,
-    `CUSTOM`: **a new custom setting is an item there** over a profile setting `NewState`
-    reads; full screen, they hang from one top line); a challenge's own pause and end
-    pages (its best, the difference to the one before); announcements (the challenge's
-    "Finish!", `Finish`), the gate's flash and vortex.
+    `CUSTOM`, a page per category such as Seed options: **a new custom setting is an item on
+    its category's page** over a profile setting `NewState` reads; full screen, they hang from
+    one top line); a challenge's own pause and end pages (its best, the difference to the one
+    before); announcements (the challenge's or a custom game's "Finish!", `Finish`), the gate's
+    flash and vortex.
   - `menus.lua` — the menu window: pages of items (actions, choices, info lines, notes, number
     boxes, grayed out while they cannot be typed in) steered by directions, accept, back and a
     page's extra action; a page may set its own `width`, or be a table (`columns`: sized from

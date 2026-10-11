@@ -423,6 +423,13 @@ print("PASS a seed's track is the same from the menu, a restart and a later star
 app.db.profile.seed, app.db.profile.startAt = false, 2000
 r:Restart()
 assert(r.state.custom and r.state.practice == 2000 and r.state.distance >= 2000, "a new seed, 2000 yards in")
+-- "Ends at": a last portal that far into the seed, past its start, as a challenge's.
+app.db.profile.endAt = 3500
+r:Restart()
+assert(r.state.finish == 3500 and r.state.finish - r.state.start == 1500, "1500 yards from 2000 to 3500")
+app.db.profile.endAt = 1000
+r:Restart()
+assert(not r.state.finish, "an end before the start: none")
 app.db.profile.startAt = 0
 r:Restart()
 r.state.status, r.state.points = "over", 9000
@@ -440,7 +447,7 @@ assert(r:NewState(app.lobby).seed ~= 777, "and from the menu")
 r.state.status, r.state.points = "over", 9000
 r:SaveBest()
 assert(app.db.global.bestScore == g.Score(r.state) and r.state.newBest, "Play's best is the best score")
-app.db.global.bestScore = 0
+app.db.global.bestScore, app.db.profile.endAt = 0, 0
 print("PASS a custom game's settings, and Play's new seed each run")
 
 -- A challenge: its seed and difficulty through zones to its goal, whatever the profile's seed,

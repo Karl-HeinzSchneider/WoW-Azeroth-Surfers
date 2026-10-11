@@ -75,7 +75,8 @@ end
 -- `at` yards in: a seed lays out one track, from the menu or a restart. A run from Play draws
 -- a new seed each time and begins at the portal. While a custom game is on (`custom`: the main
 -- menu's Custom), its settings (`CUSTOM` in messages.lua: the profile's fixed `seed`, else a new
--- one, and `startAt`, `at` when left out) and `s.custom`, so it saves no best score. While a
+-- one, `startAt`, `at` when left out, and `endAt`, its last portal) and `s.custom`, so it saves
+-- no best score. While a
 -- challenge is on (`challenge`, its period: screens.lua's PlayChallenge), its seed and
 -- difficulty through zones to its goal, never further in.
 function overlay:NewState(lobby, seed, at)
@@ -96,6 +97,12 @@ function overlay:NewState(lobby, seed, at)
     local zones = profile.biome == app.biomes.AUTO
     local s = sim.New(seed or (custom and profile.seed) or nil, profile.difficulty, zones, lobby or app.lobby)
     s.custom = custom or nil
+    -- A custom game's end, past its start and the portal: a last portal there, as a challenge's
+    -- `finish` (yards from the camp, as "Start at").
+    local endAt = custom and profile.endAt or 0
+    if endAt > math.max(profile.startAt or 0, s.start) then
+        s.finish = endAt
+    end
     if not lobby then
         sim.Skip(s, at or (custom and profile.startAt) or 0)
     end
@@ -106,6 +113,18 @@ end
 -- not started yet takes it at once.
 function overlay:SetStartAt(yards)
     app.db.profile.startAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
+    if app.options then
+        app.options:Refresh()
+    end
+    if self.frame and self.state.status == "ready" and not self.state.lobby then
+        self.state = self:NewState(nil, self.state.seed)
+    end
+end
+
+-- A custom game's end (`CUSTOM` in messages.lua): yards into the seed every run ends at a last
+-- portal, 0 for never. A run not started yet takes it at once.
+function overlay:SetEndAt(yards)
+    app.db.profile.endAt = math.max(0, math.min(sim.MAX_START, math.floor(yards or 0)))
     if app.options then
         app.options:Refresh()
     end

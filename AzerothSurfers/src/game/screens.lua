@@ -77,8 +77,8 @@ PAGES.play = {
         { text = "Cancel", back = true },
     },
 }
--- A custom game: Play's items and every setting of messages.lua's CUSTOM (seed, start at, ...);
--- its runs save no best score.
+-- A custom game: Play's items and messages.lua's CUSTOM (a page of settings per category, the
+-- seed's among them); its runs save no best score.
 do
     local items = {
         { text = "Your own settings, no best score", note = GRAY },
@@ -100,16 +100,7 @@ do
         end,
     }
     items[#items + 1] = { text = "Cancel", back = true }
-    PAGES.custom = {
-        title = "Custom",
-        items = items,
-        extra = {
-            text = "New seed",
-            run = function(o)
-                o:SetSeed(app.random.Seed())
-            end,
-        },
-    }
+    PAGES.custom = { title = "Custom", items = items }
 end
 -- A challenge's best (challenges.lua's Best): its score, and how far it got if it did not reach
 -- the portal.

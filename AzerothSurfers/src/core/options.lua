@@ -369,6 +369,23 @@ local game = {
                 app.overlay:SetStartAt(tonumber(value))
             end,
         },
+        endAt = {
+            type = "input",
+            order = 14,
+            name = "Ends at (yards)",
+            desc = "Yards into the seed every custom game run ends, at a last portal as a challenge's run does; past Start at. 0: never.",
+            get = function()
+                return tostring(app.db.profile.endAt or 0)
+            end,
+            validate = function(_, value)
+                local yards = tonumber(value)
+                return (yards and yards >= 0 and yards <= app.simulation.MAX_START)
+                    or ("Enter a number of yards from 0 to " .. app.simulation.MAX_START .. ".")
+            end,
+            set = function(_, value)
+                app.overlay:SetEndAt(tonumber(value))
+            end,
+        },
         controlsHeader = header(20, "Controls"),
         capture = toggle(
             21,
