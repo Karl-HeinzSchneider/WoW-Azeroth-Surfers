@@ -52,7 +52,7 @@ display's existing voice wins. Other local constants in rendering/control code a
 - `logger.lua` — `app.logger`: `log("x")` is `log:info("x")`, `log:debug(fmt, ...)` formats,
   `log:chat(...)` is unfiltered user output, `log:dump(tbl)` at DEBUG.
 - `db.lua` — `app.dbDefaults`: `profile` (user settings), `char`, `global` (`dbVersion`,
-  `bestScore`, `stats`, `challenges`, `leaderboard`).
+  `bestScore`, `tipsShown`, `stats`, `challenges`, `leaderboard`).
 - `ace.lua` — `app.addon`. `OnProfileRefresh` calls every module's `OnProfileRefresh`.
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
@@ -209,7 +209,8 @@ default in `db.lua` and an entry in `options.lua`.
     the seated character, the way into a run, title music; the main menu's pages: Play (a new
     seed, difficulty, auto mode), Challenges (each challenge's page, its leaderboard, the
     history and streak; `PlayChallenge`), Custom (Play's items and `CUSTOM`; `PlayCustom`),
-    Stats (stats.lua's totals and records, the best per difficulty a table);
+    Stats (stats.lua's totals and records, the best per difficulty a table), How to play (the
+    track and a run's keys; shown once over the menu's first opening, `global.tipsShown`);
     the keys of every screen and menu (`OnScreenKey`).
   - `controls.lua` — input, per-frame `Step` (a challenge's finish and trace), best score (a
     challenge's: `SaveChallenge`, shared with `leaderboard:Share`), auto mode.
