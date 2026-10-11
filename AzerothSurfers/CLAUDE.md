@@ -127,7 +127,7 @@ default in `db.lua` and an entry in `options.lua`.
   difficulty only from Play's.
 - `leaderboard.lua` — `app.leaderboard` (an Ace module with AceComm): the challenges' bests of
   the guild and the group, no server. A new best goes out on GUILD and PARTY or RAID (`Share`);
-  opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel
+  opening a challenge's leaderboard (screens.lua) asks them for theirs (`Ask`, once per channel and period
   every `ASK_EVERY`), and whoever has one answers on that channel (once every `ANSWER_EVERY`).
   The message format is at the top of the file. Only the current periods' bests are kept, in
   `global.leaderboard` by key then sender (ended periods dropped at login and reload, `Prune`);

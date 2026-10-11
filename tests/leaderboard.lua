@@ -111,16 +111,26 @@ test("anything malformed, out of period, from elsewhere or from oneself is ignor
     assert(#sent() == 0, "nothing answered")
 end)
 
-test("asking: once per channel a while, answered with the bests one has", function()
+test("asking: once per channel and period a while, answered with the bests one has", function()
     group = true
     board:Ask(daily)
     local out = sent()
     assert(#out == 2 and out[1].text == "2 Q " .. daily.key, out[1] and out[1].text)
     board:Ask(daily)
     assert(#sent() == 0, "not again so soon")
-    now = now + board.ASK_EVERY
     board:Ask(weekly)
-    assert(#sent() == 2, "again after a while")
+    out = sent()
+    assert(#out == 2 and out[1].text == "2 Q " .. weekly.key, "another challenge without waiting")
+    local monthly = c.Period("monthly")
+    board:Ask(monthly)
+    out = sent()
+    assert(#out == 2 and out[1].text == "2 Q " .. monthly.key, "monthly without waiting")
+    board:Ask(weekly)
+    board:Ask(monthly)
+    assert(#sent() == 0, "each challenge keeps its own cooldown")
+    now = now + board.ASK_EVERY
+    board:Ask(daily)
+    assert(#sent() == 2, "same challenge again after a while")
     group = false
     -- Answers: only with a best of the period, once a while per channel and period.
     board:Receive("2 Q " .. daily.key, "GUILD", "Ann")
