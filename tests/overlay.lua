@@ -762,6 +762,51 @@ assert(o.banner.start, "still fading out")
 now = 100 + 0.3 + 2 + 0.7
 o:ShowBanner()
 assert(not o.banner.start, "gone after its fade out")
+-- A challenge's last portal: its banner, and the fanfare unless portal sounds are off.
+local fanfares, said = 0, {}
+local banner = o.banner
+local setText, setSmall, setAlpha = banner.text.SetText, banner.small.SetText, banner.frame.SetAlpha
+function banner.text:SetText(text)
+    said.text = text
+end
+function banner.small:SetText(text)
+    said.small = text
+end
+function banner.frame:SetAlpha(alpha)
+    said.alpha = alpha
+end
+local playSound = PlaySoundFile
+function PlaySoundFile(file, channel)
+    assert(file == 567431 and channel == "SFX")
+    fanfares = fanfares + 1
+end
+local portalSound = app.db.profile.portalSound
+app.db.profile.portalSound = true
+o:Finish({ challenge = { kind = { name = "Daily" } } })
+assert(said.text == "Finish!" and said.small == "Daily challenge" and fanfares == 1)
+app.db.profile.portalSound = false
+o:Finish({})
+assert(said.small == "" and fanfares == 1, "silent without portal sounds")
+app.db.profile.portalSound, PlaySoundFile = portalSound, playSound
+-- Ended early (a menu over it): it fades out from then on, from where its fade in got to.
+now = 200
+o:Announce("Finish!", 1.5)
+now = 201
+o:EndAnnouncement()
+o:ShowBanner()
+assert(o.banner.start and said.alpha == 1, "fading out from full")
+now = 201 + 0.71
+o:ShowBanner()
+assert(not o.banner.start, "gone after its fade out")
+o:Announce("Finish!", 1.5)
+now = now + 0.15
+o:EndAnnouncement()
+o:ShowBanner()
+assert(math.abs(said.alpha - 0.5) < 1e-6, "from halfway in")
+now = now + 0.36
+o:ShowBanner()
+assert(not o.banner.start)
+banner.text.SetText, banner.small.SetText, banner.frame.SetAlpha = setText, setSmall, setAlpha
 function GetTime()
     return 0
 end
@@ -950,6 +995,32 @@ assert(status:Page().items[1].text == "From 3000 yd: no best score", "a run begu
 o.state.practice = nil
 ended()
 assert(not status:Page().items[1].note, "a plain run without a new best: no note")
+-- A challenge's end: how much it beat or missed the best before it by, when both reached the
+-- last portal or neither did.
+-- (The scorecard's challenge card shows its label, goal, difficulty and reset too.)
+o.state.challenge, o.state.finished =
+    {
+        kind = { name = "Daily" },
+        key = "daily-1",
+        label = "2 January 1970",
+        goal = 5000,
+        difficulty = "normal",
+        ends = 2 * 86400,
+    }, true
+o.state.lastBest = { score = g.Score(o.state) + 120, finished = true }
+ended()
+assert(status:Page().title == "Challenge complete" and status:Page().items[1].text == "120 short of your best")
+o.state.newBest, o.state.lastBest.score = true, g.Score(o.state) - 80
+ended()
+assert(status:Page().items[1].text == "New best!" and status:Page().items[2].text == "80 more than your best")
+o.state.newBest, o.state.lastBest.score = nil, g.Score(o.state)
+ended()
+assert(status:Page().items[1].text == "Level with your best")
+o.state.finished = false
+ended()
+local items = status:Page().items
+assert(items[1].text == "The last portal not reached" and not items[2].note, "only one through it: no difference")
+o.state.challenge, o.state.finished, o.state.lastBest = nil, nil, nil
 assert(press("SPACE", "JUMP") == true and o.state.status == "over", "jump goes on to WoW")
 -- Captured, a key the menu leaves unused stays with the game: the character does not jump.
 o.capture = true

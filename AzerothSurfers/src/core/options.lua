@@ -612,7 +612,7 @@ local sound = {
             3,
             "portalSound",
             "Portal sounds",
-            "Play a teleport sound when you go through a portal between zones."
+            "Play a teleport sound when you go through a portal between zones, and a fanfare at a challenge's last portal."
         ),
         music = toggle(
             4,

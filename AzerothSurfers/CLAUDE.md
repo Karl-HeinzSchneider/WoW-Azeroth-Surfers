@@ -64,10 +64,12 @@ default in `db.lua` and an entry in `options.lua`.
   the menu or the title) always runs through zones from the lobby at its own difficulty, never
   "Start at"; `simulation.New(..., goal)` gives it a `finish`, where track.lua lays out a last
   portal and nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`).
-  Its best per period is in `global.challenges` (`Best`, `Save`: reaching the portal first,
-  then the score); it never counts as the endless best score. A challenge's run keeps its score
-  every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved with its best, for the live target
-  (`Target`: the best's score at a distance).
+  Going through that portal shows "Finish!" with the level-up fanfare (messages.lua's `Finish`,
+  the fanfare with the portal sounds). Its best per period is in `global.challenges` (`Best`,
+  `Save`: reaching the portal first, then the score); it never counts as the endless best score.
+  The end menu says how much the run beat or missed the best before it by (`s.lastBest`).
+  A challenge's run keeps its score every `TRACE_EVERY` yards (`NewTrace`, `Trace`), saved
+  with its best, for the live target (`Target`: the best's score at a distance).
 - `track.lua` — the stream of patterns. The rules every pattern keeps are at the top of the
   file; `tests/simulation.lua` checks them and that each pattern can be run through.
 - `src/patterns/*.lua` — one pattern each. **A new pattern is a new file plus a line in
