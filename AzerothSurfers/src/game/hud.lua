@@ -287,6 +287,7 @@ function overlay:CreateHud(f)
     card:SetSize(CARD_WIDTH, CARD_HEIGHT)
     local label = card:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     label:SetPoint("TOPLEFT", INSET, -14)
+    -- And the run's difficulty, always (ShowHud).
     label:SetText("SCORE")
     label:SetTextColor(0.72, 0.68, 0.58)
 
@@ -326,6 +327,7 @@ function overlay:CreateHud(f)
     self.hud = {
         frame = hud,
         card = card,
+        label = label,
         distance = distance,
         multiplierPanel = multiplierPanel,
         score = counter(scorePanel, SCORE_SIZE, SCORE_DIGITS, 0),
@@ -464,6 +466,10 @@ function overlay:ShowHud()
         return
     end
     local now = GetTime()
+    if shown.difficulty ~= s.difficulty then
+        shown.difficulty = s.difficulty
+        hud.label:SetFormattedText("SCORE (%s)", s.difficulty.name)
+    end
     local score = sim.Score(s)
     if shown.score ~= score and (s.status ~= "running" or not shown.scoreAt or now - shown.scoreAt >= SCORE_EVERY) then
         shown.score, shown.scoreAt = score, now
