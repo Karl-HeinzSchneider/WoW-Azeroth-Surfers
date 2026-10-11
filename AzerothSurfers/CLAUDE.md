@@ -126,7 +126,9 @@ default in `db.lua` and an entry in `options.lua`.
 - Files that extend `app.overlay`, in TOC order:
   - `decorations.lua` — the world ModelScene (one render pass for every model, the twin's too,
     with the road's camera; its lens measured against the road) and the roadside's and the
-    lobby's models in it.
+    lobby's models in it. Its actors are pooled by model (`AcquireActor`); the roadside and the
+    boxes load up to `LOADS_PER_FRAME` new ones a frame, and an actor is moved only once it
+    would show off its place (`MoveActor`).
   - `occluder.lua` — the ground's depth: a scene of flat tiles under the 2D ground hides what
     models have below it (the 3D scenes share the depth buffer). How deep under the ground and
     from where (`SINK`, `BEHIND`) switches at the lobby's portal.

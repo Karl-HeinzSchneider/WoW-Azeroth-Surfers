@@ -123,7 +123,7 @@ local function place(self, r, item, at, side, delay, speed, from)
     -- The scene's y points left: running left (from the right) is +y, a quarter turn.
     c.yaw = side > 0 and math.pi / 2 or -math.pi / 2
     c.height, c.scale = item.height and value(r, item.height, 1), value(r, item.scale, 1)
-    c.fitted, c.shiftX, c.shiftY, c.alpha, c.moving = false, 0, 0, false, nil
+    c.fitted, c.shiftX, c.shiftY, c.alpha, c.moving, c.px = false, 0, 0, false, nil, nil
     c.distance = self.state.distance
     -- Drawing only for creatures with a `voice`.
     c.voice = item.voice and r() < (item.talks or 1) and choose(r, item.voice) or false
@@ -224,7 +224,10 @@ function overlay:UpdateAmbient()
                 c.actor:SetAnimation(item.animation or 5, 0, moving and rate or 0)
             end
             local scale = c.scale
-            c.actor:SetPosition(
+            self:MoveActor(
+                c,
+                ahead,
+                scale,
                 (ahead + self.sceneRunner) / scale + c.shiftX,
                 -c.x / scale + c.shiftY,
                 (ground(ahead) + c.z) / scale

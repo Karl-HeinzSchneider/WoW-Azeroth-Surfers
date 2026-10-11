@@ -9,6 +9,17 @@ local overlay = app.overlay
 local cam = overlay.camera
 local ground = shapes.Ground
 local unchanged = overlay.Unchanged
+-- UI units on the screen a model may stand off its place before it is moved (MoveActor).
+local SLACK = 0.5
+-- New models the roadside, and the boxes, each load in a frame before waiting for the next: a
+-- run's start would load a hundred at once, a platform's crates forty. They come in at the far
+-- fade, unseen.
+local LOADS_PER_FRAME = 6
+overlay.LOADS_PER_FRAME = LOADS_PER_FRAME
+-- Models loaded into new actors so far.
+overlay.actorLoads = 0
+-- Rounds the lens is measured in before it is kept as it is (AimDecorations).
+local LENS_ROUNDS = 12
 
 -- A number, or a { min, max } range rolled with `r`.
 local function value(r, v, default)
@@ -63,7 +74,9 @@ function overlay:CreateDecorations(f)
 end
 
 -- `model`: a file id, or minus a creature display id. Placed by its origin, never its bounds'
--- center: an animated model's bounds change as it moves, so it would drift.
+-- center: an animated model's bounds change as it moves, so it would drift. Each model keeps its
+-- own spares, so they add up to each model's most at once: loading another model into a spare
+-- instead would load again whenever a model comes back (half again as many in a two-minute run).
 function overlay:AcquireActor(model)
     local spare = self.spareActors[model]
     if not spare then
@@ -81,15 +94,35 @@ function overlay:AcquireActor(model)
         else
             actor:SetModelByFileID(model)
         end
+        self.actorLoads = self.actorLoads + 1
     end
     actor:Show()
     return actor
+end
+
+-- Whether a spare actor of `model` is waiting: acquiring it loads nothing.
+function overlay:HasSpare(model)
+    local spare = self.spareActors[model]
+    return spare ~= nil and #spare > 0
 end
 
 function overlay:ReleaseActor(model, actor)
     actor:Hide()
     local spare = self.spareActors[model]
     spare[#spare + 1] = actor
+end
+
+-- Moves `e.actor` to x, y, z in its own units (`scale`), `ahead` yards off, unless it stands
+-- within SLACK of there on the screen. The ground's curve moves every model a little each frame
+-- of a run; as a rule less than a pixel.
+function overlay:MoveActor(e, ahead, scale, x, y, z)
+    local slack = SLACK * math.max(1, (ahead - cam.x) * cam.cos) / cam.f / scale
+    local px = e.px
+    if px and math.abs(x - px) < slack and math.abs(y - e.py) < slack and math.abs(z - e.pz) < slack then
+        return
+    end
+    e.actor:SetPosition(x, y, z)
+    e.px, e.py, e.pz = x, y, z
 end
 
 -- { minX, minY, minZ, maxX, maxY, maxZ } around the origin, once per model; nil until loaded.
@@ -167,9 +200,11 @@ function overlay:AimDecorations()
     same = unchanged(last, "h", h) and same
     same = unchanged(last, "scale", scene:GetEffectiveScale()) and same
     if not same then
-        last.span, last.calibrated = h, false
+        last.span, last.calibrated, last.rounds = h, false, 0
     end
-    scene:SetCameraFieldOfView(2 * math.atan(last.span / 2 / cam.f))
+    if not unchanged(last, "fov", 2 * math.atan(last.span / 2 / cam.f)) then
+        scene:SetCameraFieldOfView(last.fov)
+    end
     for _ = 1, 4 do
         if last.calibrated then
             return
@@ -178,13 +213,15 @@ function overlay:AimDecorations()
         if not ratio then
             return
         end
-        last.ratio = ratio
-        if math.abs(ratio - 1) < 0.001 then
+        last.ratio, last.rounds = ratio, last.rounds + 1
+        -- Or as near as it gets: a projection rounded to pixels may never come closer.
+        if math.abs(ratio - 1) < 0.001 or last.rounds >= LENS_ROUNDS then
             last.calibrated = true
             return
         end
         last.span = last.span * ratio
-        scene:SetCameraFieldOfView(2 * math.atan(last.span / 2 / cam.f))
+        last.fov = 2 * math.atan(last.span / 2 / cam.f)
+        scene:SetCameraFieldOfView(last.fov)
     end
 end
 
@@ -220,7 +257,7 @@ local function place(self, r, length, item, at, side, clear, mirror)
     if turn then
         along = length - along
     end
-    d.model, d.actor, d.at, d.alpha = model, actor, at + along, nil
+    d.model, d.actor, d.at, d.alpha, d.px = model, actor, at + along, nil, nil
     d.side, d.x, d.overhang, d.fitted = side, value(r, item.x, 6), item.overhang, false
     d.shiftX, d.shiftY, d.lift, d.raise, d.clear = 0, 0, item.lift, 0, clear
     d.z = value(r, item.z, 0)
@@ -243,7 +280,7 @@ local function placeFixed(self, r, item, at)
     local actor = self:AcquireActor(model)
     local d = self.spareDecor[#self.spareDecor] or {}
     self.spareDecor[#self.spareDecor] = nil
-    d.model, d.actor, d.at, d.alpha = model, actor, at + value(r, item.d, 0), nil
+    d.model, d.actor, d.at, d.alpha, d.px = model, actor, at + value(r, item.d, 0), nil, nil
     d.side, d.x, d.overhang, d.fitted = 1, value(r, item.x, 0), true, false
     d.shiftX, d.shiftY, d.lift, d.raise, d.clear = 0, 0, item.lift, 0, 0
     d.z = value(r, item.z, 0)
@@ -267,7 +304,7 @@ function overlay:FitDecoration(d, clear)
     if not bounds then
         return
     end
-    d.fitted = true
+    d.fitted, d.px = true, nil
     if d.height then
         d.scale = d.height / math.max(bounds[6], 0.01)
         d.actor:SetScale(d.scale)
@@ -316,6 +353,7 @@ function overlay:UpdateDecorations()
     if not self.decorLens.calibrated then
         self:AimDecorations()
     end
+    local loads = self.actorLoads + LOADS_PER_FRAME
     if self.decorState ~= s then
         self:ResetDecorations()
         self.decorState, self.gatesPlaced = s, 0
@@ -333,36 +371,6 @@ function overlay:UpdateDecorations()
             end
         end
     end
-    for side = -1, 1, 2 do
-        local r = self.decorRandom[side]
-        -- Before launch BiomeAt deliberately returns the lobby everywhere. Do not cache
-        -- its Elwynn scenery beyond the portal: generate that stretch once the run starts.
-        while not (s.lobby and s.status == "ready") and self.decorNext[side] < s.distance + fade.to do
-            local at = self.decorNext[side]
-            local here = self:BiomeAt(at).decorations
-            local strip = self:StripEnd(at)
-            if strip then
-                self.decorNext[side] = strip
-            elseif #here.groups == 0 then
-                self.decorNext[side] = at + EMPTY
-            else
-                local group = pick(r, here.groups)
-                local length = value(r, group.length, 0)
-                -- None in a gate's strip; the roadside starts again past it.
-                local into = self:StripEnd(at, at + length)
-                if into then
-                    self.decorNext[side] = into
-                else
-                    for _, item in ipairs(group.items) do
-                        if not item.chance or r() < item.chance then
-                            place(self, r, length, item, at, side, here.clear, group.mirror)
-                        end
-                    end
-                    self.decorNext[side] = at + length + value(r, here.spacing, 0)
-                end
-            end
-        end
-    end
     -- Each gate's transition, once it comes into sight.
     local gates = s.gates
     while gates and self.gatesPlaced < #gates and gates[self.gatesPlaced + 1] < s.distance + fade.to do
@@ -373,6 +381,40 @@ function overlay:UpdateDecorations()
         local transition = app.biomes.Transition(self:BiomeAt(gates[k] + 1).entrance)
         for _, item in ipairs(transition.items) do
             placeFixed(self, r, item, gates[k])
+        end
+    end
+    -- The roadside in road order, the nearer side first, up to LOADS_PER_FRAME new models.
+    -- Before launch BiomeAt deliberately returns the lobby everywhere. Do not cache its Elwynn
+    -- scenery beyond the portal: generate that stretch once the run starts.
+    local upcoming, far = self.decorNext, s.distance + fade.to
+    while not (s.lobby and s.status == "ready") and self.actorLoads < loads do
+        local side = upcoming[-1] <= upcoming[1] and -1 or 1
+        local at = upcoming[side]
+        if at >= far then
+            break
+        end
+        local r = self.decorRandom[side]
+        local here = self:BiomeAt(at).decorations
+        local strip = self:StripEnd(at)
+        if strip then
+            upcoming[side] = strip
+        elseif #here.groups == 0 then
+            upcoming[side] = at + EMPTY
+        else
+            local group = pick(r, here.groups)
+            local length = value(r, group.length, 0)
+            -- None in a gate's strip; the roadside starts again past it.
+            local into = self:StripEnd(at, at + length)
+            if into then
+                upcoming[side] = into
+            else
+                for _, item in ipairs(group.items) do
+                    if not item.chance or r() < item.chance then
+                        place(self, r, length, item, at, side, here.clear, group.mirror)
+                    end
+                end
+                upcoming[side] = at + length + value(r, here.spacing, 0)
+            end
         end
     end
     local list = self.decor
@@ -389,7 +431,10 @@ function overlay:UpdateDecorations()
             end
             -- An actor's position is scaled with it: divided out, so every size stands in place.
             local scale = d.scale
-            d.actor:SetPosition(
+            self:MoveActor(
+                d,
+                ahead,
+                scale,
                 (ahead + self.sceneRunner) / scale + d.shiftX,
                 d.y / scale + d.shiftY,
                 (ground(ahead) + d.z) / scale + d.raise

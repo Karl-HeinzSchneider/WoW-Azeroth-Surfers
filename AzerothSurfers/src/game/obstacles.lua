@@ -63,28 +63,34 @@ function overlay:ObstacleLook(o)
     return look
 end
 
-local function attach(self, o, item, along)
-    local model = item.creature and -choose(looks, item.creature) or choose(looks, item.model)
-    local actor = self:AcquireActor(model)
-    local sound = item.sound
+-- Its actor, once the frame's loads allow (`entry.actor` stays nil until then): invisible until
+-- fitted, upright (a ramp's model may have been this actor before) or about its center on a ramp.
+local function acquire(self, entry)
+    local actor = self:AcquireActor(entry.model)
+    local item = entry.item
     if item.creature then
         actor:SetAnimation(item.animation or 0, 0, 1, 0)
-        -- A table by display id.
-        if type(sound) == "table" and not sound[1] then
-            sound = sound[-model]
-        end
+    end
+    actor:SetAlpha(0)
+    actor:SetUseCenterForOrigin(entry.ramp, entry.ramp, entry.ramp)
+    actor:SetPitch(0)
+    actor:SetYaw(entry.yaw)
+    entry.actor = actor
+end
+
+local function attach(o, item, along)
+    local model = item.creature and -choose(looks, item.creature) or choose(looks, item.model)
+    local sound = item.sound
+    -- A table by display id.
+    if item.creature and type(sound) == "table" and not sound[1] then
+        sound = sound[-model]
     end
     -- A file, not a sound kit: a kit does not play again while it still plays.
     sound = sound and choose(looks, sound)
-    -- Invisible until fitted; upright (a ramp's model may have been this actor before).
-    actor:SetAlpha(0)
-    actor:SetUseCenterForOrigin(false, false, false)
-    actor:SetPitch(0)
     local yaw = math.rad(value(looks, item.yaw, 0))
-    actor:SetYaw(yaw)
     o.surferActors[#o.surferActors + 1] = {
         model = model,
-        actor = actor,
+        ramp = false,
         item = item,
         along = along,
         yaw = yaw,
@@ -100,21 +106,15 @@ local function attach(self, o, item, along)
 end
 
 -- Placed by their centers (each is turned up to the slope about it), fitted once loaded.
-local function attachRamp(self, o, item)
+local function attachRamp(o, item)
     local count = item.across or 1
     local width = item.width or 2 * sim.geometry.halfWidth.platform
     local slope = math.sqrt(o.ramp ^ 2 + (o.layers * LAYER) ^ 2)
     local pieces = item.segment and math.max(1, math.floor(slope / item.segment + 0.5)) or 1
     for piece = 1, pieces do
         for k = 1, count do
-            local model = choose(looks, item.model)
-            local actor = self:AcquireActor(model)
-            actor:SetAlpha(0)
-            actor:SetUseCenterForOrigin(true, true, true)
-            actor:SetYaw(0)
             o.surferActors[#o.surferActors + 1] = {
-                model = model,
-                actor = actor,
+                model = choose(looks, item.model),
                 item = item,
                 ramp = true,
                 piece = piece,
@@ -135,7 +135,7 @@ local function attachAll(self, o, look)
     looks()
     if o.ramp and look.ramp then
         for _, item in ipairs(look.ramp) do
-            attachRamp(self, o, item)
+            attachRamp(o, item)
         end
     end
     for _, item in ipairs(look.items) do
@@ -144,10 +144,10 @@ local function attachAll(self, o, look)
             local length = o.at + o.length - from
             local count = math.max(1, math.floor(length / item.every + 0.5))
             for k = 1, count do
-                attach(self, o, item, from + length * (k - 0.5) / count)
+                attach(o, item, from + length * (k - 0.5) / count)
             end
         else
-            attach(self, o, item, o.at + value(looks, item.d, o.length / 2))
+            attach(o, item, o.at + value(looks, item.d, o.length / 2))
         end
     end
     self.modelled[#self.modelled + 1] = o
@@ -155,7 +155,9 @@ end
 
 local function release(self, o)
     for _, entry in ipairs(o.surferActors) do
-        self:ReleaseActor(entry.model, entry.actor)
+        if entry.actor then
+            self:ReleaseActor(entry.model, entry.actor)
+        end
     end
     o.surferActors = nil
 end
@@ -212,6 +214,9 @@ function overlay:UpdateObstacles()
     local fade = self.biome.ground.fade
     local stamp = (self.obstacleStamp or 0) + 1
     self.obstacleStamp = stamp
+    -- Up to LOADS_PER_FRAME new models, nearest boxes first; any already loaded, and every one
+    -- of a box nearer than the far fade, at once.
+    local loads = self.actorLoads + overlay.LOADS_PER_FRAME
     for _, o in ipairs(s.objects) do
         local near = o.at - s.distance
         if o.kind ~= "coin" and near + o.length > cam.x - 4 and near < fade.to then
@@ -224,9 +229,18 @@ function overlay:UpdateObstacles()
                 -- The scene's y points left.
                 local lane = o.lane * LANE
                 for _, entry in ipairs(o.surferActors) do
-                    if entry.scale or fit(self, o, entry) then
+                    if
+                        not entry.actor
+                        and (self.actorLoads < loads or near < fade.from or self:HasSpare(entry.model))
+                    then
+                        acquire(self, entry)
+                    end
+                    if entry.actor and (entry.scale or fit(self, o, entry)) then
                         local d, scale = entry.along - s.distance, entry.scale
-                        entry.actor:SetPosition(
+                        self:MoveActor(
+                            entry,
+                            d,
+                            scale,
                             (d + self.sceneRunner) / scale + entry.shiftX,
                             (lane - entry.x) / scale + entry.shiftY,
                             (entry.z + ground(d)) / scale
