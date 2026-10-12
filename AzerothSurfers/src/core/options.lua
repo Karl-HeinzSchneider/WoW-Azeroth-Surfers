@@ -118,7 +118,13 @@ end
 -- The Keybindings tab: a row per action of keys.lua, its name, then its two keys and its two gamepad
 -- buttons. Built in OnInitialize: keys.lua loads after this file.
 local SLOT_NAMES = { "Key 1", "Key 2", "Gamepad 1", "Gamepad 2" }
-local CONTEXT_NAMES = { run = "Running", menu = "Menus", both = "Running and menus" }
+local SHARED_ACTIONS = { left = "menuLeft", right = "menuRight", duck = "down", pause = "back" }
+local SHARED_NAMES = {
+    left = "Left",
+    right = "Right",
+    duck = "Down / duck",
+    pause = "Pause / back",
+}
 -- Widths in AceConfig's units (170 pixels): the five of a row fit the Settings panel.
 local NAME_WIDTH, KEY_WIDTH = 0.8, 0.68
 local GOLD = "|cffffd100%s|r"
@@ -164,13 +170,19 @@ end
 
 local function keyButton(order, action, slot)
     local overlay = app.overlay
+    local partner = SHARED_ACTIONS[action.id] and overlay.ACTION_BY_ID[SHARED_ACTIONS[action.id]]
+    local name = SHARED_NAMES[action.id] or action.name
     return {
         type = "keybinding",
         dialogControl = app.overlay.GAMEPAD_SLOTS[slot] and GAMEPAD_KEY or nil,
         order = order,
         width = KEY_WIDTH,
         name = "",
-        desc = SLOT_NAMES[slot] .. " for " .. action.name .. ". Escape leaves it unbound.",
+        desc = SLOT_NAMES[slot]
+            .. " for "
+            .. name
+            .. ". Escape leaves it unbound."
+            .. (partner and " Applies in both gameplay and menus." or ""),
         get = function()
             return overlay.ActionKey(action.id, slot) or ""
         end,
@@ -180,7 +192,13 @@ local function keyButton(order, action, slot)
                 return true
             end
             for _, other in ipairs(overlay.ACTIONS) do
-                if app.overlay.SameContext(other.context, action.context) then
+                if
+                    other ~= partner
+                    and (
+                        overlay.SameContext(other.context, action.context)
+                        or (partner and overlay.SameContext(other.context, partner.context))
+                    )
+                then
                     for s = 1, overlay.KEY_SLOTS do
                         local same = other ~= action or s ~= slot
                         if same and overlay.ActionKey(other.id, s) == value then
@@ -197,6 +215,12 @@ local function keyButton(order, action, slot)
                 saved[action.id] = {}
             end
             saved[action.id][slot] = value ~= "" and value or false
+            if partner then
+                if type(saved[partner.id]) ~= "table" then
+                    saved[partner.id] = {}
+                end
+                saved[partner.id][slot] = saved[action.id][slot]
+            end
             overlay.legendState = nil
         end,
     }
@@ -206,7 +230,7 @@ local function keysTab()
     local args = {
         help = text(
             1,
-            "The game's keys work only while it is open, whatever they are bound to in WoW; with Capture movement keys on, WoW does not get them. Two keys and two gamepad buttons for each: by default WASD, the arrow keys, and the gamepad with its left stick and D-pad mirroring each other. A key may do one thing in a run and another in the menus."
+            "The game's keys work only while it is open, whatever they are bound to in WoW; with Capture movement keys on, WoW does not get them. Set movement and Pause / back once for gameplay and menus. Jump, menu Up and Accept keep their own controls. Two keys and two gamepad buttons per row. Existing bindings and defaults stay as they are until you change a slot; changing a shared row applies that slot to both actions."
         ),
         reset = {
             type = "execute",
@@ -221,33 +245,36 @@ local function keysTab()
             end,
         },
     }
-    local order, context = 10, nil
-    for _, action in ipairs(app.overlay.ACTIONS) do
-        if action.context ~= context then
-            context = action.context
-            args["header_" .. context] = header(order, CONTEXT_NAMES[context])
-            args["columns_" .. context] = { type = "description", order = order + 1, width = NAME_WIDTH, name = "" }
-            for slot, name in ipairs(SLOT_NAMES) do
-                args["column_" .. context .. slot] = {
-                    type = "description",
-                    order = order + 1 + slot / 10,
-                    width = KEY_WIDTH,
-                    name = GOLD:format(name),
-                }
-            end
-            order = order + 2
-        end
-        args["name_" .. action.id] = {
+    local order = 10
+    local hidden = {}
+    for _, id in pairs(SHARED_ACTIONS) do
+        hidden[id] = true
+    end
+    args.header = header(order, "Controls")
+    for slot, name in ipairs(SLOT_NAMES) do
+        args["column_" .. slot] = {
             type = "description",
-            order = order,
-            width = NAME_WIDTH,
-            fontSize = "medium",
-            name = action.name,
+            order = order + 1 + slot / 10,
+            width = KEY_WIDTH,
+            name = GOLD:format(name),
         }
-        for slot = 1, app.overlay.KEY_SLOTS do
-            args["key_" .. action.id .. slot] = keyButton(order + slot / 10, action, slot)
+    end
+    args.columns = { type = "description", order = order + 1, width = NAME_WIDTH, name = "" }
+    order = order + 2
+    for _, action in ipairs(app.overlay.ACTIONS) do
+        if not hidden[action.id] then
+            args["name_" .. action.id] = {
+                type = "description",
+                order = order,
+                width = NAME_WIDTH,
+                fontSize = "medium",
+                name = SHARED_NAMES[action.id] or action.name,
+            }
+            for slot = 1, app.overlay.KEY_SLOTS do
+                args["key_" .. action.id .. slot] = keyButton(order + slot / 10, action, slot)
+            end
+            order = order + 1
         end
-        order = order + 1
     end
     return { type = "group", order = 4, name = "Keybindings", args = args }
 end
