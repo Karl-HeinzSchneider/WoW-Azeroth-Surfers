@@ -115,7 +115,7 @@ local function text(order, name)
     return { type = "description", order = order, fontSize = "medium", name = name .. "\n" }
 end
 
--- The Keys tab: a row per action of keys.lua, its name, then its two keys and its two gamepad
+-- The Keybindings tab: a row per action of keys.lua, its name, then its two keys and its two gamepad
 -- buttons. Built in OnInitialize: keys.lua loads after this file.
 local SLOT_NAMES = { "Key 1", "Key 2", "Gamepad 1", "Gamepad 2" }
 local CONTEXT_NAMES = { run = "Running", menu = "Menus", both = "Running and menus" }
@@ -249,7 +249,7 @@ local function keysTab()
         end
         order = order + 1
     end
-    return { type = "group", order = 20, name = "Key bindings", args = args }
+    return { type = "group", order = 4, name = "Keybindings", args = args }
 end
 
 local general = {
@@ -257,7 +257,13 @@ local general = {
     order = 1,
     name = "General",
     args = {
-        help = text(0, "Choose difficulty in Play, or configure a run in Custom from the main menu."),
+        capture = toggle(
+            21,
+            "capture",
+            "Capture movement keys",
+            "While the game is open it keeps the game's keys and your move, strafe, turn and jump keys from WoW, on every screen and menu: your character stays where it is and the runner runs on its own. Steering with the mouse buttons still moves your character.",
+            applyMode
+        ),
         minimap = {
             type = "toggle",
             order = 31,
@@ -431,6 +437,50 @@ local display = {
             100,
             1
         ),
+        hintsHeader = header(30, "Hotkey hints"),
+        legend = toggle(
+            31,
+            "legend",
+            "Show hotkeys",
+            "List the game's keys beside the road (set under the Keybindings tab)."
+        ),
+        inputHudHeader = header(40, "Input window"),
+        inputHud = {
+            type = "select",
+            order = 41,
+            width = 0.9,
+            name = "Show pressed keys",
+            desc = "Show a draggable input window during gameplay, useful for streaming or seeing your inputs. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
+            values = { none = "Off", simplified = "Simplified", normal = "Normal" },
+            sorting = { "none", "simplified", "normal" },
+            get = function()
+                if not app.db.profile.inputHud then
+                    return "none"
+                end
+                return app.db.profile.inputHudSimplified and "simplified" or "normal"
+            end,
+            set = function(_, value)
+                app.db.profile.inputHud = value ~= "none"
+                app.db.profile.inputHudSimplified = value == "simplified"
+                app.overlay:RefreshInputHud()
+            end,
+        },
+        inputHudReset = {
+            type = "execute",
+            order = 42,
+            name = "Reset input window position",
+            disabled = function()
+                return not app.db.profile.inputHud
+            end,
+            func = function()
+                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
+                local saved = app.db.profile[position]
+                for key, value in pairs(app.dbDefaults.profile[position]) do
+                    saved[key] = value
+                end
+                app.overlay:RefreshInputHud()
+            end,
+        },
     },
 }
 
@@ -483,72 +533,6 @@ local scorecard = {
     },
 }
 
-local input = {
-    type = "group",
-    order = 1,
-    name = "Input and hints",
-    args = {
-        capture = toggle(
-            21,
-            "capture",
-            "Capture movement keys",
-            "While the game is open it keeps the game's keys and your move, strafe, turn and jump keys from WoW, on every screen and menu: your character stays where it is and the runner runs on its own. Steering with the mouse buttons still moves your character.",
-            applyMode
-        ),
-        legend = toggle(
-            22,
-            "legend",
-            "Show hotkeys",
-            "List the game's keys beside the road (set under Controls > Key bindings)."
-        ),
-        inputHudHeader = header(30, "Input window"),
-        inputHud = {
-            type = "select",
-            order = 40,
-            width = 0.9,
-            name = "Show pressed keys",
-            desc = "Show a draggable input window during gameplay, useful for streaming or seeing your inputs. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
-            values = { none = "Off", simplified = "Simplified", normal = "Normal" },
-            sorting = { "none", "simplified", "normal" },
-            get = function()
-                if not app.db.profile.inputHud then
-                    return "none"
-                end
-                return app.db.profile.inputHudSimplified and "simplified" or "normal"
-            end,
-            set = function(_, value)
-                app.db.profile.inputHud = value ~= "none"
-                app.db.profile.inputHudSimplified = value == "simplified"
-                app.overlay:RefreshInputHud()
-            end,
-        },
-        inputHudReset = {
-            type = "execute",
-            order = 41,
-            name = "Reset input window position",
-            disabled = function()
-                return not app.db.profile.inputHud
-            end,
-            func = function()
-                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
-                local saved = app.db.profile[position]
-                for key, value in pairs(app.dbDefaults.profile[position]) do
-                    saved[key] = value
-                end
-                app.overlay:RefreshInputHud()
-            end,
-        },
-    },
-}
-
-local controls = {
-    type = "group",
-    order = 4,
-    name = "Controls",
-    childGroups = "tab",
-    args = { input = input },
-}
-
 local sound = {
     type = "group",
     order = 5,
@@ -596,7 +580,6 @@ local options = {
         display = display,
         sound = sound,
         scorecard = scorecard,
-        controls = controls,
     },
 }
 
@@ -631,7 +614,7 @@ end
 function module:OnInitialize()
     registerGamepadKey()
     addHudInfo(scorecard.args)
-    controls.args.keys = keysTab()
+    options.args.keybindings = keysTab()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100
 

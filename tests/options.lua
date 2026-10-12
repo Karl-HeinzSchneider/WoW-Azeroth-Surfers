@@ -61,7 +61,7 @@ load(app, { "core/db", "core/options" })
 app.db = { profile = app.dbDefaults.profile }
 app.options:OnInitialize()
 assert(registered.args.general and registered.args.display and registered.args.scorecard)
-assert(registered.args.controls and registered.args.sound and registered.args.profiles)
+assert(registered.args.keybindings and registered.args.sound and registered.args.profiles)
 assert(not registered.args.debug, "Released addon must not expose debug controls")
 assert(not registered.args.display.args.pitch and not registered.args.display.args.fixedCurve)
 assert(
@@ -77,12 +77,18 @@ assert(modes == 1 and display.opacity.disabled(), "Display changes apply immedia
 assert(display.frameFull.disabled() and not display.frameSide.disabled())
 registered.args.scorecard.args.hudInfo_time.set(nil, true)
 assert(app.db.profile.hudInfo.time and layouts == 1)
-local input = registered.args.controls.args.input.args
+local input = display
 input.inputHud.set(nil, "simplified")
 assert(app.db.profile.inputHud and app.db.profile.inputHudSimplified and inputs == 1)
 input.inputHud.set(nil, "none")
 assert(not app.db.profile.inputHud and input.inputHudReset.disabled())
-assert(registered.args.controls.args.keys, "Bindings remain accessible under Controls")
+assert(registered.args.keybindings.name == "Keybindings" and registered.args.keybindings.args.reset)
+assert(not registered.args.keybindings.childGroups and not registered.args.controls, "Bindings have no nested tabs")
+assert(not registered.args.general.args.help, "General starts with settings")
+registered.args.general.args.capture.set(nil, false)
+assert(not app.db.profile.capture and modes == 2, "Capture remains functional in General")
+display.legend.set(nil, false)
+assert(not app.db.profile.legend, "Hotkey display remains functional in Display")
 print("PASS player settings without the development addon")
 
 assert(loadfile("AzerothSurfers_Dev/src/options.lua"))("AzerothSurfers_Dev", { app = app })
