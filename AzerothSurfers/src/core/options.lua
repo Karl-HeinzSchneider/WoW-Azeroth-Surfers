@@ -437,13 +437,6 @@ local display = {
             100,
             1
         ),
-        hintsHeader = header(30, "Hotkey hints"),
-        legend = toggle(
-            31,
-            "legend",
-            "Show hotkeys",
-            "List the game's keys beside the road (set under the Keybindings tab)."
-        ),
     },
 }
 
@@ -492,6 +485,13 @@ local hud = {
             "hudCoinShare",
             "Coin percentage beside counter",
             "Show the share of the coins that came past that you collected beside the coin counter, as in 156 (60%)."
+        ),
+        hintsHeader = header(45, "Hotkey hints"),
+        legend = toggle(
+            46,
+            "legend",
+            "Show hotkeys",
+            "List the game's keys beside the road (set under the Keybindings tab)."
         ),
         inputHudHeader = header(50, "Input window"),
         inputHud = {

@@ -87,8 +87,8 @@ assert(not registered.args.keybindings.childGroups and not registered.args.contr
 assert(not registered.args.general.args.help, "General starts with settings")
 registered.args.general.args.capture.set(nil, false)
 assert(not app.db.profile.capture and modes == 2, "Capture remains functional in General")
-display.legend.set(nil, false)
-assert(not app.db.profile.legend, "Hotkey display remains functional in Display")
+registered.args.hud.args.legend.set(nil, false)
+assert(not app.db.profile.legend, "Hotkey display remains functional in HUD")
 print("PASS player settings without the development addon")
 
 assert(loadfile("AzerothSurfers_Dev/src/options.lua"))("AzerothSurfers_Dev", { app = app })
