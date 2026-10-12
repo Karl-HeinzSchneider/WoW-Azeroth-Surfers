@@ -606,31 +606,24 @@ local display = {
             end,
         },
         hudHeader = header(20, "Scorecard"),
-        inputHud = toggle(
-            40,
-            "inputHud",
-            "Show input HUD",
-            "A separate draggable window highlights the game's bound actions as you press them. Shown only during gameplay, hidden in menus and the lobby; drag it to place it for your stream.",
-            function()
-                app.overlay:RefreshInputHud()
-            end
-        ),
-        inputHudDisplay = {
-            type = "group",
-            order = 40.5,
-            name = "Input HUD display",
-            inline = true,
-            disabled = function()
-                return not app.db.profile.inputHud
+        inputHud = {
+            type = "select",
+            order = 40,
+            name = "Input HUD",
+            desc = "Show a draggable input window during gameplay. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
+            values = { none = "No input HUD", simplified = "Simplified", normal = "Normal" },
+            sorting = { "none", "simplified", "normal" },
+            get = function()
+                if not app.db.profile.inputHud then
+                    return "none"
+                end
+                return app.db.profile.inputHudSimplified and "simplified" or "normal"
             end,
-            args = {
-                simplified = toggle(
-                    1,
-                    "inputHudSimplified",
-                    "Simplified display",
-                    "Hide action captions and show direction arrows, P for pause and R for restart. Uses tighter row spacing and a shorter window."
-                ),
-            },
+            set = function(_, value)
+                app.db.profile.inputHud = value ~= "none"
+                app.db.profile.inputHudSimplified = value == "simplified"
+                app.overlay:RefreshInputHud()
+            end,
         },
         inputHudReset = {
             type = "execute",
