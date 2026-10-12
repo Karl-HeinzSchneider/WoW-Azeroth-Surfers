@@ -637,8 +637,9 @@ local display = {
             order = 41,
             name = "Reset input HUD position",
             func = function()
-                local saved = app.db.profile.inputHudPosition
-                for key, value in pairs(app.dbDefaults.profile.inputHudPosition) do
+                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
+                local saved = app.db.profile[position]
+                for key, value in pairs(app.dbDefaults.profile[position]) do
                     saved[key] = value
                 end
                 app.overlay:RefreshInputHud()

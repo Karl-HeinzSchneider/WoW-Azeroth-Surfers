@@ -87,11 +87,12 @@ function overlay:RefreshInputHud()
         return
     end
     self:ClearInputHud()
-    local saved = app.db.profile.inputHudPosition
+    local side = app.db.profile.mode == "side"
+    local saved = side and app.db.profile.inputHudSidePosition or app.db.profile.inputHudPosition
     f:SetFrameStrata(app.db.profile.drawStrata)
     f:SetFrameLevel(app.db.profile.drawLevel + 40)
     f:ClearAllPoints()
-    f:SetPoint(saved.point, UIParent, saved.relative, saved.x, saved.y)
+    f:SetPoint(saved.point, side and self.frame or UIParent, saved.relative, saved.x, saved.y)
     self:SyncInputHudVisibility()
 end
 
@@ -185,7 +186,8 @@ function overlay:CreateInputHud()
     menu.version:Hide()
     window:SetScript("OnDragStop", function()
         window:SetScript("OnUpdate", nil)
-        local saved = app.db.profile.inputHudPosition
+        local saved = app.db.profile.mode == "side" and app.db.profile.inputHudSidePosition
+            or app.db.profile.inputHudPosition
         saved.x, saved.y = saved.x + menu.dx, saved.y + menu.dy
         menu:PlaceWindow(0, 0)
         self:RefreshInputHud()

@@ -1818,6 +1818,22 @@ do
         "menu drag offset is saved"
     )
     assert(menu.dx == 0 and menu.dy == 0, "saved drag offset is not applied twice")
+    local oldMode, oldSidePosition = app.db.profile.mode, app.db.profile.inputHudSidePosition
+    app.db.profile.mode = "side"
+    app.db.profile.inputHudSidePosition = { point = "TOPRIGHT", relative = "TOPLEFT", x = -12, y = -8 }
+    o:RefreshInputHud()
+    assert(panel.point[2] == o.frame and panel.point[3] == "TOPLEFT", "side HUD follows the game window")
+    menu:PlaceWindow(10, -5)
+    menu.window.scripts.OnDragStop()
+    assert(
+        app.db.profile.inputHudSidePosition.x == -2 and app.db.profile.inputHudSidePosition.y == -13,
+        "side drag saves its own position"
+    )
+    assert(app.db.profile.inputHudPosition.x == 20, "side drag preserves full-screen position")
+    app.db.profile.mode = "full"
+    o:RefreshInputHud()
+    assert(panel.point[4] == 20 and panel.point[5] == 90, "switching back restores full-screen position")
+    app.db.profile.mode, app.db.profile.inputHudSidePosition = oldMode, oldSidePosition
     CreateFrame, o.frame = oldCreate, oldFrame
     app.db.profile.inputHudPosition = oldPosition
     app.db.profile.drawLevel = oldLevel
