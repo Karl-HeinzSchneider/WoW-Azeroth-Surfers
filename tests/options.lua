@@ -57,7 +57,7 @@ local app = {
 app.overlay.SetSeed = function(_, value)
     app.db.profile.seed = value
 end
-load(app, { "core/db", "core/options" })
+load(app, { "core/db", "core/options", "game/keys" })
 app.db = { profile = app.dbDefaults.profile }
 app.options:OnInitialize()
 assert(registered.args.general and registered.args.display and registered.args.hud)
@@ -84,6 +84,21 @@ input.inputHud.set(nil, "none")
 assert(not app.db.profile.inputHud and input.inputHudReset.disabled())
 assert(registered.args.keybindings.name == "Keybindings" and registered.args.keybindings.args.reset)
 assert(not registered.args.keybindings.childGroups and not registered.args.controls, "Bindings have no nested tabs")
+local keys = registered.args.keybindings.args
+assert(not keys.key_menuLeft1 and not keys.key_menuRight1 and not keys.key_down1 and not keys.key_back1)
+assert(keys.key_up1 and keys.key_jump1 and keys.key_accept1 and keys.key_restart1)
+assert(app.overlay.ActionKey("jump", 1) == "SPACE" and app.overlay.ActionKey("up", 1) == "W")
+assert(app.overlay.ActionKey("duck", 3) == "PAD3" and app.overlay.ActionKey("down", 3) == "PADLSTICKDOWN")
+for _, pair in ipairs({ { "left", "menuLeft" }, { "right", "menuRight" }, { "duck", "down" }, { "pause", "back" } }) do
+    local button = keys["key_" .. pair[1] .. "1"]
+    assert(button.validate(nil, "F") == true)
+    button.set(nil, "F")
+    assert(app.overlay.ActionKey(pair[1], 1) == "F" and app.overlay.ActionKey(pair[2], 1) == "F")
+    assert(button.validate(nil, "E") ~= true, "Shared rows check conflicts in menus too")
+    button.set(nil, "")
+    assert(not app.overlay.ActionKey(pair[1], 1) and not app.overlay.ActionKey(pair[2], 1))
+end
+app.db.profile.keys = {}
 assert(not registered.args.general.args.help, "General starts with settings")
 registered.args.general.args.capture.set(nil, false)
 assert(not app.db.profile.capture and modes == 2, "Capture remains functional in General")
