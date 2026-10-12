@@ -4,7 +4,7 @@ Plain Lua scripts in `tests/` that load the addon's files outside the client and
 them. No framework, no client, no build.
 
 ```sh
-npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua (stops at the first failure)
+npm run test:game       # simulation.lua, controls.lua, overlay.lua, leaderboard.lua, options.lua (stops at the first failure)
 npm run bench:overlay   # WoW API calls per frame; not part of test:game or check
 npm run test:assets     # dev asset audit: asynchronous loading, missing animations, audio and reports
 lua tests/simulation.lua  # one file on its own, from the repo root
@@ -84,3 +84,6 @@ end)
   `npm run check:lua` does, with a Lua 5.1 `luac`.
 - **Globals between files.** Each test file runs in its own `lua` process, but within a file a
   global defined by one block (`PlaySoundFile`, `GetTime`) stays for the blocks after it.
+
+`options.lua` checks the player settings without the development addon, live display and input
+updates, then development-only registration and relocated settings using the same profile.

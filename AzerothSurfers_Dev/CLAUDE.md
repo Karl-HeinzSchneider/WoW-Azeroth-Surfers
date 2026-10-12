@@ -12,16 +12,20 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
 `lobby.items` with `overlay.decorState`, `overlay.OCCLUDER_SINK`, `overlay.occluderOff` and
 `overlay.occluder` with `overlay:PlaceOccluder`.
 
-- `dev.lua` — the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`, `dev.CROUCH`
+- `dev.lua` â€” the hand-off, `dev.Command`, `dev.Overlay()`, `dev.Words`, `dev.ANIMATIONS`, `dev.CROUCH`
   (duck/slide candidates).
-- `diagnostics.lua` — `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
+- `options.lua` — adds the Debug tab through `app.options:RegisterDebugOptions`: run overrides
+  (difficulty, biome, fixed seed, start/end distances), rendering calibration (frame level,
+  ground curve, camera pitch/focus, twin size), logging, and seed/FPS scorecard rows.
+  Player-facing settings and existing saved values remain in the main addon.
+- `diagnostics.lua` â€” `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).
   `/surfers layers` reports existing unit frames, action bars, bags, chat and game frames sorted
   by strata and level, with visibility and parent names. `/surfers layers FrameName` inspects
   one named frame and its direct children. It never changes their layers or opens UI panels.
-- `preview.lua` — `/surfers preview creature|model|player|turn|off` (`player`: your own character,
+- `preview.lua` â€” `/surfers preview creature|model|player|turn|off` (`player`: your own character,
   cycling through `dev.CROUCH`).
-- `icon.lua` — `/surfers icon`: isolated, evenly lit gameplay gem on a solid background,
+- `icon.lua` â€” `/surfers icon`: isolated, evenly lit gameplay gem on a solid background,
   without opening the game. Buttons adjust yaw, pitch, zoom, rotation and background.
   `icon turn <degrees>`, `pitch <degrees>`, `zoom <0.1-10>`, `background black|white|green`,
   `spin on|off`, `clean`, `controls`, `off` provide the same controls through chat.
@@ -34,9 +38,9 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   `icon-gem-zoomed.tga` variants. Both TOCs and the minimap use the supplied
   `AzerothSurfers/assets/core/gem128.blp` instead.
   This tool never writes image files.
-- `animations.lua` — `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
+- `animations.lua` â€” `/surfers animations [display id | player]` (`player`: which of `dev.CROUCH`
   your own character has).
-- `assets.lua` — `/surfers assets [all|models|animations|sounds] [all|biome]`: audits registered
+- `assets.lua` â€” `/surfers assets [all|models|animations|sounds] [all|biome]`: audits registered
   biome assets, transitions, lobby, and the current player's used animations. Deduplicates IDs
   and records every usage path. Loads models asynchronously (5-second timeout), compares loaded
   file IDs, checks requested animation IDs, and briefly probes sounds on SFX. Failed sounds and
@@ -45,8 +49,8 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   A loaded model can still be invisible or an error model; use `preview` to inspect it. Animation
   variations need visual checks. Keep the small code-local asset list in sync with game code.
   Offline regression test: `lua tests/assets.lua`.
-- `playtest.lua` — `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
+- `playtest.lua` â€” `/surfers light`, `god`, `multiplier`, `streak`, `spawn`, `zonelength`,
   `reference`, `shot` (tunes the lobby's camera shots, prints them as Lua), `camp` (moves, turns
   and sizes the lobby's models live, prints them as Lua).
-- `occluder.lua` — `/surfers occluder on|off|show|sink lobby|run <yards>`: the ground's depth
+- `occluder.lua` â€” `/surfers occluder on|off|show|sink lobby|run <yards>`: the ground's depth
   (AzerothSurfers' `occluder.lua`) on and off, its tiles over the ground, how far under it.
