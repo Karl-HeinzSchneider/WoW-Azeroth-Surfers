@@ -13,13 +13,14 @@ local ACTIONS = {
     "restart",
 }
 local POSITIONS = {
-    { 80, -36 },
-    { 18, -88 },
-    { 80, -88 },
-    { 142, -88 },
-    { 204, -36 },
-    { 204, -88 },
+    { 2, -30 },
+    { 1, -78 },
+    { 2, -78 },
+    { 3, -78 },
+    { 4, -30 },
+    { 4, -78 },
 }
+local CAP_WIDTH, CAP_GAP = 56, 6
 
 function overlay:InputHudContext()
     return (self.screen == "title" or self.screen == "menu" or self.statusOpen) and "menu" or "run"
@@ -153,7 +154,7 @@ function overlay:CreateInputHud()
     local f, window = menu.panel, menu.window
     self.inputHud = f
     self.inputHudMenu = menu
-    f:SetSize(280, 172)
+    f:SetSize(280, 140)
     f:SetFrameStrata("HIGH")
     menu.title:Hide()
     local label = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -174,9 +175,12 @@ function overlay:CreateInputHud()
     self.inputHudCaps = {}
     for i, position in ipairs(POSITIONS) do
         local cap = self.KeyCap(window)
-        cap:SetSize(56, 28)
+        cap:SetSize(CAP_WIDTH, 28)
         cap.text:SetWidth(50)
-        cap:SetPoint("TOPLEFT", position[1], position[2])
+        -- Four equally spaced columns around the window's centre. Symmetric margins remain
+        -- exact when the scorecard widens; the upper keys align with their lower columns.
+        local x = (position[1] - 2.5) * (CAP_WIDTH + CAP_GAP)
+        cap:SetPoint("TOP", window, "TOP", x, position[2])
         cap.label = cap:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         cap.label:SetPoint("TOP", cap, "BOTTOM", 0, -2)
         cap.label:SetWidth(56)
