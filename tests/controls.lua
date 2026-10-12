@@ -681,6 +681,32 @@ do
     hud.state.status = "over"
     assert(not hud:InputHudIsPlaying(), "finished run hides the HUD")
     hud.state.status = "running"
+    -- Exercise the actual hide/show operation, including returning from a hidden lobby HUD.
+    local shown = false
+    hud.frame = {
+        IsShown = function()
+            return true
+        end,
+    }
+    hud.inputHud.SetShown = function(_, value)
+        shown = value
+    end
+    hud.screen = "menu"
+    hud:SyncInputHudVisibility()
+    assert(not shown, "window hidden in menu")
+    hud.screen = nil
+    hud.state.distance = 0
+    hud:SyncInputHudVisibility()
+    assert(not shown, "window hidden before lobby portal")
+    hud.state.distance = hud.state.start
+    hud:SyncInputHudVisibility()
+    assert(shown, "hidden window becomes visible on entering gameplay")
+    hud.statusOpen = true
+    hud:SyncInputHudVisibility()
+    assert(not shown, "pause hides window")
+    hud.statusOpen = nil
+    hud:SyncInputHudVisibility()
+    assert(shown, "resuming shows window again")
     probe.db.profile.keys.left = { false, false, false, false }
     hud:UpdateInputHud()
     assert(

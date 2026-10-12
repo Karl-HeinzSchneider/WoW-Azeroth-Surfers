@@ -177,9 +177,5 @@ function overlay:CreateInputHud()
     self.frame:HookScript("OnShow", function()
         self:RefreshInputHud()
     end)
-    -- Observe the game frame: a hidden HUD cannot update itself when play resumes.
-    self.frame:HookScript("OnUpdate", function()
-        self:SyncInputHudVisibility()
-    end)
     self:RefreshInputHud()
 end

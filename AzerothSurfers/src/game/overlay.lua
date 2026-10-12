@@ -1007,6 +1007,8 @@ function overlay:Create()
         self:UpdateCoinModel(elapsed)
         lap = self:Lap("twin animation, models", lap)
         self:Render(lap)
+        -- A hidden HUD cannot update itself; use the final game handler, after screens change.
+        self:SyncInputHudVisibility()
     end)
     self:ApplyMode()
     -- Created shown: OnShow does not run the first time.
