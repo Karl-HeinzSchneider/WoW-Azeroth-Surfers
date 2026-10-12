@@ -16,7 +16,8 @@ only the hooks the tools use: `overlay:Lap`, `light.override`, `simulation.invin
   (duck/slide candidates).
 - `options.lua` — adds the Debug tab through `app.options:RegisterDebugOptions`: run overrides
   (difficulty, biome, fixed seed, start/end distances), rendering calibration (frame level,
-  ground curve, camera pitch/focus, twin size), logging, and seed/FPS scorecard rows.
+  ground curve, camera pitch/focus, twin size), and logging. All extra scorecard rows,
+  including seed and FPS, remain together in the player settings.
   Player-facing settings and existing saved values remain in the main addon.
 - `diagnostics.lua` â€” `/surfers profile`, `/surfers debug`, `/surfers twinsize` (the twin's size
   on the screen against the road's projection of its body).

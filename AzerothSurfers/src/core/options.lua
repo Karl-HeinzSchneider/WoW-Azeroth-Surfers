@@ -287,7 +287,7 @@ local general = {
         distanceUnit = {
             type = "select",
             order = 34,
-            width = "double",
+            width = 0.9,
             name = "Distance units",
             desc = "Use the WoW client's spell-range unit, yards, or meters for distances and speed. Like WoW, this changes the unit label while keeping the same numbers.",
             values = { client = "Same as client", yards = "Yards (yd)", meters = "Meters (m)" },
@@ -311,7 +311,7 @@ local display = {
         mode = {
             type = "select",
             order = 1,
-            width = "double",
+            width = 0.85,
             name = "Display mode",
             desc = "Full screen: the road lies in the world around your character. Side window: the game runs in a window of its own, out of the way; drag it by its title and size it from its corner.",
             values = { full = "Full screen", side = "Side window" },
@@ -374,6 +374,7 @@ local display = {
         drawStrata = {
             type = "select",
             order = 5,
+            width = 0.85,
             name = "Window priority",
             desc = "Choose whether the game appears above or below other WoW windows. Higher priorities draw on top.",
             values = { BACKGROUND = "Background", LOW = "Low", MEDIUM = "Medium", HIGH = "High" },
@@ -445,6 +446,7 @@ local scorecard = {
         hudPosition = {
             type = "select",
             order = 21,
+            width = 0.95,
             name = "Position",
             desc = "Where the score sits. Beside the menu: right of the pause menu, on its top line, in full screen; top right in the side window.",
             values = { menu = "Beside the menu", topright = "Top right", top = "Top centre", topleft = "Top left" },
@@ -503,6 +505,7 @@ local input = {
         inputHud = {
             type = "select",
             order = 40,
+            width = 0.9,
             name = "Show pressed keys",
             desc = "Show a draggable input window during gameplay, useful for streaming or seeing your inputs. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
             values = { none = "Off", simplified = "Simplified", normal = "Normal" },
@@ -603,21 +606,19 @@ local function addHudInfo(args)
     args.hudInfoHeader = header(30, "Extra information")
     args.hudInfoHelp = text(31, "Choose the details shown below your score.")
     for i, stat in ipairs(app.overlay.HUD_INFO) do
-        if stat.id ~= "seed" and stat.id ~= "fps" then
-            args["hudInfo_" .. stat.id] = {
-                type = "toggle",
-                order = 31 + i,
-                name = stat.name,
-                desc = stat.desc,
-                get = function()
-                    return app.db.profile.hudInfo[stat.id]
-                end,
-                set = function(_, value)
-                    app.db.profile.hudInfo[stat.id] = value
-                    placeHud()
-                end,
-            }
-        end
+        args["hudInfo_" .. stat.id] = {
+            type = "toggle",
+            order = 31 + i,
+            name = stat.name,
+            desc = stat.desc,
+            get = function()
+                return app.db.profile.hudInfo[stat.id]
+            end,
+            set = function(_, value)
+                app.db.profile.hudInfo[stat.id] = value
+                placeHud()
+            end,
+        }
     end
 end
 

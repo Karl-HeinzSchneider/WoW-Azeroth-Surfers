@@ -57,13 +57,6 @@ local function applyMode()
     end
 end
 
--- An open game places the scorecard anew at once.
-local function placeHud()
-    if app.overlay.frame then
-        app.overlay:Layout()
-    end
-end
-
 local function header(order, name)
     return { type = "header", order = order, name = name }
 end
@@ -84,7 +77,7 @@ local runs = {
         difficulty = {
             type = "select",
             order = 1,
-            width = "double",
+            width = 0.7,
             name = "Difficulty",
             desc = "How fast the run goes and speeds up, how much room there is between obstacles, and which come up. During a run: from the next one on.",
             values = function()
@@ -111,7 +104,7 @@ local runs = {
         biome = {
             type = "select",
             order = 2,
-            width = "double",
+            width = 1,
             name = "Biome",
             desc = "How the game looks: its ground, obstacles and coins. Auto goes from zone to zone as you run, starter zones first, the way set by the seed; each portal raises the score multiplier.",
             values = function()
@@ -301,6 +294,7 @@ local diagnostics = {
         logLevel = {
             type = "select",
             order = 34,
+            width = 0.7,
             name = "Log level",
             desc = "How much " .. app.TITLE .. " writes to the chat window. Same as /surfers loglevel <level>.",
             values = levelNames,
@@ -316,25 +310,6 @@ local diagnostics = {
         },
     },
 }
-
-for i, stat in ipairs(app.overlay.HUD_INFO) do
-    if stat.id == "seed" or stat.id == "fps" then
-        diagnostics.args["hudInfo_" .. stat.id] = {
-            type = "toggle",
-            order = 40 + i,
-            width = "full",
-            name = "Show " .. stat.name .. " on scorecard",
-            desc = stat.desc,
-            get = function()
-                return app.db.profile.hudInfo[stat.id]
-            end,
-            set = function(_, value)
-                app.db.profile.hudInfo[stat.id] = value
-                placeHud()
-            end,
-        }
-    end
-end
 
 app.options:RegisterDebugOptions({
     type = "group",

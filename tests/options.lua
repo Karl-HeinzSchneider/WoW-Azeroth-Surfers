@@ -64,7 +64,10 @@ assert(registered.args.general and registered.args.display and registered.args.s
 assert(registered.args.controls and registered.args.sound and registered.args.profiles)
 assert(not registered.args.debug, "Released addon must not expose debug controls")
 assert(not registered.args.display.args.pitch and not registered.args.display.args.fixedCurve)
-assert(not registered.args.scorecard.args.hudInfo_seed and not registered.args.scorecard.args.hudInfo_fps)
+assert(
+    registered.args.scorecard.args.hudInfo_seed and registered.args.scorecard.args.hudInfo_fps,
+    "All extra scorecard rows remain together without the development addon"
+)
 assert(registered.args.scorecard.args.hudInfo_time, "Run time remains player-facing")
 
 local display = registered.args.display.args
@@ -87,13 +90,19 @@ local debug = registered.args.debug.args
 assert(debug.runs.args.seed and debug.runs.args.difficulty and debug.runs.args.biome)
 assert(debug.rendering.args.pitch and debug.rendering.args.focus and debug.rendering.args.twinScale)
 assert(debug.rendering.args.fixedCurve and debug.rendering.args.drawLevel)
-assert(debug.diagnostics.args.logLevel and debug.diagnostics.args.hudInfo_seed)
+assert(debug.diagnostics.args.logLevel)
+assert(
+    not debug.diagnostics.args.hudInfo_seed and not debug.diagnostics.args.hudInfo_fps,
+    "Debug must not duplicate scorecard display preferences"
+)
 debug.runs.args.seed.set(nil, "123")
 assert(app.db.profile.seed == 123, "Relocated seed option writes the same profile setting")
 assert(debug.runs.args.seed.validate(nil, "1.5") ~= true)
 assert(debug.runs.args.seed.validate(nil, "inf") ~= true)
 assert(debug.runs.args.seed.validate(nil, "123") == true)
-debug.diagnostics.args.hudInfo_seed.set(nil, true)
+registered.args.scorecard.args.hudInfo_seed.set(nil, true)
 assert(app.db.profile.hudInfo.seed and layouts == 2)
+registered.args.scorecard.args.hudInfo_fps.set(nil, true)
+assert(app.db.profile.hudInfo.fps and layouts == 3)
 assert(changes > 0, "Debug registration refreshes existing settings panels")
 print("PASS development settings extend the same options table")
