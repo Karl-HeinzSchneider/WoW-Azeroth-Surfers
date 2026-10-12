@@ -60,24 +60,24 @@ end
 load(app, { "core/db", "core/options" })
 app.db = { profile = app.dbDefaults.profile }
 app.options:OnInitialize()
-assert(registered.args.general and registered.args.display and registered.args.scorecard)
+assert(registered.args.general and registered.args.display and registered.args.hud)
 assert(registered.args.keybindings and registered.args.sound and registered.args.profiles)
 assert(not registered.args.debug, "Released addon must not expose debug controls")
 assert(not registered.args.display.args.pitch and not registered.args.display.args.fixedCurve)
 assert(
-    registered.args.scorecard.args.hudInfo_seed and registered.args.scorecard.args.hudInfo_fps,
+    registered.args.hud.args.hudInfo_seed and registered.args.hud.args.hudInfo_fps,
     "All extra scorecard rows remain together without the development addon"
 )
-assert(registered.args.scorecard.args.hudInfo_time, "Run time remains player-facing")
+assert(registered.args.hud.args.hudInfo_time, "Run time remains player-facing")
 
 local display = registered.args.display.args
 assert(display.opacity.disabled() == false)
 display.mode.set(nil, "side")
 assert(modes == 1 and display.opacity.disabled(), "Display changes apply immediately")
 assert(display.frameFull.disabled() and not display.frameSide.disabled())
-registered.args.scorecard.args.hudInfo_time.set(nil, true)
+registered.args.hud.args.hudInfo_time.set(nil, true)
 assert(app.db.profile.hudInfo.time and layouts == 1)
-local input = display
+local input = registered.args.hud.args
 input.inputHud.set(nil, "simplified")
 assert(app.db.profile.inputHud and app.db.profile.inputHudSimplified and inputs == 1)
 input.inputHud.set(nil, "none")
@@ -106,9 +106,9 @@ assert(app.db.profile.seed == 123, "Relocated seed option writes the same profil
 assert(debug.runs.args.seed.validate(nil, "1.5") ~= true)
 assert(debug.runs.args.seed.validate(nil, "inf") ~= true)
 assert(debug.runs.args.seed.validate(nil, "123") == true)
-registered.args.scorecard.args.hudInfo_seed.set(nil, true)
+registered.args.hud.args.hudInfo_seed.set(nil, true)
 assert(app.db.profile.hudInfo.seed and layouts == 2)
-registered.args.scorecard.args.hudInfo_fps.set(nil, true)
+registered.args.hud.args.hudInfo_fps.set(nil, true)
 assert(app.db.profile.hudInfo.fps and layouts == 3)
 assert(changes > 0, "Debug registration refreshes existing settings panels")
 print("PASS development settings extend the same options table")

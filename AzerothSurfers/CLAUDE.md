@@ -57,7 +57,7 @@ display's existing voice wins. Other local constants in rendering/control code a
   `/surfers` (or `/azerothsurfers`) opens the game; also `options`, `loglevel`, `seed`, `auto`,
   `reset`, and the commands AzerothSurfers_Dev registers in `app.devCommands`. `app.TITLE`
   (`logger.lua`) is the name players see.
-- `options.lua` — `app.options`: **one** AceConfig table, in tabs (General, Display, Scorecard,
+- `options.lua` — `app.options`: **one** AceConfig table, in tabs (General, Display, HUD,
   Keybindings, Sound, Profiles; Debug only with the development addon), for the Settings panel
   and a standalone window. `Refresh()` after a setting changed elsewhere.
 - `minimapbutton.lua` — LibDataBroker launcher + LibDBIcon; its tooltip lists each challenge's
@@ -199,7 +199,7 @@ default in `db.lua` and an entry in `options.lua`.
     live target, ahead or behind the best at this distance),
     `legend.lua` (the running keys, below the scorecard and the challenge card).
   - `inputhud.lua` — optional independent draggable input window (`profile.inputHud`, position
-    in `profile.inputHudPosition`), enabled on the Display tab. Highlights bound
+    in `profile.inputHudPosition`), enabled on the HUD tab. Highlights bound
     actions while held, with a 120 ms minimum for taps; follows keyboard/gamepad hints. Only the six run
     actions appear, during active gameplay after the lobby portal; menus and the lobby hide it.
     Shares controls.lua's input events and never captures input itself.

@@ -34,13 +34,13 @@ local function toggle(order, key, name, desc, after)
     }
 end
 
--- Settings of `profile.overlay`, a slider and a toggle across the whole width. The road
+-- Settings of `profile.overlay`: compact sliders and full-width toggles. The road
 -- reprojects on its own when a value changes.
 local function overlaySetting(order, key, name, desc, min, max, step)
     return {
         type = "range",
         order = order,
-        width = "full",
+        width = 1.25,
         name = name,
         desc = desc,
         min = min,
@@ -444,43 +444,6 @@ local display = {
             "Show hotkeys",
             "List the game's keys beside the road (set under the Keybindings tab)."
         ),
-        inputHudHeader = header(40, "Input window"),
-        inputHud = {
-            type = "select",
-            order = 41,
-            width = 0.9,
-            name = "Show pressed keys",
-            desc = "Show a draggable input window during gameplay, useful for streaming or seeing your inputs. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
-            values = { none = "Off", simplified = "Simplified", normal = "Normal" },
-            sorting = { "none", "simplified", "normal" },
-            get = function()
-                if not app.db.profile.inputHud then
-                    return "none"
-                end
-                return app.db.profile.inputHudSimplified and "simplified" or "normal"
-            end,
-            set = function(_, value)
-                app.db.profile.inputHud = value ~= "none"
-                app.db.profile.inputHudSimplified = value == "simplified"
-                app.overlay:RefreshInputHud()
-            end,
-        },
-        inputHudReset = {
-            type = "execute",
-            order = 42,
-            name = "Reset input window position",
-            disabled = function()
-                return not app.db.profile.inputHud
-            end,
-            func = function()
-                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
-                local saved = app.db.profile[position]
-                for key, value in pairs(app.dbDefaults.profile[position]) do
-                    saved[key] = value
-                end
-                app.overlay:RefreshInputHud()
-            end,
-        },
     },
 }
 
@@ -488,10 +451,10 @@ display.args.opacity.disabled = function()
     return app.db.profile.mode ~= "full"
 end
 
-local scorecard = {
+local hud = {
     type = "group",
     order = 3,
-    name = "Scorecard",
+    name = "HUD",
     args = {
         hudPosition = {
             type = "select",
@@ -530,6 +493,43 @@ local scorecard = {
             "Coin percentage beside counter",
             "Show the share of the coins that came past that you collected beside the coin counter, as in 156 (60%)."
         ),
+        inputHudHeader = header(50, "Input window"),
+        inputHud = {
+            type = "select",
+            order = 51,
+            width = 0.9,
+            name = "Show pressed keys",
+            desc = "Show a draggable input window during gameplay, useful for streaming or seeing your inputs. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
+            values = { none = "Off", simplified = "Simplified", normal = "Normal" },
+            sorting = { "none", "simplified", "normal" },
+            get = function()
+                if not app.db.profile.inputHud then
+                    return "none"
+                end
+                return app.db.profile.inputHudSimplified and "simplified" or "normal"
+            end,
+            set = function(_, value)
+                app.db.profile.inputHud = value ~= "none"
+                app.db.profile.inputHudSimplified = value == "simplified"
+                app.overlay:RefreshInputHud()
+            end,
+        },
+        inputHudReset = {
+            type = "execute",
+            order = 52,
+            name = "Reset input window position",
+            disabled = function()
+                return not app.db.profile.inputHud
+            end,
+            func = function()
+                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
+                local saved = app.db.profile[position]
+                for key, value in pairs(app.dbDefaults.profile[position]) do
+                    saved[key] = value
+                end
+                app.overlay:RefreshInputHud()
+            end,
+        },
     },
 }
 
@@ -579,7 +579,7 @@ local options = {
         general = general,
         display = display,
         sound = sound,
-        scorecard = scorecard,
+        hud = hud,
     },
 }
 
@@ -613,7 +613,7 @@ end
 
 function module:OnInitialize()
     registerGamepadKey()
-    addHudInfo(scorecard.args)
+    addHudInfo(hud.args)
     options.args.keybindings = keysTab()
     options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(app.db)
     options.args.profiles.order = 100
