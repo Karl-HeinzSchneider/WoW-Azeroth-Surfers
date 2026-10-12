@@ -6,6 +6,7 @@
 ## Version: |cff8080ff@project-version@|r
 ## SavedVariables: AzerothSurfersDB
 ## X-License: MIT
+## X-Curse-Project-ID: 1740158
 ## X-Website: https://github.com/Karl-HeinzSchneider/WoW-Surfer
 
 embeds.xml
