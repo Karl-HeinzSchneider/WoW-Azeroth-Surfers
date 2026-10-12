@@ -36,6 +36,11 @@ replacements there, never conditionals inside individual biomes.
 20506), separately from vanilla Era. It replaces the rabbit, ready stance and player roll.
 `playerAnimations` maps player animation IDs through `biomes.PlayerAnimation`, shared by
 rendering and the asset audit. New replacements still need in-client verification.
+`src/overrides/era.lua` targets the 1.15.x Classic Era client family (manifest 11509,
+version 1.15.9, build 70003), separately from Anniversary. The Era audit rejected rabbit
+139885, ready animation 25 on creature 604 and player roll 666. Era uses the same rabbit,
+Stand and lowered Swim fallbacks as Anniversary; their appearance still needs in-client verification.
+
 Anniversary maps roll to Swim (42). `playerAnimationOffsets = { [42] = -0.5 }` lowers
 only the rendered character during grounded ducks, scaled with its body size. Collision,
 movement and camera positions are unchanged; the normal height returns when ducking ends.

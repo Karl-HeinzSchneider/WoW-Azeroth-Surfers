@@ -1,4 +1,4 @@
-## Interface: 16001, 120100, 20506
+## Interface: 16001, 120100, 20506, 11509
 ## Title: Azeroth Surfers Dev
 ## IconTexture: Interface\AddOns\AzerothSurfers\assets\core\gem128
 ## Notes: Development tools for Azeroth Surfers: model and creature previews, animation checks, playtest helpers, diagnostics. Never released.

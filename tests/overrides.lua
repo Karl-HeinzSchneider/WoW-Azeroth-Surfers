@@ -42,7 +42,7 @@ local function anniversary(target, interface)
 end
 local classic = fresh()
 local original = classic.biomes.list
-for _, interface in ipairs({ 16001, 11508, 120100, 50500 }) do
+for _, interface in ipairs({ 16001, 11508, 11509, 120100, 50500 }) do
     anniversary(classic, interface)
     assert(classic.biomes.list == original, "unrelated clients unchanged")
 end
@@ -54,6 +54,29 @@ assert(classic.biomes.PlayerAnimation(666) == 42, "Anniversary swim override")
 assert(classic.biomes.PlayerAnimation(5) == 5, "other player animations unchanged")
 assert(app.biomes.PlayerAnimation(666) == 666, "retail retains roll")
 assert(fresh().biomes.PlayerAnimation(666) == 666, "Forever retains roll")
+
+-- Era selects only 1.15.x, including the screenshot's 1.15.9 / build 70003.
+local era = fresh()
+local apply = era.biomes.ApplyAssetOverrides
+local calls = 0
+era.biomes.ApplyAssetOverrides = function(overrides)
+    calls = calls + 1
+    apply(overrides)
+end
+for _, interface in ipairs({ 11499, 11600, 16001, 20506, 120100, 50500, 11500, 11509, 11599 }) do
+    GetBuildInfo = function()
+        return "1.15.9", "70003", "Sep 3 2026", interface, "", "Release", interface
+    end
+    assert(loadfile("AzerothSurfers/src/overrides/era.lua"))("AzerothSurfers", era)
+end
+assert(calls == 3, "Era override selects only the 1.15.x interface family")
+assert(era.biomes.Get("lobby").ambient.creatures[2].creature == 328, "Era lobby rabbit fallback")
+assert(era.biomes.Get("elwynn").ambient.creatures[2].creature == 328, "Era Elwynn rabbit fallback")
+assert(era.biomes.Get("elwynn").obstacles.enemy[1].items[1].animation == 0, "Era ready fallback")
+assert(era.biomes.Get("lobby").obstacles.enemy[1].items[1].animation == 0, "Era lobby ready fallback")
+assert(era.biomes.PlayerAnimation(666) == 42, "Era swim fallback")
+assert(era.biomes.playerAnimationOffsets[42] == -0.5, "Era swimming duck height")
+assert(era.biomes.PlayerAnimation(5) == 5, "Era leaves other player animations unchanged")
 
 app = fresh()
 local item = {

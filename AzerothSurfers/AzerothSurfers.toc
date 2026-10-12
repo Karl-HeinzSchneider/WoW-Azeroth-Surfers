@@ -1,4 +1,4 @@
-## Interface: 16001, 120100, 20506
+## Interface: 16001, 120100, 20506, 11509
 ## Title: Azeroth Surfers
 ## Notes: An endless 3D runner through Azeroth. |n|cffbbbbbbBy Karl-Heinz Schneider|r|n|n|TInterface/Addons/AzerothSurfers/assets/core/coffee:12:12|t |cff82c5ffbuymeacoffee.com/karlheinzschneider|r
 ## IconTexture: Interface\AddOns\AzerothSurfers\assets\core\gem128
@@ -22,6 +22,7 @@ src\biomes\biomes.xml
 src\scenes\lobby.lua
 src\overrides\retail.lua
 src\overrides\anniversary.lua
+src\overrides\era.lua
 src\game\game.xml
 src\game\light.lua
 src\game\shapes.lua

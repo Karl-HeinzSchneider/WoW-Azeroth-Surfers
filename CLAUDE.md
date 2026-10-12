@@ -1,8 +1,9 @@
 # CLAUDE.md
 
 Azeroth Surfers is a World of Warcraft addon (Lua 5.1 on Ace3) targeting WoW Forever
-(`16001`), retail (`120100`) and Anniversary (2.5.6, interface 20506) through the TOC's `## Interface`, plus Node/TypeScript
-tooling that checks, links and packages it. Anniversary (2.5.6, interface 20506) compatibility still needs in-client testing.
+(`16001`), retail (`120100`), Anniversary (2.5.6, interface 20506) and Classic Era
+(1.15.9, interface 11509) through the TOC's `## Interface`, plus Node/TypeScript
+tooling that checks, links and packages it. Anniversary and Classic Era compatibility still needs in-client testing.
 
 | Part                  | What it is                                                  | Details                                                      |
 | --------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
