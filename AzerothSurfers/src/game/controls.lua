@@ -480,6 +480,9 @@ function overlay:OnKey(key)
         return
     end
     local chord = overlay.Chord(key)
+    if self.InputHudPress then
+        self:InputHudPress(key, chord)
+    end
     local binding = GetBindingAction(chord, true)
     if self:OnScreenKey(key, binding, chord) then
         return
@@ -520,6 +523,9 @@ end
 
 -- Letting go of a start-over key, whatever modifiers are still held.
 function overlay:OnKeyRelease(key)
+    if self.InputHudRelease then
+        self:InputHudRelease(key)
+    end
     if overlay.IsActionKey("restart", key) then
         self.holding = nil
     end

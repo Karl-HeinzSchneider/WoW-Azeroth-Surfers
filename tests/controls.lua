@@ -14,6 +14,7 @@ dofile("tests/load.lua")(app, {
     "game/shapes",
     "game/overlay",
     "game/keys",
+    "game/inputhud",
     "game/messages",
     "game/menus",
     "game/screens",
@@ -598,3 +599,164 @@ for id, b in pairs(stats.best) do
 end
 r.challenge = nil
 print("PASS stats: runs and totals counted once, records from runs that keep a best")
+
+-- The input HUD observes bound actions without changing input handling. Both aliases can
+-- hold one action; releasing one must not extinguish the other. Taps survive one stream frame.
+do
+    local now = 10
+    GetBindingKey = function()
+        return "W"
+    end
+    GetTime = function()
+        return now
+    end
+    local probe = { db = { profile = { inputHud = true, keys = { jump = { "SHIFT-E", "UP" } } } } }
+    probe.overlay = {}
+    probe.autopilot = app.autopilot
+    dofile("tests/load.lua")(probe, { "game/keys", "game/inputhud" })
+    local hud = probe.overlay
+    hud.state = { status = "running" }
+    hud.inputHud = {
+        IsShown = function()
+            return true
+        end,
+    }
+    hud.inputHudCaps = {}
+    for i = 1, 6 do
+        local cap = { SetShown = function() end, SetBackdropBorderColor = function() end }
+        cap.SetAlpha = function(_, value)
+            cap.alpha = value
+        end
+        cap.SetBackdropColor = function(_, red)
+            cap.lit = red == 0.1
+        end
+        cap.text = {
+            SetText = function(_, text)
+                cap.textValue = text
+            end,
+        }
+        cap.label = {
+            SetText = function() end,
+            SetShown = function(_, value)
+                cap.captionShown = value
+            end,
+        }
+        cap.icon = {
+            SetShown = function(_, value)
+                cap.iconShown = value
+            end,
+            SetSize = function() end,
+            SetAtlas = function(_, value)
+                cap.atlas = value
+            end,
+            SetRotation = function(_, value)
+                cap.rotation = value
+            end,
+        }
+        hud.inputHudCaps[i] = cap
+    end
+    hud.capture = true
+    probe.db.profile.inputHudSimplified = true
+    hud:UpdateInputHud()
+    assert(
+        not hud.inputHudCaps[1].captionShown and hud.inputHudCaps[1].iconShown,
+        "simplified movement uses arrows without captions"
+    )
+    assert(hud.inputHudCaps[1].rotation == 0, "up arrow is shown even at zero rotation")
+    assert(hud.inputHudCaps[1].atlas == "housing-floor-arrow-up", "simplified view uses the housing arrow atlas")
+    assert(
+        hud.inputHudCaps[5].textValue == "P" and hud.inputHudCaps[6].textValue == "R",
+        "simplified pause and restart labels"
+    )
+    probe.db.profile.inputHudSimplified = false
+    hud:UpdateInputHud()
+    assert(
+        hud.inputHudCaps[1].captionShown and not hud.inputHudCaps[1].iconShown,
+        "normal view restores captions and hides arrows"
+    )
+    hud:InputHudPress("E", "SHIFT-E")
+    hud:InputHudPress("UP", "UP")
+    hud:InputHudRelease("E")
+    now = 11
+    hud:UpdateInputHud()
+    assert(hud.inputHudCaps[1].lit, "alternate key still holds jump")
+    hud:InputHudRelease("UP")
+    hud:UpdateInputHud()
+    assert(not hud.inputHudCaps[1].lit, "released keys clear the highlight")
+    hud:InputHudPress("E", "SHIFT-E")
+    hud:InputHudRelease("E")
+    hud:UpdateInputHud()
+    assert(hud.inputHudCaps[1].lit, "short taps remain visible")
+    now = 12
+    hud:UpdateInputHud()
+    assert(not hud.inputHudCaps[1].lit, "tap highlight expires")
+    hud:InputHudPress("F", "F")
+    assert(not hud.inputHudHeld.F, "unrelated keys stay out of the HUD")
+    hud.screen = "menu"
+    hud:InputHudPress("W", "W")
+    hud:UpdateInputHud()
+    assert(#hud.inputHudCaps == 6, "only the six game actions, without a forward or menu indicator")
+    assert(
+        hud.inputHudCaps[1].action == "jump" and hud.inputHudCaps[1].alpha == 0.3,
+        "gameplay keys retain their layout and dim in menus"
+    )
+    assert(not hud:InputHudIsPlaying(), "menu hides the HUD")
+    hud:ClearInputHud()
+    assert(not hud.inputHudHeld and not hud.inputHudUntil, "closing clears held inputs and taps")
+    hud.screen = nil
+    assert(hud:InputHudIsPlaying(), "active gameplay shows the HUD")
+    hud.screen = "title"
+    assert(not hud:InputHudIsPlaying(), "title hides the HUD")
+    hud.screen = "start"
+    assert(not hud:InputHudIsPlaying(), "lobby launch hides the HUD")
+    hud.screen = nil
+    hud.state.lobby, hud.state.distance, hud.state.start = {}, 0, 100
+    assert(not hud:InputHudIsPlaying(), "lobby intro hides the HUD after the start screen")
+    hud.state.distance = 100
+    assert(hud:InputHudIsPlaying(), "crossing the lobby portal shows the HUD")
+    hud.statusOpen = true
+    assert(not hud:InputHudIsPlaying(), "pause menu hides the HUD")
+    hud.statusOpen = nil
+    hud.state.status = "over"
+    assert(not hud:InputHudIsPlaying(), "finished run hides the HUD")
+    hud.state.status = "running"
+    -- Exercise the actual hide/show operation, including returning from a hidden lobby HUD.
+    local shown = false
+    hud.frame = {
+        IsShown = function()
+            return true
+        end,
+    }
+    hud.inputHud.SetShown = function(_, value)
+        shown = value
+    end
+    hud.screen = "menu"
+    hud:SyncInputHudVisibility()
+    assert(not shown, "window hidden in menu")
+    hud.screen = nil
+    hud.state.distance = 0
+    hud:SyncInputHudVisibility()
+    assert(not shown, "window hidden before lobby portal")
+    hud.state.distance = hud.state.start
+    hud:SyncInputHudVisibility()
+    assert(shown, "hidden window becomes visible on entering gameplay")
+    hud.statusOpen = true
+    hud:SyncInputHudVisibility()
+    assert(not shown, "pause hides window")
+    hud.statusOpen = nil
+    hud:SyncInputHudVisibility()
+    assert(shown, "resuming shows window again")
+    probe.db.profile.keys.left = { false, false, false, false }
+    hud:UpdateInputHud()
+    assert(
+        hud.inputHudCaps[2].action == "left" and hud.inputHudCaps[2].alpha == 0.3,
+        "unbound actions keep their position and dim"
+    )
+    hud:InputHudPress("PAD1", "PAD1")
+    assert(hud.inputHudHeld.PAD1 == "jump", "controller presses use the same actions")
+    probe.db.profile.inputHud = false
+    hud:ClearInputHud()
+    hud:InputHudPress("A", "A")
+    assert(not hud.inputHudHeld, "disabled HUD does not track keys")
+end
+print("PASS input HUD: chords, aliases, taps, menu context, gamepad and clearing")

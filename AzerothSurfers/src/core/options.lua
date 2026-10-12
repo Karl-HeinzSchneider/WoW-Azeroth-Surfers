@@ -606,6 +606,38 @@ local display = {
             end,
         },
         hudHeader = header(20, "Scorecard"),
+        inputHud = {
+            type = "select",
+            order = 40,
+            name = "Input HUD",
+            desc = "Show a draggable input window during gameplay. Simplified: arrows, P and R without captions, in a compact window. Normal: bound keys with action captions. Hidden in menus and the lobby.",
+            values = { none = "No input HUD", simplified = "Simplified", normal = "Normal" },
+            sorting = { "none", "simplified", "normal" },
+            get = function()
+                if not app.db.profile.inputHud then
+                    return "none"
+                end
+                return app.db.profile.inputHudSimplified and "simplified" or "normal"
+            end,
+            set = function(_, value)
+                app.db.profile.inputHud = value ~= "none"
+                app.db.profile.inputHudSimplified = value == "simplified"
+                app.overlay:RefreshInputHud()
+            end,
+        },
+        inputHudReset = {
+            type = "execute",
+            order = 41,
+            name = "Reset input HUD position",
+            func = function()
+                local position = app.db.profile.mode == "side" and "inputHudSidePosition" or "inputHudPosition"
+                local saved = app.db.profile[position]
+                for key, value in pairs(app.dbDefaults.profile[position]) do
+                    saved[key] = value
+                end
+                app.overlay:RefreshInputHud()
+            end,
+        },
         hudPosition = {
             type = "select",
             order = 21,
