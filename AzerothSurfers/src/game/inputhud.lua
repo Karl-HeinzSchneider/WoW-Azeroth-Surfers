@@ -21,6 +21,9 @@ local POSITIONS = {
     { 4, -78 },
 }
 local CAP_WIDTH, CAP_GAP = 56, 6
+-- Reuse the menu's right-arrow art, rotated for the four gameplay directions.
+local ARROW = "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up"
+local ROTATION = { jump = math.pi / 2, left = math.pi, duck = -math.pi / 2, right = 0 }
 
 function overlay:InputHudContext()
     return (self.screen == "title" or self.screen == "menu" or self.statusOpen) and "menu" or "run"
@@ -99,12 +102,27 @@ function overlay:UpdateInputHud()
     end
     local context = self:InputHudContext()
     local now, slot = GetTime(), self:ShownSlot()
+    local simplified = app.db.profile.inputHudSimplified == true
     for i, cap in ipairs(self.inputHudCaps) do
         local id = ACTIONS[i]
         if id then
             local action = overlay.ACTION_BY_ID[id]
             local key = overlay.ActionKey(id, slot) or overlay.ActionKey(id, slot + 1)
             local text = key and overlay.KeyText(key) or "—"
+            if simplified then
+                text = id == "pause" and "P" or id == "restart" and "R" or ""
+            end
+            if cap.simplified ~= simplified then
+                cap.simplified = simplified
+                cap.label:SetShown(not simplified)
+                local rotation = ROTATION[id]
+                cap.icon:SetShown(simplified and rotation ~= nil)
+                if simplified and rotation then
+                    cap.icon:SetSize(20, 20)
+                    cap.icon:SetTexture(ARROW)
+                    cap.icon:SetRotation(rotation)
+                end
+            end
             local enabled = key ~= nil and not blocked
             do
                 enabled = enabled and overlay.SameContext(action.context, context)

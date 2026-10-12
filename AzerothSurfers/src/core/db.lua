@@ -17,6 +17,7 @@ local profile = {
     challengeReminder = true, -- a chat line at login: each challenge new, beaten or not finished
     legend = true,
     inputHud = false,
+    inputHudSimplified = false,
     inputHudPosition = { point = "BOTTOM", relative = "BOTTOM", x = 0, y = 100 },
     distanceUnit = "client", -- "client", "yards" or "meters"; WoW's localized units, same numbers
     -- A biome id, or "auto": zone to zone as the run goes.

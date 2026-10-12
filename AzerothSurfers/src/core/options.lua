@@ -615,6 +615,23 @@ local display = {
                 app.overlay:RefreshInputHud()
             end
         ),
+        inputHudDisplay = {
+            type = "group",
+            order = 40.5,
+            name = "Input HUD display",
+            inline = true,
+            disabled = function()
+                return not app.db.profile.inputHud
+            end,
+            args = {
+                simplified = toggle(
+                    1,
+                    "inputHudSimplified",
+                    "Simplified display",
+                    "Hide action captions and show direction arrows, P for pause and R for restart. Keeps the same window size and spacing."
+                ),
+            },
+        },
         inputHudReset = {
             type = "execute",
             order = 41,

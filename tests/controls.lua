@@ -630,11 +630,47 @@ do
         cap.SetBackdropColor = function(_, red)
             cap.lit = red == 0.1
         end
-        cap.text = { SetText = function() end }
-        cap.label = { SetText = function() end }
+        cap.text = {
+            SetText = function(_, text)
+                cap.textValue = text
+            end,
+        }
+        cap.label = {
+            SetText = function() end,
+            SetShown = function(_, value)
+                cap.captionShown = value
+            end,
+        }
+        cap.icon = {
+            SetShown = function(_, value)
+                cap.iconShown = value
+            end,
+            SetSize = function() end,
+            SetTexture = function() end,
+            SetRotation = function(_, value)
+                cap.rotation = value
+            end,
+        }
         hud.inputHudCaps[i] = cap
     end
     hud.capture = true
+    probe.db.profile.inputHudSimplified = true
+    hud:UpdateInputHud()
+    assert(
+        not hud.inputHudCaps[1].captionShown and hud.inputHudCaps[1].iconShown,
+        "simplified movement uses arrows without captions"
+    )
+    assert(hud.inputHudCaps[4].rotation == 0, "right arrow is shown even at zero rotation")
+    assert(
+        hud.inputHudCaps[5].textValue == "P" and hud.inputHudCaps[6].textValue == "R",
+        "simplified pause and restart labels"
+    )
+    probe.db.profile.inputHudSimplified = false
+    hud:UpdateInputHud()
+    assert(
+        hud.inputHudCaps[1].captionShown and not hud.inputHudCaps[1].iconShown,
+        "normal view restores captions and hides arrows"
+    )
     hud:InputHudPress("E", "SHIFT-E")
     hud:InputHudPress("UP", "UP")
     hud:InputHudRelease("E")
