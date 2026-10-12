@@ -760,3 +760,70 @@ do
     assert(not hud.inputHudHeld, "disabled HUD does not track keys")
 end
 print("PASS input HUD: chords, aliases, taps, menu context, gamepad and clearing")
+
+-- A previously captured key must not strand WoW input when combat starts.
+do
+    dofile("tests/load.lua")(app, { "game/window" })
+    local combat, keyboard, gamepad, stick, hidden = true
+    local oldCombat = InCombatLockdown
+    InCombatLockdown = function()
+        return combat
+    end
+    local view = setmetatable({
+        side = true,
+        capture = true,
+        holding = 0.5,
+        stickHeld = {},
+        state = app.simulation.New(),
+        SaveBest = function() end,
+        StepApproach = function() end,
+        Footsteps = function() end,
+        frame = {
+            EnableKeyboard = function(_, on)
+                keyboard = on
+            end,
+            EnableGamePadButton = function(_, on)
+                gamepad = on
+            end,
+            EnableGamePadStick = function(_, on)
+                stick = on
+            end,
+            SetPropagateKeyboardInput = function(_, on)
+                assert(not combat, "never change propagation during combat")
+                assert(on, "restore propagation before accepting keys")
+            end,
+            Hide = function()
+                hidden = true
+            end,
+        },
+    }, {
+        __index = function(_, key)
+            return type(r[key]) == "function" and r[key] or nil
+        end,
+    })
+    app.simulation.Start(view.state)
+    view:SyncCombat()
+    assert(not hidden and view.state.status == "paused", "manual side window stays visible and pauses")
+    assert(not keyboard and not gamepad and not stick, "combat releases every input device")
+    assert(not view.holding and not view.stickHeld, "combat cancels held restart and stick state")
+    local distance = view.state.distance
+    view:Action("P")
+    view:OnKey("SPACE")
+    view:OnStick("Left", 1, 0)
+    view:Step(1)
+    assert(view.state.status == "paused" and view.state.distance == distance, "manual play cannot resume in combat")
+    combat = false
+    view:SyncCombat()
+    assert(keyboard and gamepad and stick and view.state.status == "paused", "input returns without resuming the run")
+    combat, view.auto = true, true
+    app.simulation.Pause(view.state)
+    view:SyncCombat()
+    assert(not hidden and view.state.status == "running" and view.auto, "auto side window continues in combat")
+    view:Step(0.1)
+    assert(view.state.distance > distance, "auto simulation advances during combat")
+    view.side = false
+    view:SyncCombat()
+    assert(hidden, "full-screen mode still hides during combat")
+    InCombatLockdown = oldCombat
+end
+print("PASS combat: visible side window, manual pause, auto continuation and input release")

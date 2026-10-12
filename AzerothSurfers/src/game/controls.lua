@@ -229,6 +229,9 @@ function overlay:SetFixedSeed(on)
 end
 
 function overlay:Action(key)
+    if InCombatLockdown() and not self.auto then
+        return
+    end
     local s = self.state
     -- Positive simulation lanes are on the screen's left.
     if key == "LEFT" or key == "A" then
@@ -302,6 +305,13 @@ end
 
 function overlay:Step(elapsed)
     local s = self.state
+    if InCombatLockdown() and not self.auto then
+        s.forward = false
+        if s.status == "running" then
+            sim.Pause(s)
+        end
+        return
+    end
     -- A run from the lobby runs by itself up to the portal, as when captured.
     if self.capture or self.auto or autopilot.InIntro(s) then
         s.forward = self:AutoRun()
@@ -467,7 +477,7 @@ function overlay:Captures(chord, binding)
 end
 
 function overlay:OnKey(key)
-    -- In combat the view is closed, and whether a key reaches WoW cannot be changed.
+    -- Combat disables input on the window; ignore any already dispatched event too.
     if InCombatLockdown() then
         return
     end
@@ -585,6 +595,9 @@ end
 local sticksSeen = {}
 
 function overlay:OnStick(stick, x, y)
+    if InCombatLockdown() then
+        return
+    end
     if not sticksSeen[stick] then
         sticksSeen[stick] = true
         app.logger:debug("Gamepad stick: %s", tostring(stick))
