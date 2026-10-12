@@ -321,7 +321,12 @@ local function historyPage(id)
             text = function()
                 local e = entry(row)
                 if e then
-                    return challenges.ShortLabel(challenges.ByIndex(id, e.index))
+                    local label = challenges.ShortLabel(challenges.ByIndex(id, e.index))
+                    local revision = e.record.gameplayRevision
+                    if revision ~= sim.GAMEPLAY_REVISION then
+                        return label .. (revision and string.format(" (rules %d)", revision) or " (legacy)")
+                    end
+                    return label
                 end
                 return row == 1 and "None played yet" or ""
             end,

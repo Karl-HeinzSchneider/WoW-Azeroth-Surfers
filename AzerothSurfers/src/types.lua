@@ -12,7 +12,7 @@
 ---@field lobby table  # where a run from the menu starts, and what the title and the menu show (src/scenes/lobby.lua)
 ---@field random table  # seeded random numbers (Park–Miller), so a seed plays the same run
 ---@field scoring table  # how a run scores: the default rules, which a game mode overrides field by field
----@field simulation table
+---@field simulation table  # fixed-step rules and GAMEPLAY_REVISION, the competitive rules identity
 ---@field track table  # the track generator and the registry of patterns (src/patterns/*.lua)
 ---@field challenges table  # daily, weekly and monthly challenges: their periods from the realm's UTC clock, seeds and saved bests
 ---@field stats table  # the Stats page's numbers: runs played, their totals and records, in global.stats

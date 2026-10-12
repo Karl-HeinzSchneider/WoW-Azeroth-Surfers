@@ -62,6 +62,7 @@ function overlay:SaveChallenge(s)
         difficulty = s.difficulty.id,
         goal = s.finish - s.start,
         at = app.challenges.Now(),
+        gameplayRevision = s.challenge.gameplayRevision,
         trace = app.challenges.SavedTrace(s),
         traceEvery = app.challenges.TRACE_EVERY,
     }

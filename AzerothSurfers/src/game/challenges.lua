@@ -97,7 +97,8 @@ end
 
 -- The period of `kind` (an id) at `now` (seconds since 1970, UTC; challenges.Now() when nil):
 --   index   its number: days, weeks or months since 1970
---   key     its id in the saved records ("daily-20371")
+--   key     its period id ("daily-20371"); RecordKey adds the gameplay revision for storage
+--   gameplayRevision   the rules used for this period's run and comparable bests
 --   seed, difficulty (an id), goal (challenges.Draw)
 --   starts, ends   seconds since 1970 of its first moment and of the next period's
 --   label   its date, as players see it
@@ -129,6 +130,7 @@ function challenges.Period(id, now)
         kind = kind,
         index = index,
         key = id .. "-" .. index,
+        gameplayRevision = app.simulation.GAMEPLAY_REVISION,
         seed = seed,
         difficulty = difficulty,
         goal = goal,
@@ -153,14 +155,28 @@ function challenges.Left(period, now)
     return string.format("%dm", math.max(1, minutes))
 end
 
--- The saved best of `period`, or nil. In `global.challenges`, by the period's key:
+-- Storage separates revisions of the same period; unversioned keys stay as legacy history.
+function challenges.RecordKey(period)
+    return period.key .. "-r" .. period.gameplayRevision
+end
+
+function challenges.Compatible(period, record)
+    return period.gameplayRevision == app.simulation.GAMEPLAY_REVISION
+        and type(record) == "table"
+        and record.gameplayRevision == period.gameplayRevision
+end
+
+-- The saved best of `period`, or nil. In `global.challenges`, by RecordKey(period):
 --   score, coins, coinTotal, distance (yards), finished (reached the last portal),
 --   difficulty (its id), goal (yards), at (seconds since 1970, UTC),
---   trace, traceEvery (the live target's checkpoints, challenges.Trace; none in older records)
+--   gameplayRevision, trace, traceEvery (the live target's checkpoints, challenges.Trace)
 function challenges.Best(period)
-    local record = app.db.global.challenges[period.key]
+    if period.gameplayRevision ~= app.simulation.GAMEPLAY_REVISION then
+        return nil
+    end
+    local record = app.db.global.challenges[challenges.RecordKey(period)]
     -- Anything else under the key (an earlier version's records by difficulty) is no best.
-    if type(record) == "table" and type(record.score) == "number" then
+    if challenges.Compatible(period, record) and type(record.score) == "number" then
         return record
     end
 end
@@ -178,10 +194,10 @@ end
 -- Keeps `record` (fields as in Best) if it beats the saved one; true then.
 function challenges.Save(period, record)
     local all = app.db.global.challenges
-    if not challenges.Beats(record, challenges.Best(period)) then
+    if not challenges.Compatible(period, record) or not challenges.Beats(record, challenges.Best(period)) then
         return false
     end
-    all[period.key] = record
+    all[challenges.RecordKey(period)] = record
     return true
 end
 
@@ -258,16 +274,19 @@ function challenges.ByIndex(id, index)
     return challenges.Period(id, day * DAY + challenges.RESET_HOUR * 3600)
 end
 
--- A saved record's kind and index from its key ("daily-20371"), or nil for any other key.
+-- A saved record's kind and index from versioned or legacy keys, or nil for other keys.
 local function parseKey(key)
-    local id, index = string.match(key, "^(%a+)%-(%-?%d+)$")
+    local id, index = string.match(key, "^(%a+)%-(%-?%d+)%-r%d+$")
+    if not id then
+        id, index = string.match(key, "^(%a+)%-(%-?%d+)$")
+    end
     if id and challenges.KINDS[id] then
         return id, tonumber(index)
     end
 end
 
--- The saved bests of `kind` (an id), newest first: { index, record } each, skipping what Best
--- would (an earlier version's records).
+-- The saved bests of `kind`, across all revisions and legacy keys, newest first:
+-- { index, record } each, skipping old per-difficulty containers.
 function challenges.History(id)
     local list = {}
     for key, record in pairs(app.db.global.challenges) do
@@ -277,6 +296,9 @@ function challenges.History(id)
         end
     end
     table.sort(list, function(a, b)
+        if a.index == b.index then
+            return (a.record.gameplayRevision or 0) > (b.record.gameplayRevision or 0)
+        end
         return a.index > b.index
     end)
     return list
@@ -296,16 +318,19 @@ function challenges.Streak(now)
     while played[day] do
         current, day = current + 1, day - 1
     end
-    local longest, row = 0, 0
+    local longest, row, previous = 0, 0, nil
     -- Newest first: a row goes on while each index is one less than the one before.
-    for i, entry in ipairs(list) do
-        row = (i > 1 and list[i - 1].index == entry.index + 1) and row + 1 or 1
-        longest = math.max(longest, row)
+    for _, entry in ipairs(list) do
+        if entry.index ~= previous then
+            row = previous == entry.index + 1 and row + 1 or 1
+            longest = math.max(longest, row)
+            previous = entry.index
+        end
     end
     return current, longest
 end
 
--- Drops the trace of every period that is over. At login.
+-- Drops traces of ended periods and incompatible rules. At login; scores stay as history.
 function challenges.Compact(now)
     local currents = {}
     for _, kind in ipairs(challenges.KINDS) do
@@ -313,7 +338,11 @@ function challenges.Compact(now)
     end
     for key, record in pairs(app.db.global.challenges) do
         local id, index = parseKey(key)
-        if id and index < currents[id] and type(record) == "table" then
+        if
+            id
+            and type(record) == "table"
+            and (index < currents[id] or record.gameplayRevision ~= app.simulation.GAMEPLAY_REVISION)
+        then
             record.trace, record.traceEvery = nil, nil
         end
     end

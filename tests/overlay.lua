@@ -1013,6 +1013,7 @@ app.leaderboard:Receive(
         finished = true,
         coins = 1,
         coinTotal = 2,
+        gameplayRevision = g.GAMEPLAY_REVISION,
     }),
     "GUILD",
     "Ann"
@@ -1040,7 +1041,7 @@ app.db.global.challenges["daily-" .. past] =
 press("E")
 local list = main:Page()
 assert(list.title == "Daily history" and list.items[1].choice.get(o) == "1 / 1", "one page")
-assert(list.items[2].text(o) == "9 Oct", list.items[2].text(o))
+assert(list.items[2].text(o) == "9 Oct (legacy)", list.items[2].text(o))
 assert(list.items[2].info(o) == "1200  |cffaaaaaa2500 yd|r  30/80", list.items[2].info(o))
 assert(list.items[3].text(o) == "" and list.items[3].info(o) == "", "the rows below it empty")
 press("Q", "STRAFELEFT")

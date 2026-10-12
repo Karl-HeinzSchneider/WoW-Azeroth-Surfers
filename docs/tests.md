@@ -54,6 +54,11 @@ end)
 
 ## Common pitfalls
 
+- **Gameplay revisions.** Challenge fixtures saved as competitive bests must include
+  `gameplayRevision` and use `challenges.Save` or `challenges.RecordKey(period)`. Unversioned
+  fixtures are legacy history. Revision regression tests check that old scores survive in
+  history without affecting current targets, ranking or daily streak counts, and that peers
+  exchange bests and queries only with matching gameplay rules.
 - **Floating point.** `3 * 0.6` is `1.7999999999999998`, not `1.8`, so a box on layer 3 is
   "below" a 1.8-yard body. Compare heights with a small epsilon (the simulation uses `1e-6`).
 - **Allocation.** The allocation test fails on any table or string built per frame:

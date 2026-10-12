@@ -86,7 +86,8 @@ local global = {
     -- The Stats page's numbers (stats.lua): runs played and what they add up to, the longest
     -- coin streak, and Play's best of each difficulty by its id ({ score, distance, coins }).
     stats = { runs = 0, yards = 0, coins = 0, time = 0, portals = 0, longestStreak = 0, best = {} },
-    -- The best run of each challenge (challenges.lua's Best), by its period's key.
+    -- Challenge bests by period and gameplay revision (e.g. daily-20371-r1).
+    -- Old unversioned keys remain as legacy history, never as live targets.
     challenges = {},
     -- The bests the guild and the group shared (leaderboard.lua), by the period's key, then by
     -- the player's name; only the current periods'.
