@@ -420,9 +420,15 @@ local game = {
             "Challenge reminder at login",
             "At login, one chat line says whether today's daily, this week's and this month's challenge are new, beaten or not finished yet."
         ),
+        sharing = toggle(
+            33,
+            "sharing",
+            "Enable sharing",
+            "Show Share on run results and exchange challenge scores with your guild and group leaderboard. Turn off to remove Share and stop sending and receiving sharing messages."
+        ),
         logLevel = {
             type = "select",
-            order = 33,
+            order = 34,
             name = "Log level",
             desc = "How much " .. app.TITLE .. " writes to the chat window. Same as /surfers loglevel <level>.",
             values = levelNames,
