@@ -78,6 +78,27 @@ assert(era.biomes.PlayerAnimation(666) == 42, "Era swim fallback")
 assert(era.biomes.playerAnimationOffsets[42] == -0.5, "Era swimming duck height")
 assert(era.biomes.PlayerAnimation(5) == 5, "Era leaves other player animations unchanged")
 
+-- Classic selects 5.5.x and replaces only its reported missing assets.
+local progression = fresh()
+local classicApply = progression.biomes.ApplyAssetOverrides
+local classicCalls = 0
+progression.biomes.ApplyAssetOverrides = function(overrides)
+    classicCalls = classicCalls + 1
+    classicApply(overrides)
+end
+for _, interface in ipairs({ 50499, 50600, 16001, 11509, 20506, 120100, 50500, 50504, 50599 }) do
+    GetBuildInfo = function()
+        return "5.5.4", "70268", "Oct  6 2026", interface, "", " ", interface
+    end
+    assert(loadfile("AzerothSurfers/src/overrides/classic.lua"))("AzerothSurfers", progression)
+end
+assert(classicCalls == 3, "Classic override selects only the 5.5.x interface family")
+assert(progression.biomes.Get("lobby").ambient.creatures[2].creature == 328, "Classic lobby rabbit fallback")
+assert(progression.biomes.Get("elwynn").ambient.creatures[2].creature == 328, "Classic Elwynn rabbit fallback")
+assert(progression.biomes.Get("elwynn").obstacles.enemy[1].items[1].animation == 0, "Classic ready fallback")
+assert(progression.biomes.Get("lobby").obstacles.enemy[1].items[1].animation == 0, "Classic lobby ready fallback")
+assert(progression.biomes.PlayerAnimation(666) == 666, "Classic retains baseline roll")
+
 app = fresh()
 local item = {
     creature = { 1252, 1218 },

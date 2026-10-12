@@ -45,6 +45,11 @@ Anniversary maps roll to Swim (42). `playerAnimationOffsets = { [42] = -0.5 }` l
 only the rendered character during grounded ducks, scaled with its body size. Collision,
 movement and camera positions are unchanged; the normal height returns when ducking ends.
 
+`src/overrides/classic.lua` targets the 5.5.x Classic client family (manifest 50504,
+version 5.5.4, build 70268), separately from Era and Anniversary. Its asset audit rejected
+rabbit 139885 and ready animation 25 on creature 604. It uses rabbit 328 and Stand (0)
+as fallbacks, retaining the baseline player roll. Replacement appearance needs in-client verification.
+
 Mappings cover `creatures`, `models`, `sounds`, `textures` and explicit biome `animations`.
 The application step copies definitions and clears merged caches, so the dev asset audit sees
 the same resolved data as gameplay. It handles asset lists, display-keyed enemy sounds,
