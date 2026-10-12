@@ -1266,6 +1266,20 @@ do
         line == "Azeroth Surfers daily challenge: 42,310 points, 5,200 yards, 1,234 coins on Hard, a new best!",
         line
     )
+    share()
+    said = nil
+    app.db.profile.sharing = false
+    status:SelectRow(1)
+    status:Input("accept")
+    assert(said == nil, "an already open Share page cannot send after disabling sharing")
+    o:ShowStatus()
+    for _, item in ipairs(status:Page().items) do
+        assert(item.text ~= "Share", "disabled sharing removes Share from the end menu")
+    end
+    app.db.profile.sharing = true
+    o:ShowStatus()
+    share()
+    status:Back()
     IsInGuild, IsInGroup, SendChatMessage = nil, nil, nil
 end
 -- A challenge's end: how much it beat or missed the best before it by, when both reached the

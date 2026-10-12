@@ -15,6 +15,7 @@ local profile = {
     portalSound = true,
     music = true, -- the title music on the title screen and in the menu
     challengeReminder = true, -- a chat line at login: each challenge new, beaten or not finished
+    sharing = true, -- chat sharing and outgoing challenge leaderboard messages
     legend = true,
     inputHud = false,
     inputHudSimplified = false,

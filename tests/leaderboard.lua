@@ -8,7 +8,7 @@ dofile("tests/load.lua")(app, {
     "game/leaderboard",
 })
 local c, board = app.challenges, app.leaderboard
-app.db = { global = { challenges = {}, leaderboard = {} } }
+app.db = { profile = {}, global = { challenges = {}, leaderboard = {} } }
 local now = 20736 * 86400 + 12 * 3600
 function GetServerTime()
     return now
@@ -59,6 +59,22 @@ test("a best goes out to the guild and the group and comes back the same", funct
     local kept = app.db.global.leaderboard[daily.key].Ann
     assert(kept and kept.score == 1234 and kept.finished and kept.distance == daily.goal and kept.coins == 3)
     group = false
+end)
+
+test("disabled sharing blocks bests, requests and replies", function()
+    app.db.global.challenges[weekly.key] = best(100, true)
+    app.db.profile.sharing = false
+    board:Share(daily, best(1234, true, daily.goal))
+    board:Ask(weekly)
+    board:Receive("2 Q " .. weekly.key, "GUILD", "Ann")
+    board:Receive(board.Encode(weekly.key, best(200, true)), "GUILD", "Disabled")
+    assert(#sent() == 0, "no outgoing messages while sharing is disabled")
+    assert(not app.db.global.leaderboard[weekly.key], "disabled sharing does not receive scores")
+    app.db.profile.sharing = true
+    board:Ask(weekly)
+    assert(#sent() > 0, "sharing can be enabled again")
+    board.asked = {}
+    app.db.global.challenges[weekly.key] = nil
 end)
 
 test("a best is kept only if it beats the one before", function()

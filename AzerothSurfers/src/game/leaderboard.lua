@@ -118,6 +118,9 @@ local function decodeBest(period, words)
 end
 
 local function send(self, text, channel)
+    if app.db.profile.sharing == false then
+        return
+    end
     self:SendCommMessage(PREFIX, text, channel, nil, "BULK")
 end
 
@@ -150,6 +153,9 @@ end
 -- A message from `sender` on `channel`: a best is kept, an ask answered with this player's
 -- bests of the periods it names, once per ANSWER_EVERY each.
 function module:Receive(message, channel, sender, now)
+    if app.db.profile.sharing == false then
+        return
+    end
     if not CHANNELS[channel] or sender == self.Me() then
         return
     end
@@ -190,6 +196,9 @@ end
 
 -- This player's new best of `period` (challenges.Save kept it), to every channel.
 function module:Share(period, record, now)
+    if app.db.profile.sharing == false then
+        return
+    end
     if not current(now)[period.key] then
         return
     end
@@ -201,6 +210,9 @@ end
 
 -- Asks every channel for its bests of `period`, at most once per ASK_EVERY per channel and period.
 function module:Ask(period, now)
+    if app.db.profile.sharing == false then
+        return
+    end
     now = now or challenges.Now()
     if not current(now)[period.key] then
         return

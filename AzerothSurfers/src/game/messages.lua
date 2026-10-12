@@ -369,6 +369,9 @@ local function shareChannels()
 end
 
 local function send(text, channel)
+    if app.db.profile.sharing == false then
+        return
+    end
     local chat = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
     -- Some content may refuse addon chat: says so rather than raising an error over the menu.
     if not pcall(chat, text, channel) then
@@ -380,6 +383,9 @@ end
 local SHARE = {
     text = "Share",
     run = function(o, menu)
+        if app.db.profile.sharing == false then
+            return
+        end
         local items = {}
         for _, channel in ipairs(shareChannels()) do
             items[#items + 1] = {
@@ -402,7 +408,9 @@ local function page(title, ...)
     local items = {}
     for _, list in ipairs({ ... }) do
         for _, item in ipairs(list) do
-            items[#items + 1] = item
+            if item ~= SHARE or app.db.profile.sharing ~= false then
+                items[#items + 1] = item
+            end
         end
     end
     return { title = title, items = items }
@@ -593,13 +601,15 @@ function overlay:ShowStatus()
             self:WelcomeBiome()
         end
     end
-    if self.statusShown == s.status and self.statusState == s then
+    local sharing = app.db.profile.sharing ~= false
+    if self.statusShown == s.status and self.statusState == s and self.statusSharing == sharing then
         if self.statusOpen then
             self.statusMenu:Show()
         end
         return
     end
     self.statusShown, self.statusState = s.status, s
+    self.statusSharing = sharing
     -- Auto mode's pause button: Go on while paused, nothing to pause between two runs.
     if self.auto then
         local pause = self.controlButtons[3]
