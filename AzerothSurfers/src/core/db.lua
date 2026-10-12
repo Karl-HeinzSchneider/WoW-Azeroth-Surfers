@@ -31,7 +31,7 @@ local profile = {
     -- The game takes the movement keys from WoW: the character stays put, the runner runs alone.
     capture = true,
     -- The game's keys by action (keys.lua's ACTIONS): { key 1, key 2, gamepad button }, false
-    -- for unbound; where an action or slot is not set, its default. Set on the Keys tab.
+    -- for unbound; where an action or slot is not set, its default. Set on the Keybindings tab.
     keys = {},
     difficulty = "normal", -- an id of simulation.DIFFICULTIES
     -- The custom game's settings (the main menu's Custom, messages.lua's CUSTOM); Play ignores
