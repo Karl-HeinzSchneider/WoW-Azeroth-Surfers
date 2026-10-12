@@ -13,12 +13,12 @@ local ACTIONS = {
     "restart",
 }
 local POSITIONS = {
-    { 104, -76 },
-    { 26, -138 },
-    { 104, -138 },
-    { 182, -138 },
-    { 260, -76 },
-    { 260, -138 },
+    { 80, -36 },
+    { 18, -88 },
+    { 80, -88 },
+    { 142, -88 },
+    { 204, -36 },
+    { 204, -88 },
 }
 
 function overlay:InputHudContext()
@@ -40,6 +40,19 @@ end
 
 function overlay:SyncInputHudVisibility()
     if self.inputHud then
+        -- Follow scorecard growth and its side-window scale, keeping the visible widths equal.
+        if self.hud then
+            local width = math.max(280, self.hud.card:GetWidth())
+            local scale = self.hud.frame:GetScale()
+            if width ~= self.inputHudWidth then
+                self.inputHudWidth = width
+                self.inputHud:SetWidth(width)
+            end
+            if scale ~= self.inputHudScale then
+                self.inputHudScale = scale
+                self.inputHud:SetScale(scale)
+            end
+        end
         self.inputHud:SetShown(app.db.profile.inputHud and self.frame:IsShown() and self:InputHudIsPlaying())
     end
 end
@@ -110,7 +123,7 @@ function overlay:UpdateInputHud()
             end
             if cap.action ~= id then
                 cap.action = id
-                cap.label:SetText(action.name)
+                cap.label:SetText(id == "restart" and "Start over" or action.name)
             end
             local active = self.inputHudUntil and (self.inputHudUntil[id] or 0) > now or false
             if self.inputHudHeld then
@@ -140,10 +153,14 @@ function overlay:CreateInputHud()
     local f, window = menu.panel, menu.window
     self.inputHud = f
     self.inputHudMenu = menu
-    f:SetSize(362, 220)
+    f:SetSize(280, 172)
     f:SetFrameStrata("HIGH")
-    menu.title:SetText("Input HUD")
-    menu:PlaceTrim(menu.trims[1], -58)
+    menu.title:Hide()
+    local label = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    label:SetPoint("TOPLEFT", 18, -14)
+    label:SetText("Input")
+    label:SetTextColor(0.72, 0.68, 0.58)
+    menu.trims[1]:Hide()
     menu.trims[2]:Hide()
     menu.marker:Hide()
     menu.version:Hide()
@@ -157,12 +174,12 @@ function overlay:CreateInputHud()
     self.inputHudCaps = {}
     for i, position in ipairs(POSITIONS) do
         local cap = self.KeyCap(window)
-        cap:SetSize(76, 36)
-        cap.text:SetWidth(70)
+        cap:SetSize(56, 28)
+        cap.text:SetWidth(50)
         cap:SetPoint("TOPLEFT", position[1], position[2])
         cap.label = cap:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         cap.label:SetPoint("TOP", cap, "BOTTOM", 0, -2)
-        cap.label:SetWidth(76)
+        cap.label:SetWidth(56)
         self.inputHudCaps[i] = cap
     end
     f:SetScript("OnUpdate", function()
