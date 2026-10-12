@@ -21,9 +21,9 @@ local POSITIONS = {
     { 4, -78 },
 }
 local CAP_WIDTH, CAP_GAP = 56, 6
--- Reuse the menu's right-arrow art, rotated for the four gameplay directions.
-local ARROW = "Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up"
-local ROTATION = { jump = math.pi / 2, left = math.pi, duck = -math.pi / 2, right = 0 }
+-- This atlas crops the up arrow from Interface/Housing/HousingLayoutEditor2x.
+local ARROW = "housing-floor-arrow-up"
+local ROTATION = { jump = 0, left = math.pi / 2, duck = math.pi, right = -math.pi / 2 }
 
 function overlay:InputHudContext()
     return (self.screen == "title" or self.screen == "menu" or self.statusOpen) and "menu" or "run"
@@ -119,7 +119,7 @@ function overlay:UpdateInputHud()
                 cap.icon:SetShown(simplified and rotation ~= nil)
                 if simplified and rotation then
                     cap.icon:SetSize(20, 20)
-                    cap.icon:SetTexture(ARROW)
+                    cap.icon:SetAtlas(ARROW)
                     cap.icon:SetRotation(rotation)
                 end
             end

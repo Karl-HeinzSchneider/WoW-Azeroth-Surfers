@@ -646,7 +646,9 @@ do
                 cap.iconShown = value
             end,
             SetSize = function() end,
-            SetTexture = function() end,
+            SetAtlas = function(_, value)
+                cap.atlas = value
+            end,
             SetRotation = function(_, value)
                 cap.rotation = value
             end,
@@ -660,7 +662,8 @@ do
         not hud.inputHudCaps[1].captionShown and hud.inputHudCaps[1].iconShown,
         "simplified movement uses arrows without captions"
     )
-    assert(hud.inputHudCaps[4].rotation == 0, "right arrow is shown even at zero rotation")
+    assert(hud.inputHudCaps[1].rotation == 0, "up arrow is shown even at zero rotation")
+    assert(hud.inputHudCaps[1].atlas == "housing-floor-arrow-up", "simplified view uses the housing arrow atlas")
     assert(
         hud.inputHudCaps[5].textValue == "P" and hud.inputHudCaps[6].textValue == "R",
         "simplified pause and restart labels"
