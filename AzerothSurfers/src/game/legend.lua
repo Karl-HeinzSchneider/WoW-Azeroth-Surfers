@@ -223,19 +223,14 @@ function overlay:PlaceLegend(side, top)
     local legend, scale = self.legend, side and SIDE_SCALE or 1
     legend:ClearAllPoints()
     legend:SetScale(scale)
-    -- Clear of the window frame's border, and under a narrow side window's buttons. Offsets
-    -- count in the legend's own scale.
+    -- Offsets count in the legend's own scale. Match the side window's scorecard padding.
     local x, y = 5, top - 5
-    if self.framed then
-        x, y = 12, top - 10
-    elseif side then
-        y = top - 40
-    end
     if side then
-        -- Below the scorecard (its extra info and the challenge card), so all fit even in the
-        -- narrowest side window.
-        y = y - 100 - (self:HudInfoRoom() + self:ChallengeCardRoom()) * scale
-    elseif self.hudPosition == "topleft" then
+        x, y = 8, top - (self.framed and 8 or 40)
+    elseif self.framed then
+        x, y = 12, top - 10
+    end
+    if not side and self.hudPosition == "topleft" then
         -- Below the scorecard (its extra info and the challenge card) in the same corner.
         y = y - 130 - self:HudInfoRoom() - self:ChallengeCardRoom()
     end
