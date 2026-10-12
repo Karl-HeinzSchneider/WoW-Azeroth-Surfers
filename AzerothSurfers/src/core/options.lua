@@ -628,7 +628,7 @@ local display = {
                     1,
                     "inputHudSimplified",
                     "Simplified display",
-                    "Hide action captions and show direction arrows, P for pause and R for restart. Keeps the same window size and spacing."
+                    "Hide action captions and show direction arrows, P for pause and R for restart. Uses tighter row spacing and a shorter window."
                 ),
             },
         },
