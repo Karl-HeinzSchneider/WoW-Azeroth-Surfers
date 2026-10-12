@@ -449,7 +449,7 @@ local display = {
         distance = overlaySetting(22, "distance", "Camera distance", function()
             return "The game's zoom in "
                 .. app.distance.Name()
-                .. ", also adjusted with the mouse wheel. 2 is a close shoulder view; 12 is the default; 24 is a wide overview."
+                .. ", also adjusted with the mouse wheel. 2 is a close shoulder view; 24 is the default wide overview."
         end, 2, 24, 0.5),
         fov = overlaySetting(
             23,
