@@ -118,6 +118,33 @@ function overlay:SetMode(mode)
     app.options:Refresh()
 end
 
+-- Combat releases input independently of visibility: a side window can keep watching auto mode.
+function overlay:SyncCombat()
+    local f, combat = self.frame, InCombatLockdown()
+    f:EnableKeyboard(not combat)
+    if f.EnableGamePadButton then
+        f:EnableGamePadButton(not combat)
+    end
+    if f.EnableGamePadStick then
+        f:EnableGamePadStick(not combat)
+    end
+    if not combat then
+        f:SetPropagateKeyboardInput(true)
+        return
+    end
+    self.holding, self.stickHeld = nil, nil
+    self:ForgetPosition()
+    if not self.side then
+        f:Hide()
+    elseif not self.auto then
+        self.state.forward = false
+        if self.state.status == "running" then
+            app.simulation.Pause(self.state)
+        end
+        self:SaveBest()
+    end
+end
+
 -- On Create and whenever a mode setting or the profile changes.
 function overlay:ApplyMode()
     self:RefreshInputHud()
@@ -173,6 +200,7 @@ function overlay:ApplyMode()
     self.lastRoad, self.groundLight, self.shown, self.hudShown = {}, nil, nil, nil
     self.legendState = nil
     self:Layout()
+    self:SyncCombat()
 end
 
 function overlay:Layout()

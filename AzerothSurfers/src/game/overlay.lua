@@ -959,7 +959,7 @@ function overlay:Create()
         end)
     end
     f:SetScript("OnHide", function()
-        -- Closing the game (or combat) ends auto mode.
+        -- Closing the game ends auto mode.
         self:SetAuto(false)
         self.holding, self.stickHeld = nil, nil
         self:ForgetPosition()
@@ -971,9 +971,7 @@ function overlay:Create()
         self:PlayTitleMusic(false)
     end)
     f:SetScript("OnShow", function()
-        if not InCombatLockdown() then
-            f:SetPropagateKeyboardInput(true)
-        end
+        self:SyncCombat()
         -- A paused run goes on where it was; otherwise the game opens on its title screen.
         if self.state.status ~= "paused" then
             self:OpenTitle()
@@ -982,12 +980,13 @@ function overlay:Create()
         self.lastRoad = {}
     end)
     f:RegisterEvent("PLAYER_REGEN_DISABLED")
+    f:RegisterEvent("PLAYER_REGEN_ENABLED")
     f:RegisterEvent("PLAYER_LOGOUT")
     f:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
     f:RegisterUnitEvent("UNIT_MODEL_CHANGED", "player")
     f:SetScript("OnEvent", function(_, event)
-        if event == "PLAYER_REGEN_DISABLED" then
-            f:Hide()
+        if event == "PLAYER_REGEN_DISABLED" or event == "PLAYER_REGEN_ENABLED" then
+            self:SyncCombat()
         elseif event == "PLAYER_LOGOUT" then
             self:SaveBest()
         else
