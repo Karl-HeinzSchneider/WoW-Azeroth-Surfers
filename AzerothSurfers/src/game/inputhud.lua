@@ -118,7 +118,7 @@ function overlay:UpdateInputHud()
                 local rotation = ROTATION[id]
                 cap.icon:SetShown(simplified and rotation ~= nil)
                 if simplified and rotation then
-                    cap.icon:SetSize(20, 20)
+                    cap.icon:SetSize(15, 15)
                     cap.icon:SetAtlas(ARROW)
                     cap.icon:SetRotation(rotation)
                 end
