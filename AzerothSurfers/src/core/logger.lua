@@ -8,7 +8,9 @@ app.TITLE = "Azeroth Surfers"
 local metadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local version = metadata and metadata(appName, "Version") or ""
 version = version:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):match("^%s*(.-)%s*$")
-app.VERSION = (version == "" or version:find("@project-version@", 1, true)) and "Development build"
+-- Keep the placeholder split so the release packager cannot replace this check too.
+local unpackagedVersion = "@project-" .. "version@"
+app.VERSION = (version == "" or version:find(unpackagedVersion, 1, true)) and "Development build"
     or "Version " .. version
 
 ---@class AzerothSurfers.Logger
