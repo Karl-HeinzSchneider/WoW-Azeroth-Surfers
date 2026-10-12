@@ -1820,13 +1820,13 @@ do
     assert(menu.dx == 0 and menu.dy == 0, "saved drag offset is not applied twice")
     local oldMode, oldSidePosition = app.db.profile.mode, app.db.profile.inputHudSidePosition
     app.db.profile.mode = "side"
-    app.db.profile.inputHudSidePosition = { point = "TOPRIGHT", relative = "TOPLEFT", x = -12, y = -8 }
+    app.db.profile.inputHudSidePosition = { point = "TOPLEFT", relative = "BOTTOMLEFT", x = 0, y = -8 }
     o:RefreshInputHud()
-    assert(panel.point[2] == o.frame and panel.point[3] == "TOPLEFT", "side HUD follows the game window")
+    assert(panel.point[2] == o.hud.card and panel.point[3] == "BOTTOMLEFT", "side HUD follows the scorecard")
     menu:PlaceWindow(10, -5)
     menu.window.scripts.OnDragStop()
     assert(
-        app.db.profile.inputHudSidePosition.x == -2 and app.db.profile.inputHudSidePosition.y == -13,
+        app.db.profile.inputHudSidePosition.x == 10 and app.db.profile.inputHudSidePosition.y == -13,
         "side drag saves its own position"
     )
     assert(app.db.profile.inputHudPosition.x == 20, "side drag preserves full-screen position")

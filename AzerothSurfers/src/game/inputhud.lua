@@ -92,7 +92,7 @@ function overlay:RefreshInputHud()
     f:SetFrameStrata(app.db.profile.drawStrata)
     f:SetFrameLevel(app.db.profile.drawLevel + 40)
     f:ClearAllPoints()
-    f:SetPoint(saved.point, side and self.frame or UIParent, saved.relative, saved.x, saved.y)
+    f:SetPoint(saved.point, side and self.hud.card or UIParent, saved.relative, saved.x, saved.y)
     self:SyncInputHudVisibility()
 end
 
