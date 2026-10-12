@@ -228,10 +228,6 @@ end
 
 local function keysTab()
     local args = {
-        help = text(
-            1,
-            "The game's keys work only while it is open, whatever they are bound to in WoW; with Capture movement keys on, WoW does not get them. Set movement and Pause / back once for gameplay and menus. Jump, menu Up and Accept keep their own controls. Two keys and two gamepad buttons per row. Existing bindings and defaults stay as they are until you change a slot; changing a shared row applies that slot to both actions."
-        ),
         reset = {
             type = "execute",
             order = 2,
