@@ -1051,7 +1051,15 @@ test("challenges change at the reset, the same for everyone", function()
 
     app.db = { global = { challenges = {} } }
     local function record(score, finished, difficulty)
-        return { score = score, coins = 1, coinTotal = 2, distance = 1, finished = finished, difficulty = difficulty }
+        return {
+            score = score,
+            coins = 1,
+            coinTotal = 2,
+            distance = 1,
+            finished = finished,
+            difficulty = difficulty,
+            gameplayRevision = g.GAMEPLAY_REVISION,
+        }
     end
     assert(c.Best(after) == nil)
     assert(c.Save(after, record(500, false, "normal")))
@@ -1062,12 +1070,13 @@ test("challenges change at the reset, the same for everyone", function()
     assert(c.Best(before) == nil, "by period")
     app.db.global.challenges[before.key] = { normal = record(300, true, "normal") }
     assert(c.Best(before) == nil, "an earlier version's records are no best")
-    assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "and are replaced")
+    assert(c.Save(before, record(10, false, "hard")) and c.Best(before).score == 10, "a separate current best")
+    assert(app.db.global.challenges[before.key].normal.score == 300, "legacy data is preserved")
 
     local now = after.starts
     assert(c.Status("daily", now) == "beaten" and c.Status("weekly", now) == "new")
     assert(c.StatusText("daily", now):find("beaten (450)", 1, true))
-    app.db.global.challenges[c.Period("monthly", now).key] = record(80, false, "easy")
+    c.Save(c.Period("monthly", now), record(80, false, "easy"))
     assert(c.Status("monthly", now) == "tried")
     local line = c.Reminder(now)
     assert(line:find("Daily |cffffd100beaten (450)", 1, true) and line:find("Weekly |cff20ff20new", 1, true), line)
@@ -1137,10 +1146,44 @@ test("past challenges stay as history, with the streak of days played", function
     assert(#c.History("weekly") == 1 and #c.History("monthly") == 0)
 
     c.Compact(now)
-    assert(all["daily-" .. today].trace and all["weekly-" .. c.Period("weekly", now).index].trace, "now's keep it")
+    assert(all["daily-" .. today].trace == nil, "legacy traces are not current targets")
     assert(all["daily-" .. (today - 1)].trace == nil and all["daily-" .. (today - 1)].traceEvery == nil)
     assert(all["daily-" .. (today - 1)].score == 1, "past ones keep the rest")
     app.db = nil
+end)
+
+test("challenge records separate gameplay revisions and preserve history and streaks", function()
+    local c, revision = app.challenges, g.GAMEPLAY_REVISION
+    local now = c.Days(2026, 10, 10) * 86400 + 12 * 3600
+    local oldPeriod = c.Period("daily", now)
+    local legacy = { score = 9000, finished = true, distance = 300, trace = { 100 } }
+    local first = { score = 1000, finished = true, distance = 300, trace = { 100 }, gameplayRevision = revision }
+    local all = { [oldPeriod.key] = legacy }
+    app.db = { global = { challenges = all } }
+    assert(c.Best(oldPeriod) == nil and c.Status("daily", now) == "new", "legacy scores do not compete")
+    assert(c.Best({ key = oldPeriod.key }) == nil, "untagged periods cannot read current scores")
+    assert(not c.Save(oldPeriod, legacy), "untagged scores are never silently upgraded")
+    assert(c.Save(oldPeriod, first), "a current score can be lower than a legacy best")
+    assert(c.Best(oldPeriod) == first and all[oldPeriod.key] == legacy, "legacy score preserved")
+
+    g.GAMEPLAY_REVISION = revision + 1
+    local newPeriod = c.Period("daily", now)
+    assert(newPeriod.key == oldPeriod.key and newPeriod.seed == oldPeriod.seed, "revision does not change the course")
+    assert(c.RecordKey(newPeriod) ~= c.RecordKey(oldPeriod), "storage separates the same period")
+    assert(c.Best(newPeriod) == nil and c.Status("daily", now) == "new", "old best is not a current target")
+    assert(not c.Save(newPeriod, first) and not c.Save(oldPeriod, first), "mismatched and stale periods cannot save")
+    local second = { score = 10, finished = false, gameplayRevision = revision + 1, trace = { 1 } }
+    assert(c.Save(newPeriod, second) and c.Best(newPeriod) == second, "new rules get their own best")
+    local yesterday = c.Period("daily", now - 86400)
+    c.Save(yesterday, { score = 1, finished = false, gameplayRevision = revision + 1 })
+    local current, longest = c.Streak(now)
+    assert(current == 2 and longest == 2, "multiple revisions on a day count once")
+    local history = c.History("daily")
+    assert(#history == 4 and history[1].record == second and history[2].record == first and history[3].record == legacy)
+    c.Compact(now)
+    assert(first.trace == nil and legacy.trace == nil and second.trace, "only matching current traces stay")
+    assert(all[c.RecordKey(oldPeriod)] == first and all[oldPeriod.key] == legacy, "history is retained")
+    g.GAMEPLAY_REVISION, app.db = revision, nil
 end)
 print(string.format("%d simulation tests passed", count))
 

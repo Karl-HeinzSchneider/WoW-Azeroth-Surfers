@@ -7,6 +7,10 @@ local random = app.random
 local game = {}
 app.simulation = game
 
+-- Bump when seeded tracks, physics, difficulty, challenge draws or scoring change.
+-- Cosmetic/client asset changes and addon releases alone do not change this revision.
+game.GAMEPLAY_REVISION = 1
+
 -- A jump (about 1.64 yards) reaches a little past layer 2.
 game.LAYER = 0.6
 -- Passed boxes and missed coins remain available beyond the maximum 24-yard camera distance.

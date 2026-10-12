@@ -79,6 +79,17 @@ default in `db.lua` and an entry in `options.lua`.
 
 ## The game
 
+- `simulation.GAMEPLAY_REVISION` is the competitive rules identity, independent of addon
+  release versions and the leaderboard wire protocol. **Increment it whenever seeded track
+  generation/patterns, physics/collisions, difficulty, scoring, challenge draws/reset rules or
+  the lobby's gameplay geometry change.** Cosmetic rendering, sound and client asset replacements
+  alone do not need a bump. Never reuse a revision for different gameplay rules.
+  Challenge periods capture the revision; saved bests include `gameplayRevision` and use
+  `challenges.RecordKey(period)` (`daily-20371-r1`). Legacy and other revisions remain in History
+  (labelled legacy or by rules revision), count once per day for streaks, and cannot become a
+  current best/live target. Do not infer their rules from the installed addon version or
+  silently tag legacy scores as current. Protocol 3 includes the revision in bests and queries;
+  mismatched messages and persisted peer scores are excluded from the leaderboard.
 - `random.lua` — seeded generators (`random.New(seed, stream)`, called like `math.random`).
   **Nothing in a run may use `math.random`**: everything a seed should replay draws from a
   generator of the run's seed, each system from its own stream.
@@ -116,7 +127,7 @@ default in `db.lua` and an entry in `options.lua`.
     nothing after it, and the run ends `FINISH_PAST` yards through it (`s.finished`). Going
     through that portal shows "Finish!" with the level-up fanfare (messages.lua's `Finish`, the
     fanfare with the portal sounds).
-  - Bests: one per period in `global.challenges` (`Best`, `Save`, `Beats`: reaching the portal
+  - Bests: one per period and gameplay revision in `global.challenges` (`Best`, `Save`, `Beats`: reaching the portal
     first, then the score; controls.lua's `SaveChallenge`, only for a run that is over); it
     never counts as the endless best score. The end menu says how much the run beat or missed
     the best before it by (`s.lastBest`).

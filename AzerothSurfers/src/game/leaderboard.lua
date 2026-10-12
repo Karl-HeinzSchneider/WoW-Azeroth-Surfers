@@ -10,9 +10,9 @@ local _, app = ...
 --
 -- A message is words split by spaces, the protocol's VERSION first (another version's are left
 -- alone):
---   "2 B <key> <score> <distance> <finished 0|1> <coins> <coinTotal>"   a best
---   "2 Q <key> ..."                                                       asking for bests
--- Version 2: scores are times the difficulty's factor (scoring.lua), so 1's do not compare.
+--   "3 <gameplayRevision> B <key> <score> <distance> <finished 0|1> <coins> <coinTotal>"
+--   "3 <gameplayRevision> Q <key> ..."   asking for bests
+-- Protocol 3 requires matching gameplay rules, independently of the installed addon version.
 local challenges = app.challenges
 
 ---@class AzerothSurfers.Leaderboard : AceModule, AceComm-3.0
@@ -24,7 +24,7 @@ app.leaderboard = leaderboard
 leaderboard.asked, leaderboard.answered, leaderboard.ranked, leaderboard.changes = {}, {}, {}, 0
 
 local PREFIX = "AzSurfers"
-local VERSION = "2"
+local VERSION = "3"
 -- The channels it is shared on; any other's messages are ignored.
 local CHANNELS = { GUILD = true, PARTY = true, RAID = true }
 -- Seconds before asking a channel again, and before answering it again for a period.
@@ -56,8 +56,16 @@ function module:Prune(now)
     for key in pairs(saved) do
         if not periods[key] then
             saved[key] = nil
+        else
+            for name, record in pairs(saved[key]) do
+                if not challenges.Compatible(periods[key], record) then
+                    saved[key][name] = nil
+                end
+            end
         end
     end
+    self.ranked = {}
+    self.changes = self.changes + 1
 end
 
 -- The channels this player can share on now.
@@ -76,8 +84,9 @@ end
 
 function module.Encode(key, record)
     return string.format(
-        "%s B %s %d %d %d %d %d",
+        "%s %d B %s %d %d %d %d %d",
         VERSION,
+        record.gameplayRevision,
         key,
         record.score,
         record.distance,
@@ -107,13 +116,20 @@ end
 -- The best in `words` (a "B" message's, after its key) for `period`, or nil if it is not one
 -- that period could have.
 local function decodeBest(period, words)
-    local score = count(words[4], module.MOST_SCORE)
-    local distance = count(words[5], period.goal + app.simulation.FINISH_PAST)
-    local finished = words[6] == "1" or words[6] ~= "0" and nil
-    local coinTotal = count(words[8], module.MOST_COINS)
-    local coins = coinTotal and count(words[7], coinTotal)
-    if score and distance and finished ~= nil and coins and not words[9] then
-        return { score = score, distance = distance, finished = finished, coins = coins, coinTotal = coinTotal }
+    local score = count(words[5], module.MOST_SCORE)
+    local distance = count(words[6], period.goal + app.simulation.FINISH_PAST)
+    local finished = words[7] == "1" or words[7] ~= "0" and nil
+    local coinTotal = count(words[9], module.MOST_COINS)
+    local coins = coinTotal and count(words[8], coinTotal)
+    if score and distance and finished ~= nil and coins and not words[10] then
+        return {
+            score = score,
+            distance = distance,
+            finished = finished,
+            coins = coins,
+            coinTotal = coinTotal,
+            gameplayRevision = period.gameplayRevision,
+        }
     end
 end
 
@@ -126,6 +142,9 @@ end
 
 -- Keeps `record` as `name`'s best of `period` if it beats the one kept; true then.
 function module:Store(period, name, record)
+    if not challenges.Compatible(period, record) then
+        return false
+    end
     local saved = app.db.global.leaderboard
     local players = saved[period.key]
     if not players then
@@ -133,7 +152,10 @@ function module:Store(period, name, record)
         saved[period.key] = players
     end
     local kept = players[name]
-    if not kept then
+    if not challenges.Compatible(period, kept) then
+        kept = nil
+    end
+    if not players[name] then
         local n = 0
         for _ in pairs(players) do
             n = n + 1
@@ -162,23 +184,23 @@ function module:Receive(message, channel, sender, now)
     local words = {}
     for word in message:gmatch("%S+") do
         words[#words + 1] = word
-        if #words > 9 then
+        if #words > 10 then
             return
         end
     end
-    if words[1] ~= VERSION then
+    if words[1] ~= VERSION or words[2] ~= tostring(app.simulation.GAMEPLAY_REVISION) then
         return
     end
     now = now or challenges.Now()
     local periods = current(now)
-    if words[2] == "B" then
-        local period = periods[words[3] or ""]
+    if words[3] == "B" then
+        local period = periods[words[4] or ""]
         local record = period and decodeBest(period, words)
         if record then
             self:Store(period, sender, record)
         end
-    elseif words[2] == "Q" then
-        for i = 3, #words do
+    elseif words[3] == "Q" then
+        for i = 4, #words do
             local period = periods[words[i]]
             local best = period and challenges.Best(period)
             local id = channel .. " " .. words[i]
@@ -196,7 +218,7 @@ end
 
 -- This player's new best of `period` (challenges.Save kept it), to every channel.
 function module:Share(period, record, now)
-    if app.db.profile.sharing == false then
+    if app.db.profile.sharing == false or not challenges.Compatible(period, record) then
         return
     end
     if not current(now)[period.key] then
@@ -210,7 +232,7 @@ end
 
 -- Asks every channel for its bests of `period`, at most once per ASK_EVERY per channel and period.
 function module:Ask(period, now)
-    if app.db.profile.sharing == false then
+    if app.db.profile.sharing == false or period.gameplayRevision ~= app.simulation.GAMEPLAY_REVISION then
         return
     end
     now = now or challenges.Now()
@@ -221,7 +243,7 @@ function module:Ask(period, now)
         local id = channel .. " " .. period.key
         if (self.asked[id] or -math.huge) + self.ASK_EVERY <= now then
             self.asked[id] = now
-            send(self, string.format("%s Q %s", VERSION, period.key), channel)
+            send(self, string.format("%s %d Q %s", VERSION, period.gameplayRevision, period.key), channel)
         end
     end
 end
@@ -240,13 +262,18 @@ end
 function module:Ranked(period)
     local own = challenges.Best(period)
     local ranked = self.ranked[period.key]
-    if ranked and ranked.changes == self.changes and ranked.own == own then
+    if
+        ranked
+        and ranked.changes == self.changes
+        and ranked.own == own
+        and ranked.gameplayRevision == period.gameplayRevision
+    then
         return ranked
     end
-    ranked = { changes = self.changes, own = own }
+    ranked = { changes = self.changes, own = own, gameplayRevision = period.gameplayRevision }
     local me = self.Me()
     for name, record in pairs(app.db.global.leaderboard[period.key] or {}) do
-        if name ~= me then
+        if name ~= me and challenges.Compatible(period, record) then
             ranked[#ranked + 1] = { name = name, record = record }
         end
     end

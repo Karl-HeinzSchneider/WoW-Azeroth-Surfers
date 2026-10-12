@@ -33,8 +33,16 @@ function IsInGroup()
     return group
 end
 local daily, weekly = c.Period("daily"), c.Period("weekly")
+local wire = "3 " .. app.simulation.GAMEPLAY_REVISION
 local function best(score, finished, distance)
-    return { score = score, distance = distance or 100, finished = finished, coins = 3, coinTotal = 10 }
+    return {
+        score = score,
+        distance = distance or 100,
+        finished = finished,
+        coins = 3,
+        coinTotal = 10,
+        gameplayRevision = app.simulation.GAMEPLAY_REVISION,
+    }
 end
 local function sent()
     local all = board.sent
@@ -53,7 +61,7 @@ test("a best goes out to the guild and the group and comes back the same", funct
     board:Share(daily, best(1234, true, daily.goal))
     local out = sent()
     assert(#out == 2 and out[1].channel == "GUILD" and out[2].channel == "PARTY", "both channels")
-    assert(out[1].text == "2 B " .. daily.key .. " 1234 " .. daily.goal .. " 1 3 10", out[1].text)
+    assert(out[1].text == wire .. " B " .. daily.key .. " 1234 " .. daily.goal .. " 1 3 10", out[1].text)
     assert(#out[1].text <= 255, "one message")
     board:Receive(out[1].text, "GUILD", "Ann")
     local kept = app.db.global.leaderboard[daily.key].Ann
@@ -62,11 +70,11 @@ test("a best goes out to the guild and the group and comes back the same", funct
 end)
 
 test("disabled sharing blocks bests, requests and replies", function()
-    app.db.global.challenges[weekly.key] = best(100, true)
+    c.Save(weekly, best(100, true))
     app.db.profile.sharing = false
     board:Share(daily, best(1234, true, daily.goal))
     board:Ask(weekly)
-    board:Receive("2 Q " .. weekly.key, "GUILD", "Ann")
+    board:Receive(wire .. " Q " .. weekly.key, "GUILD", "Ann")
     board:Receive(board.Encode(weekly.key, best(200, true)), "GUILD", "Disabled")
     assert(#sent() == 0, "no outgoing messages while sharing is disabled")
     assert(not app.db.global.leaderboard[weekly.key], "disabled sharing does not receive scores")
@@ -74,7 +82,7 @@ test("disabled sharing blocks bests, requests and replies", function()
     board:Ask(weekly)
     assert(#sent() > 0, "sharing can be enabled again")
     board.asked = {}
-    app.db.global.challenges[weekly.key] = nil
+    app.db.global.challenges[c.RecordKey(weekly)] = nil
 end)
 
 test("a best is kept only if it beats the one before", function()
@@ -89,23 +97,23 @@ end)
 test("anything malformed, out of period, from elsewhere or from oneself is ignored", function()
     local key = daily.key
     local bad = {
-        "2 B " .. key .. " 50 100 1 3", -- a word short
-        "2 B " .. key .. " 50 100 1 3 10 7", -- a word too many
-        "2 B " .. key .. " -5 100 1 3 10",
-        "2 B " .. key .. " 5.5 100 1 3 10",
-        "2 B " .. key .. " 1e12 100 1 3 10",
-        "2 B " .. key .. " " .. (board.MOST_SCORE + 1) .. " 100 1 3 10", -- more than the columns hold
-        "2 B " .. key .. " 50 100 1 3 " .. (board.MOST_COINS + 1),
-        "2 B " .. key .. " 50 abc 1 3 10",
-        "2 B " .. key .. " 50 " .. (daily.goal + 1000) .. " 1 3 10", -- further than the challenge
-        "2 B " .. key .. " 50 100 2 3 10",
-        "2 B " .. key .. " 50 100 1 11 10", -- more coins than there were
-        "2 B daily-" .. (daily.index - 1) .. " 50 100 1 3 10", -- yesterday's
-        "2 B daily-" .. (daily.index + 1) .. " 50 100 1 3 10",
+        wire .. " B " .. key .. " 50 100 1 3", -- a word short
+        wire .. " B " .. key .. " 50 100 1 3 10 7", -- a word too many
+        wire .. " B " .. key .. " -5 100 1 3 10",
+        wire .. " B " .. key .. " 5.5 100 1 3 10",
+        wire .. " B " .. key .. " 1e12 100 1 3 10",
+        wire .. " B " .. key .. " " .. (board.MOST_SCORE + 1) .. " 100 1 3 10", -- more than the columns hold
+        wire .. " B " .. key .. " 50 100 1 3 " .. (board.MOST_COINS + 1),
+        wire .. " B " .. key .. " 50 abc 1 3 10",
+        wire .. " B " .. key .. " 50 " .. (daily.goal + 1000) .. " 1 3 10", -- further than the challenge
+        wire .. " B " .. key .. " 50 100 2 3 10",
+        wire .. " B " .. key .. " 50 100 1 11 10", -- more coins than there were
+        wire .. " B daily-" .. (daily.index - 1) .. " 50 100 1 3 10", -- yesterday's
+        wire .. " B daily-" .. (daily.index + 1) .. " 50 100 1 3 10",
         "1 B " .. key .. " 50 100 1 3 10", -- another version
-        "2 X " .. key,
+        wire .. " X " .. key,
         "",
-        "2 B",
+        wire .. " B",
     }
     for _, text in ipairs(bad) do
         board:Receive(text, "GUILD", "Bob")
@@ -131,16 +139,16 @@ test("asking: once per channel and period a while, answered with the bests one h
     group = true
     board:Ask(daily)
     local out = sent()
-    assert(#out == 2 and out[1].text == "2 Q " .. daily.key, out[1] and out[1].text)
+    assert(#out == 2 and out[1].text == wire .. " Q " .. daily.key, out[1] and out[1].text)
     board:Ask(daily)
     assert(#sent() == 0, "not again so soon")
     board:Ask(weekly)
     out = sent()
-    assert(#out == 2 and out[1].text == "2 Q " .. weekly.key, "another challenge without waiting")
+    assert(#out == 2 and out[1].text == wire .. " Q " .. weekly.key, "another challenge without waiting")
     local monthly = c.Period("monthly")
     board:Ask(monthly)
     out = sent()
-    assert(#out == 2 and out[1].text == "2 Q " .. monthly.key, "monthly without waiting")
+    assert(#out == 2 and out[1].text == wire .. " Q " .. monthly.key, "monthly without waiting")
     board:Ask(weekly)
     board:Ask(monthly)
     assert(#sent() == 0, "each challenge keeps its own cooldown")
@@ -149,17 +157,17 @@ test("asking: once per channel and period a while, answered with the bests one h
     assert(#sent() == 2, "same challenge again after a while")
     group = false
     -- Answers: only with a best of the period, once a while per channel and period.
-    board:Receive("2 Q " .. daily.key, "GUILD", "Ann")
+    board:Receive(wire .. " Q " .. daily.key, "GUILD", "Ann")
     assert(#sent() == 0, "no best of its own yet")
     c.Save(daily, best(777, true))
-    board:Receive("2 Q " .. daily.key .. " " .. weekly.key, "GUILD", "Ann")
+    board:Receive(wire .. " Q " .. daily.key .. " " .. weekly.key, "GUILD", "Ann")
     out = sent()
     assert(#out == 1 and out[1].channel == "GUILD" and out[1].text:find(" 777 "), "its daily best")
-    board:Receive("2 Q " .. daily.key, "GUILD", "Cid")
+    board:Receive(wire .. " Q " .. daily.key, "GUILD", "Cid")
     assert(#sent() == 0, "not again so soon")
-    board:Receive("2 Q " .. daily.key, "PARTY", "Cid")
+    board:Receive(wire .. " Q " .. daily.key, "PARTY", "Cid")
     assert(#sent() == 1, "another channel")
-    board:Receive("2 Q daily-" .. (daily.index - 1), "RAID", "Cid")
+    board:Receive(wire .. " Q daily-" .. (daily.index - 1), "RAID", "Cid")
     assert(#sent() == 0, "not for another period")
 end)
 
@@ -202,6 +210,55 @@ test("a player's list per period is bounded, and ended periods are dropped", fun
     assert(app.db.global.leaderboard[weekly.key], "the week goes on")
     board:Share(daily, best(1, true), daily.ends)
     assert(#sent() == 0, "an ended period is not shared")
+end)
+
+test("different gameplay revisions cannot exchange or rank scores", function()
+    local revision = app.simulation.GAMEPLAY_REVISION
+    local period = c.Period("monthly")
+    local record = best(500, true)
+    c.Save(period, record)
+    board:Receive(board.Encode(period.key, record), "GUILD", "Matching")
+    local oldMessage = board.Encode(period.key, record)
+    local oldQuery = wire .. " Q " .. period.key
+    sent()
+
+    app.simulation.GAMEPLAY_REVISION = revision + 1
+    local fresh = c.Period("monthly")
+    board:Receive(oldMessage, "GUILD", "OldRules")
+    board:Receive(oldQuery, "RAID", "OldRules")
+    board:Share(fresh, record)
+    board:Share(period, best(100, true))
+    board:Ask(period)
+    assert(#sent() == 0, "old requests, records and periods do not send anything")
+    assert(not app.db.global.leaderboard[fresh.key].OldRules, "old network scores are ignored")
+    assert(#board:Ranked(fresh) == 0, "persisted peers and own best from old rules do not rank")
+    assert(not board:Store(fresh, "OldRules", record), "direct storage also rejects different rules")
+    local newRecord = best(100, false)
+    c.Save(fresh, newRecord)
+    local most = board.MOST_PLAYERS
+    board.MOST_PLAYERS = 1
+    board:Receive(board.Encode(fresh.key, newRecord), "GUILD", "Matching")
+    board.MOST_PLAYERS = most
+    assert(#board:Ranked(fresh) == 2, "new rules can replace an incompatible higher peer score")
+    assert(app.db.global.leaderboard[fresh.key].Matching.score == 100)
+    board:Ask(fresh)
+    local out = sent()
+    assert(#out == 1 and out[1].text == "3 " .. (revision + 1) .. " Q " .. fresh.key, "asks carry new revision")
+    board:Receive("3 " .. (revision + 1) .. " Q " .. fresh.key, "RAID", "NewRules")
+    out = sent()
+    assert(#out == 1 and out[1].text == board.Encode(fresh.key, newRecord), "replies carry new revision")
+    local legacy = best(9999, true)
+    legacy.gameplayRevision = nil
+    app.db.global.leaderboard[fresh.key].Legacy = legacy
+    assert(#board:Ranked(fresh) == 2, "legacy peers do not appear")
+    board:Prune(now)
+    assert(app.db.global.leaderboard[fresh.key].Legacy == nil, "incompatible cached scores are pruned")
+    assert(#board:Ranked(fresh) == 2, "matching cached scores survive pruning")
+    local message = board.Encode(fresh.key, newRecord)
+    board:Receive(message:gsub("^3 %d+", "3"), "GUILD", "Untagged")
+    board:Receive("2 B " .. fresh.key .. " 100 100 0 3 10", "GUILD", "OldProtocol")
+    assert(not app.db.global.leaderboard[fresh.key].Untagged and not app.db.global.leaderboard[fresh.key].OldProtocol)
+    app.simulation.GAMEPLAY_REVISION = revision
 end)
 
 print(string.format("%d leaderboard tests passed", count))
