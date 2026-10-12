@@ -223,10 +223,10 @@ function overlay:PlaceLegend(side, top)
     local legend, scale = self.legend, side and SIDE_SCALE or 1
     legend:ClearAllPoints()
     legend:SetScale(scale)
-    -- Offsets count in the legend's own scale. The side window uses its viewport's corner.
+    -- Offsets count in the legend's own scale. Match the side window's scorecard padding.
     local x, y = 5, top - 5
     if side then
-        x, y = 0, top
+        x, y = 8, top - (self.framed and 8 or 40)
     elseif self.framed then
         x, y = 12, top - 10
     end
