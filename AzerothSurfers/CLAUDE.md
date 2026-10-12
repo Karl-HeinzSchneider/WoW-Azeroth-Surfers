@@ -176,7 +176,7 @@ default in `db.lua` and an entry in `options.lua`.
   (`tests/overlay.lua` checks it). The ground's pieces are small so their textures don't
   shimmer; one off the screen, past the horizon or faded out is hidden and costs no calls
   (`face`, `SkinPiece`), and a call that would change nothing is skipped.
-  Mouse wheel changes the game's camera distance (2 to 24 yards, default 12). The foreground ground strip
+  Mouse wheel changes the game's camera distance (2 to 24 yards, default 24). The foreground ground strip
   extends at least 32 UI pixels below the viewport as needed, including while jumping.
 - Files that extend `app.overlay`, in `overlay.xml`'s order:
   - `decorations.lua` — the world ModelScene (one render pass for every model, the twin's too,
