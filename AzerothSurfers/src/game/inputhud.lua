@@ -106,7 +106,7 @@ function overlay:UpdateInputHud()
     local simplified = app.db.profile.inputHudSimplified == true
     if self.inputHudMenu and self.inputHudLayoutSimplified ~= simplified then
         self.inputHudLayoutSimplified = simplified
-        self.inputHud:SetHeight(simplified and 104 or 140)
+        self.inputHud:SetHeight(simplified and 122 or 140)
         for i, cap in ipairs(self.inputHudCaps) do
             local position = POSITIONS[i]
             local y = simplified and position[2] == -78 and -64 or position[2]
